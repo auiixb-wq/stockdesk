@@ -1,0 +1,22 @@
+name: probe-sources
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install yfinance
+      - run: python scripts/probe.py
+      - name: Save result to probe branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir _p && cp probe.json _p/ && cd _p && git init -q -b probe && git add -A
+          git -c user.name=bot -c user.email=actions@users.noreply.github.com commit -qm probe
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" probe
