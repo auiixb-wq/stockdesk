@@ -48,8 +48,8 @@ const FA_BASE={
  property:{rg:6,eg:6,nm:18,roe:12,de:1.2,cr:.8,fcf:1,pe:18,dy:3},
  materials:{rg:1,eg:-4,nm:5,roe:6,de:.9,cr:1.6,fcf:1,pe:16,dy:3.5}
 };
-const NAV=["home","market","watch","news","factors","method","more","data","accuracy"];
-const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more"};
+const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare"];
+const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more",compare:"more"};
 const DEF_COST={TH:.17,US:.10}; // % ต่อขา: ค่าคอมออนไลน์ไทย ~0.157% + VAT, สหรัฐฯ เผื่อสเปรดและค่าแปลงสกุลเงิน
 // ค่าเริ่มต้นเลือกจากการทดสอบราคาจริง 24 หุ้น 5 ปี (28 ต.ค. 2569): ชนะ 66% ช่วงสร้าง / 71% ช่วงทดสอบ และกำไรทั้งสองช่วง
 const RULES={sl:3,tp:1.5,hold:20,thr:40,split:.7,warm:60,wk:true};
@@ -214,7 +214,8 @@ function finStats(F){if(!F||!(F.q?.d?.length||F.a?.d?.length))return null;
   return{last:q.d[L]||a.d[an-1],rq,nq,qoqR:gr(rq,v("rev",L-1)),yoyR:gr(rq,v("rev",L-4)),qoqN:gr(nq,v("ni",L-1)),yoyN:gr(nq,v("ni",L-4)),
     rg,eg,revT:revTT,niT:niTT,nm:revTT&&niTT!=null?niTT/revTT*100:null,roe:niTT!=null&&eqL&&eqL>0?niTT/((eqL+(eqP||eqL))/2)*100:null,
     de:debt!=null&&eqL>0?debt/eqL:null,cr:ca&&cl?ca/cl:null,ocf,capex,fcf:fcfT??(ocf!=null&&capex!=null?ocf+capex:null),
-    cash:v("cash",L)??av("cash",an-1),debt,eq:eqL,eps:v("eps",L),epsT:n>=4?sum("eps",n-4,n):av("eps",an-1)}}
+    cash:v("cash",L)??av("cash",an-1),debt,eq:eqL,eps:v("eps",L),epsT:n>=4?sum("eps",n-4,n):av("eps",an-1),
+    ebitdaT:(n>=4?sum("ebitda",n-4,n):null)??av("ebitda",an-1),intT:(n>=4?sum("int",n-4,n):null)??av("int",an-1),unusT:(n>=4?sum("unus",n-4,n):null)??av("unus",an-1)}}
 const r1=x=>x==null||!isFinite(x)?null:+x.toFixed(1),r2=x=>x==null||!isFinite(x)?null:+x.toFixed(2);
 function fundOf(st){
   const own=S.fa[st.s],bank=st.sec==="bank";if(own)return{...own,bank,sample:false};const lv=S.fundLive?.[st.s];
@@ -250,12 +251,14 @@ const factorNews=f=>S.news.filter(x=>(x.factors||[]).some(l=>l.id===f.id&&l.eff)
 function fx(f){const base=(f.dir||0)*(f.strength??1);let s=0,w=0;for(const x of factorNews(f)){const l=x.factors.find(l=>l.id===f.id);const ww=newsW(x);s+=ww*l.eff;w+=ww}const k=Math.min(1,w);const v=w?(base+(s/w)*k)/(1+k):base;return Math.round(clamp(v,-1,1)*100)/100}
 const sgn=v=>v>.15?1:v<-.15?-1:0;
 // ผลของข่าวต่อหุ้นหนึ่งตัว ผ่านปัจจัยที่ข่าวนั้นกระทบ
-function newsLinks(x,st){const F=FBY();let v=0;const via=[];for(const l of x.factors||[]){const f=F[l.id];if(!f||!l.eff)continue;if(st){if(!(f.scope==="ALL"||f.scope===st.m))continue;const k=f.impacts?.[st.sec];if(!k)continue;v+=l.eff*k;via.push([f,l.eff,l.eff*k])}else via.push([f,l.eff,0])}return{v:clamp(v,-1,1),via}}
+function newsLinks(x,st){const F=FBY();let v=0;const via=[];for(const l of x.factors||[]){const f=F[l.id];if(!f||!l.eff)continue;if(st){if(!(f.scope==="ALL"||f.scope===st.m))continue;const k=impactOf(f,st);if(!k)continue;v+=l.eff*k;via.push([f,l.eff,l.eff*k])}else via.push([f,l.eff,0])}return{v:clamp(v,-1,1),via}}
 function newsFor(st){return S.news.filter(x=>(x.tickers||[]).includes(st.s)||((x.sectors||[]).includes(st.sec)&&(x.market===st.m||x.market==="ALL"))||newsLinks(x,st).via.length)}
 function newsScore(st){let s=0,w=0;const list=newsFor(st);for(const x of list){const dir=(x.tickers||[]).includes(st.s)?1:(x.sectors||[]).includes(st.sec)?.5:0,ind=newsLinks(x,st),b=newsW(x);
   if(dir){s+=b*dir*(x.sentiment||0);w+=b*dir}if(ind.via.length){s+=b*.6*ind.v;w+=b*.6}}return{s:w?s/w:0,n:list.length}}
-function factorsFor(st){return S.factors.filter(f=>(f.scope==="ALL"||f.scope===st.m)&&f.impacts&&f.impacts[st.sec])}
-function factorScore(st){let s=0;for(const f of factorsFor(st))s+=fx(f)*f.impacts[st.sec];return clamp(Math.round(s*10)/10,-3,3)}
+// ผลของปัจจัยต่อหุ้น: ใช้ค่าเฉพาะรายบริษัทถ้ามี (เช่น ผู้ผลิต vs ผู้ซื้อ) ไม่งั้นใช้ค่าของทั้งกลุ่ม
+const impactOf=(f,st)=>f.stocks?.[st.s]??f.impacts?.[st.sec]??0;
+function factorsFor(st){return S.factors.filter(f=>(f.scope==="ALL"||f.scope===st.m)&&impactOf(f,st))}
+function factorScore(st){let s=0;for(const f of factorsFor(st))s+=fx(f)*impactOf(f,st);return clamp(Math.round(s*10)/10,-3,3)}
 const hasBars=x=>!!(S.px[x.s]||S.prices?.[x.s]||S.hist?.[x.s]);
 // ความแข็งแกร่งเทียบหุ้นอื่นในตลาดเดียวกัน (3 เดือน) คำนวณครั้งเดียวต่อชุดข้อมูล ในเบราว์เซอร์ใช้ค่าที่คำนวณจากทั้งตลาดไว้แล้วถ้ามี
 function relStrength(st){const sm=S.summary?.[st.s];if(sm?.rs&&!S.inNode)return sm.rs;
@@ -325,7 +328,7 @@ function reasons(R){
   R.fund.rows.filter(r=>r.ok===1).slice(0,2).forEach(r=>pros.push(["งบ",`${r.name} ${r.val}`]));
   R.fund.rows.filter(r=>r.ok===0).slice(0,2).forEach(r=>cons.push(["งบ",`${r.name} ${r.val} (${r.why})`]));
   if(R.ns.n){if(R.ns.s>.2)pros.push(["ข่าว",`ข่าวที่เกี่ยวข้อง ${R.ns.n} ข่าวโดยรวมเป็นบวก`]);else if(R.ns.s<-.2)cons.push(["ข่าว",`ข่าวที่เกี่ยวข้อง ${R.ns.n} ข่าวโดยรวมเป็นลบ`])}
-  factorsFor(R.st).forEach(f=>{const e=fx(f)*f.impacts[R.st.sec];if(e>0)pros.push(["ปัจจัย",`${f.short||f.name} หนุนกลุ่มนี้`]);else if(e<0)cons.push(["ปัจจัย",`${f.short||f.name} กดดันกลุ่มนี้`])});
+  factorsFor(R.st).forEach(f=>{const e=fx(f)*impactOf(f,R.st);if(e>0)pros.push(["ปัจจัย",`${f.short||f.name} หนุนกลุ่มนี้`]);else if(e<0)cons.push(["ปัจจัย",`${f.short||f.name} กดดันกลุ่มนี้`])});
   if(R.rsV>0)pros.push(["เทียบตลาด",`แข็งกว่าหุ้นอื่น ${Math.round(R.rs.pctl)}% ของตลาดเดียวกัน (3 เดือน ${pct(R.rs.ret,1)})`]);
   if(R.rsV<0)cons.push(["เทียบตลาด",`อ่อนกว่าหุ้นส่วนใหญ่ในตลาดเดียวกัน (3 เดือน ${pct(R.rs.ret,1)})`]);
   if(!R.sample){const o=R.model.oos;if(o.n&&o.exp>0)pros.push(["ทดสอบย้อนหลัง",`ระบบเคยได้กำไรกับหุ้นนี้ในช่วงทดสอบ ${rr(o.exp)} ต่อไม้`]);else if(o.n)cons.push(["ทดสอบย้อนหลัง",`ระบบขาดทุนกับหุ้นนี้ในช่วงทดสอบ ${rr(o.exp)} ต่อไม้`])}
@@ -354,16 +357,52 @@ function summarize(R){const P=R.plan,I=R.I,n=I.c.length-1,c=I.c.slice(-90),sp=[]
   const up=I.e200[n]!=null&&I.c[n]>I.e50[n]&&I.e50[n]>I.e200[n]&&(I.adx[n]||0)>20,os=(I.rsi[n]??50)<35,ns=!!(P.L.sup[0]&&(I.c[n]-P.L.sup[0].p)/I.c[n]<.03);
   return{o:R.overall,v:R.v,c:[R.conf.t,R.conf.c,R.conf.lv],p:R.last,ch:+R.chg.toFixed(3),pl:[P.lo,P.hi,P.sl,P.tp1,P.tp2,P.tone,P.mode],
     pb:[R.pb.now,R.pb.near,R.pb.r2!=null?+R.pb.r2.toFixed(1):null,R.pb.s5!=null?+R.pb.s5.toFixed(3):null],tp:Math.round(R.techP),fs:R.fund.score,
-    rs:{ret:+R.rs.ret.toFixed(2),pctl:Math.round(R.rs.pctl)},f:[up,os,ns],fq:R.f.fs?[r1(R.f.fs.yoyR),r1(R.f.fs.yoyN),r1(R.f.fs.qoqR),r1(R.f.fs.qoqN),R.f.fs.last]:null,sp,t:R.B.at(-1).t}}
+    rs:{ret:+R.rs.ret.toFixed(2),pctl:Math.round(R.rs.pctl)},f:[up,os,ns],fq:R.f.fs?[r1(R.f.fs.yoyR),r1(R.f.fs.yoyN),r1(R.f.fs.qoqR),r1(R.f.fs.qoqN),R.f.fs.last]:null,fv:(()=>{try{const v=valuation(R);return v.fair?[r2(v.fair.bear),r2(v.fair.base),r2(v.fair.bull),v.methods.length]:null}catch{return null}})(),sp,t:R.B.at(-1).t}}
 // ข้อมูลสำหรับรายการหุ้น: ถ้ามีราคาย้อนหลังในเครื่องจะวิเคราะห์เต็ม ถ้าไม่มีใช้ผลที่คำนวณไว้แล้วบน GitHub
 function info(st){if(hasBars(st)||!st.uni&&!S.summary?.[st.s])return analyze(st);
   const m=S.summary?.[st.s],q=S.quotes?.q?.[st.s];
   if(!m)return{st,lite:true,none:true,overall:null,v:["ยังไม่มีข้อมูล","p-hold"],conf:{t:"–",c:"var(--ink-2)",lv:0},last:q?.p??null,chg:q?.chg??0,sp:[],plan:null,pb:{now:false},f:[]};
   const pl=m.pl;return{st,lite:true,overall:m.o,v:m.v,conf:{t:m.c[0],c:m.c[1],lv:m.c[2]},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
-    plan:{lo:pl[0],hi:pl[1],sl:pl[2],tp1:pl[3],tp2:pl[4],tone:pl[5],mode:pl[6],entry:(pl[0]+pl[1])/2},pb:{now:m.pb[0],near:m.pb[1],r2:m.pb[2],s5:m.pb[3]},f:m.f||[],fq:m.fq}}
+    plan:{lo:pl[0],hi:pl[1],sl:pl[2],tp1:pl[3],tp2:pl[4],tone:pl[5],mode:pl[6],entry:(pl[0]+pl[1])/2},pb:{now:m.pb[0],near:m.pb[1],r2:m.pb[2],s5:m.pb[3]},f:m.f||[],fq:m.fq,fv:m.fv}}
 
 const FMTV={us10y:v=>v.toFixed(2)+"%",oil:v=>"$"+v.toFixed(2),usdthb:v=>v.toFixed(2),vix:v=>v.toFixed(2),dxy:v=>v.toFixed(2)};
 function buildFactors(man,macro){return (man?.factors||[]).map(f=>{const x=macro?.[f.id];if(!f.auto||!x)return{...f,stale:f.asOf?ageDays(f.asOf)>45:false};
   return{...f,value:(FMTV[f.id]||(v=>String(v)))(x.value),asOf:x.asOf,dir:x.dir,strength:x.strength,spark:x.spark,date:x.asOf,
     note:`${f.note} · 20 วันล่าสุด ${pct(x.chg20,1)} (${x.dir>0?"ขึ้นชัดเจน":x.dir<0?"ลงชัดเจน":"ยังไม่ชัด"}) · วันล่าสุด ${pct(x.chg1,2)}`,src:"Yahoo Finance",url:`https://finance.yahoo.com/quote/${encodeURIComponent(f.auto)}`,live:true}})}
 function mergeNews(a,b){const seen=new Set(),out=[];for(const x of [...b,...a]){const k=x.url||x.title;if(seen.has(k))continue;seen.add(k);out.push(x)}return out}
+
+// ---------- มูลค่าเหมาะสม: หลายวิธี แสดงสมมติฐานทุกตัว ไม่ใช่ราคาเป้าหมาย ----------
+const uniOf=s=>{if(S._umapK!==S.universe){S._umapK=S.universe;S._umap=new Map((S.universe||[]).map(u=>[u.s,u]))}return S._umap.get(s)};
+const pctile=(a,p)=>{if(!a.length)return null;const b=[...a].sort((x,y)=>x-y),i=(b.length-1)*p,lo=Math.floor(i);return b[lo]+(b[Math.min(lo+1,b.length-1)]-b[lo])*(i-lo)};
+function peersOf(st,k=30){return allStocks().filter(x=>x.m===st.m&&x.sec===st.sec&&x.s!==st.s).map(x=>({x,u:uniOf(x.s)})).filter(o=>o.u).sort((a,b)=>(b.u.mc||0)-(a.u.mc||0)).slice(0,k)}
+const VAL_DEF={TH:{w:9.5,tg:2},US:{w:9,tg:2.5}};
+function dcfPer(fcf0,g,w,tg,years,netDebt,shares){let pv=0,f=fcf0;for(let t=1;t<=years;t++){f*=1+g;pv+=f/Math.pow(1+w,t)}const tv=f*(1+tg)/(w-tg)/Math.pow(1+w,years);return (pv+tv-netDebt)/shares}
+function valuation(R,o={}){
+  const st=R.st,u=uniOf(st.s)||{},fs=R.f?.fs,price=R.last,bank=st.sec==="bank";
+  const shares=u.sh||(u.mc&&price?u.mc/price:null),eps=fs?.epsT??u.eps??(fs?.niT&&shares?fs.niT/shares:null),bvps=u.bv??(fs?.eq&&shares?fs.eq/shares:null);
+  const peers=peersOf(st,40),pes=peers.map(p=>p.u.pe).filter(v=>v>0&&v<80),pbs=peers.map(p=>p.u.pb).filter(v=>v>0&&v<20);
+  const gDef=clamp((fs?.eg??fs?.rg??5),-20,25),g=(o.g??gDef)/100,dv=VAL_DEF[st.m]||VAL_DEF.TH;
+  const methods=[];const peQ=pes.length>=5?[pctile(pes,.25),pctile(pes,.5),pctile(pes,.75)]:null;
+  if(eps>0&&peQ){const ef=eps*(1+g),pe=o.pe??peQ[1];methods.push({k:"pe",name:"P/E เทียบกลุ่ม (กำไรปีหน้า)",bear:ef*peQ[0],base:ef*pe,bull:ef*peQ[2],
+    as:[["EPS 4 ไตรมาสล่าสุด",eps.toFixed(2)],["คาดการเติบโตปีหน้า",pct(g*100,1)],["EPS ปีหน้า (ประมาณ)",ef.toFixed(2)],["P/E กลุ่ม (25/50/75%)",peQ.map(v=>v.toFixed(1)).join(" / ")],["จำนวนบริษัทเทียบ",pes.length]]})}
+  const pbQ=pbs.length>=5?[pctile(pbs,.25),pctile(pbs,.5),pctile(pbs,.75)]:null;
+  if(bvps>0&&pbQ&&(bank||st.sec==="property"||st.sec==="materials"||!methods.length))methods.push({k:"pb",name:"P/BV เทียบกลุ่ม",bear:bvps*pbQ[0],base:bvps*pbQ[1],bull:bvps*pbQ[2],
+    as:[["มูลค่าทางบัญชีต่อหุ้น",bvps.toFixed(2)],["P/BV กลุ่ม (25/50/75%)",pbQ.map(v=>v.toFixed(2)).join(" / ")],["จำนวนบริษัทเทียบ",pbs.length]]});
+  let dcf=null,rdcf=null,sens=null;
+  const fcf0=fs?.fcf,netDebt=(fs?.debt||0)-(fs?.cash||0);
+  if(!bank&&fcf0>0&&shares){const w=(o.w??dv.w)/100,tg=(o.tg??dv.tg)/100,gD=(o.gd??clamp(fs?.rg??5,0,15))/100;
+    const base=dcfPer(fcf0,gD,w,tg,5,netDebt,shares),bear=dcfPer(fcf0,Math.max(-.05,gD-.05),w+.01,Math.max(0,tg-.005),5,netDebt,shares),bull=dcfPer(fcf0,gD+.05,Math.max(.05,w-.01),tg+.005,5,netDebt,shares);
+    dcf={bear,base,bull,w,tg,g:gD};methods.push({k:"dcf",name:"DCF กระแสเงินสดอิสระ 5 ปี",bear,base,bull,
+      as:[["FCF 4 ไตรมาสล่าสุด",fcf0],["เติบโตปีละ (5 ปี)",pct(gD*100,1)],["WACC",(w*100).toFixed(1)+"%"],["เติบโตระยะยาว",(tg*100).toFixed(1)+"%"],["หนี้สุทธิ",netDebt],["จำนวนหุ้น",shares]]});
+    sens=[-.01,0,.01].map(dw=>[-.005,0,.005].map(dt=>dcfPer(fcf0,gD,w+dw,tg+dt,5,netDebt,shares)));
+    // ราคาตลาดสะท้อนการเติบโตเท่าไร (reverse DCF)
+    if(price>0){let lo=-.3,hi=.6;for(let i=0;i<50;i++){const m=(lo+hi)/2;if(dcfPer(fcf0,m,w,tg,5,netDebt,shares)>price)hi=m;else lo=m}rdcf=(lo+hi)/2}}
+  const bases=methods.map(m=>m.base).filter(v=>v>0&&isFinite(v));
+  const fair=bases.length?{bear:Math.min(...methods.map(m=>m.bear).filter(v=>v>0)),base:pctile(bases,.5),bull:Math.max(...methods.map(m=>m.bull).filter(v=>v>0))}:null;
+  return{methods,dcf,rdcf,sens,fair,mos:fair&&price?(fair.base/price-1)*100:null,price,eps,bvps,shares,peQ,pbQ,gDef,dv,netDebt,fcf0,pe:eps>0&&price?price/eps:null,pb:bvps>0&&price?price/bvps:null}}
+// ---------- ความเสี่ยงจากราคาย้อนหลัง ----------
+function priceRisk(B){const c=B.map(b=>b.c),n=c.length,r=[];for(let i=Math.max(1,n-252);i<n;i++)r.push(Math.log(c[i]/c[i-1]));
+  const m=r.reduce((a,b)=>a+b,0)/(r.length||1),sd=Math.sqrt(r.reduce((a,b)=>a+(b-m)**2,0)/(r.length||1));
+  let pk=-Infinity,dd=0;for(let i=Math.max(0,n-756);i<n;i++){pk=Math.max(pk,c[i]);dd=Math.max(dd,1-c[i]/pk)}
+  let w20=0;for(let i=Math.max(20,n-756);i<n;i++)w20=Math.min(w20,c[i]/c[i-20]-1);
+  return{vol:sd*Math.sqrt(252)*100,dd:dd*100,w20:w20*100,cur:(1-c[n-1]/Math.max(...c.slice(-252)))*100}}

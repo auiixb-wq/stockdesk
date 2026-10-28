@@ -37,5 +37,9 @@ for (const st of allStocks()) {
   try { out[st.s] = summarize(analyze(st)); ok++; } catch (e) { fail++; if (fail < 5) console.error(st.s, e.message); }
   S.cache.delete(st.s);
 }
+// บันทึกสัญญาณและแผนของวันนี้ไว้ตรวจความแม่นยำภายหลัง (ไม่แก้ย้อนหลัง)
+const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10), sdir = path.join(hdir, "snap");
+fs.mkdirSync(sdir, { recursive: true });
+fs.writeFileSync(path.join(sdir, day + ".json"), JSON.stringify(Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [v.o, v.p, ...v.pl.slice(0, 5), v.pb[0] ? 1 : 0]]))));
 fs.writeFileSync(path.join(DATA, "summary.json"), JSON.stringify({ updated: Math.floor(Date.now() / 1000), s: out }));
 console.log(`summary: ${ok} หุ้น, ล้มเหลว ${fail}, ${((Date.now() - t0) / 1000).toFixed(1)} วินาที`);

@@ -185,7 +185,10 @@ def fetch_universe():
                     seen.add(x["symbol"])
                     items.append({"s": disp(x["symbol"], m), "y": x["symbol"], "n": x.get("longName") or x.get("shortName"),
                                   "m": m, "sec": sec, "mc": num(x.get("marketCap"), 0), "pe": num(x.get("trailingPE"), 2),
-                                  "dy": num(x.get("dividendYield"), 2), "pb": num(x.get("priceToBook"), 2), **quote_of(x)})
+                                  "dy": num(x.get("dividendYield"), 2), "pb": num(x.get("priceToBook"), 2),
+                                  "sh": num(x.get("sharesOutstanding"), 0), "bv": num(x.get("bookValue"), 3),
+                                  "eps": num(x.get("epsTrailingTwelveMonths"), 3), "cur": x.get("currency"),
+                                  "fcur": x.get("financialCurrency"), "ed": x.get("earningsTimestampStart"), **quote_of(x)})
             except Exception as e:
                 ERRORS.append(f"universe {m} {ysec}: {str(e)[:80]}")
     for s in CFG["stocks"]:  # หุ้นในรายการหลักต้องมีเสมอ
@@ -254,12 +257,14 @@ def fetch_hist(uni):
 FIN = {
     "rev": ["Total Revenue", "Operating Revenue"], "gp": ["Gross Profit"], "op": ["Operating Income", "EBIT"],
     "ni": ["Net Income Common Stockholders", "Net Income", "Net Income From Continuing Operation Net Minority Interest"],
-    "eps": ["Diluted EPS", "Basic EPS"],
+    "eps": ["Diluted EPS", "Basic EPS"], "ebitda": ["EBITDA", "Normalized EBITDA"], "int": ["Interest Expense"],
+    "pre": ["Pretax Income"], "unus": ["Total Unusual Items", "Total Unusual Items Excluding Goodwill"],
 }
 BS = {"ta": ["Total Assets"], "tl": ["Total Liabilities Net Minority Interest", "Total Liabilities"],
       "eq": ["Stockholders Equity", "Common Stock Equity", "Total Equity Gross Minority Interest"],
       "cash": ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"],
-      "debt": ["Total Debt"], "ca": ["Current Assets"], "cl": ["Current Liabilities"]}
+      "debt": ["Total Debt"], "ca": ["Current Assets"], "cl": ["Current Liabilities"],
+      "ar": ["Accounts Receivable", "Receivables"], "inv": ["Inventory"]}
 CF = {"ocf": ["Operating Cash Flow"], "capex": ["Capital Expenditure"], "fcf": ["Free Cash Flow"]}
 
 
@@ -289,7 +294,8 @@ def fetch_fin(uni):
 
     def age(sym):
         try:
-            return json.load(open(os.path.join(d0, sym + ".json"))).get("at", "")
+            j = json.load(open(os.path.join(d0, sym + ".json")))
+            return j.get("at", "") if j.get("v") == 2 else ""  # ไฟล์รุ่นเก่ายังไม่มีลูกหนี้/สินค้าคงเหลือ/EBITDA ให้ดึงใหม่
         except Exception:
             return ""
     core = {s["s"] for s in CFG["stocks"]}
@@ -305,7 +311,7 @@ def fetch_fin(uni):
             if not q["d"] and not a["d"]:
                 continue
             with open(os.path.join(d0, i["s"] + ".json"), "w") as f:
-                json.dump({"at": NOW.strftime("%Y-%m-%d"), "q": q, "a": a}, f, separators=(",", ":"))
+                json.dump({"v": 2, "at": NOW.strftime("%Y-%m-%d"), "q": q, "a": a}, f, separators=(",", ":"))
             ok += 1
             time.sleep(0.15)
         except Exception as e:
@@ -537,6 +543,11 @@ def fetch_news():
         except Exception as e:
             ERRORS.append(f"news '{q['q']}': {str(e)[:80]}")
     cutoff = (NOW - dt.timedelta(days=30)).strftime("%Y-%m-%d")
+    # เวลาที่ระบบพบข่าวครั้งแรก (ไม่เปลี่ยนในรอบถัดไป) ใช้แสดงคู่กับเวลาเผยแพร่ของแหล่งข่าว
+    seen = {x.get("url"): x.get("seen") for x in load("news.json", {}).get("items", []) if x.get("seen")}
+    now_s = int(time.time())
+    for x in found.values():
+        x["seen"] = seen.get(x["url"], now_s)
     items = [x for x in found.values() if x["date"] >= cutoff]
     items.sort(key=lambda x: x["date"], reverse=True)
     out = {"updated": int(time.time()), "items": items[:300]}
