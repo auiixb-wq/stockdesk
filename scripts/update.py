@@ -93,12 +93,14 @@ def fetch_quotes(prices):
         p = prices.get(s["s"])
         if not p:
             continue
-        last, ts = p["c"][-1], None
+        last, ts, o5 = p["c"][-1], None, {}
         try:
             d = df[t].dropna(subset=["Close"])
             if len(d):
                 last = num(d["Close"].iloc[-1])
                 ts = int(d.index[-1].timestamp())
+                day = d[d.index.date == d.index[-1].date()]  # แท่งเทียนวันนี้จากแท่ง 5 นาที
+                o5 = {"o": num(day["Open"].iloc[0]), "h": num(day["High"].max()), "l": num(day["Low"].min()), "v": int(day["Volume"].sum())}
         except Exception:
             pass
         # ราคาปิดก่อนหน้า = แท่งรายวันก่อนแท่งล่าสุด ถ้าแท่งล่าสุดคือวันนี้
@@ -106,7 +108,7 @@ def fetch_quotes(prices):
         prev = p["c"][-2] if len(p["c"]) > 1 else p["c"][-1]
         if ts and dt.datetime.fromtimestamp(ts, dt.timezone.utc).strftime("%Y-%m-%d") > today_bar:
             prev = p["c"][-1]
-        q[s["s"]] = {"p": last, "prev": num(prev), "chg": num((last / prev - 1) * 100, 3) if prev else None, "ts": ts}
+        q[s["s"]] = {"p": last, "prev": num(prev), "chg": num((last / prev - 1) * 100, 3) if prev else None, "ts": ts, **o5}
     QUOTE_T["intraday"] = round(time.time() - t0, 1)
     try:
         uni = load("universe.json", {"items": []})
@@ -183,7 +185,8 @@ def disp(sym, m):
 def quote_of(x):
     p, prev = num(x.get("regularMarketPrice")), num(x.get("regularMarketPreviousClose"))
     return {"p": p, "prev": prev, "chg": num(x.get("regularMarketChangePercent"), 3), "ts": x.get("regularMarketTime"),
-            "v": x.get("regularMarketVolume")}
+            "v": x.get("regularMarketVolume"), "o": num(x.get("regularMarketOpen")), "h": num(x.get("regularMarketDayHigh")),
+            "l": num(x.get("regularMarketDayLow"))}
 
 
 def cnbc_th_quotes(uni):
@@ -216,8 +219,10 @@ def cnbc_th_quotes(uni):
                 prev = float(str(q.get("previous_day_closing") or "0").replace(",", "")) or None
                 ts = int(dt.datetime.strptime(q["last_time"], "%Y-%m-%dT%H:%M:%S.%f%z").timestamp())
                 v = int(str(q.get("volume") or "0").replace(",", "")) or None
+                f = lambda k: (lambda z: z if z and z > 0 else None)(float(str(q.get(k) or "0").replace(",", "") or 0))
                 if p > 0:
-                    got[s] = {"p": p, "prev": prev, "chg": round((p / prev - 1) * 100, 3) if prev else None, "ts": ts, "v": v, "src": "CNBC"}
+                    got[s] = {"p": p, "prev": prev, "chg": round((p / prev - 1) * 100, 3) if prev else None, "ts": ts, "v": v,
+                              "o": f("open"), "h": f("high"), "l": f("low"), "src": "CNBC"}
             except Exception:
                 continue
     return got

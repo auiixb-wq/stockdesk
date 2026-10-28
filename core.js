@@ -96,7 +96,9 @@ function barsOf(st){const own=S.px[st.s],lv=S.prices?.[st.s]||S.hist?.[st.s],q=S
   let B;if(own)B=own.bars.map(a=>({t:a[0],o:a[1],h:a[2],l:a[3],c:a[4],v:a[5]}));
   else if(lv){B=lv.t.map((t,i)=>({t,o:lv.o[i],h:lv.h[i],l:lv.l[i],c:lv.c[i],v:lv.v[i]||0})).filter(b=>b.c!=null&&b.o!=null&&b.h!=null&&b.l!=null);
     if(q&&q.p!=null&&q.ts&&B.length){const day=new Intl.DateTimeFormat("en-CA",{timeZone:st.m==="TH"?"Asia/Bangkok":"America/New_York"}).format(new Date(q.ts*1000)),L=B[B.length-1];
-      if(day===L.t){L.c=q.p;L.h=Math.max(L.h,q.p);L.l=Math.min(L.l,q.p)}else if(day>L.t)B.push({t:day,o:q.p,h:q.p,l:q.p,c:q.p,v:0})}}
+      // แท่งเทียนวันนี้: ใช้ราคาเปิด/สูง/ต่ำของวันจากแหล่งราคาถ้ามี
+      const o=q.o>0?q.o:q.p,h=Math.max(q.h>0?q.h:q.p,q.p,o),l=Math.min(q.l>0?q.l:q.p,q.p,o);
+      if(day===L.t){L.c=q.p;L.h=Math.max(L.h,h);L.l=Math.min(L.l,l);if(q.v>0)L.v=Math.max(L.v||0,q.v)}else if(day>L.t)B.push({t:day,o,h,l,c:q.p,v:q.v>0?q.v:0})}}
   else B=genBars(st);S.bars.set(st.s,{key,B});return B}
 
 /* ---------- indicators ---------- */

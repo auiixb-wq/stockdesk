@@ -525,6 +525,9 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .yb{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12.5px}
 .ybc{display:flex;gap:4px;align-items:flex-end;height:70px}.ys{width:16px;height:100%;display:flex;align-items:flex-end}.ys i{display:block;width:100%;border-radius:4px 4px 0 0}
 .ys i.pos{background:var(--accent)}.ys i.neg{background:var(--down)}.ys.bm i.pos,.ys.bm i.neg{opacity:.35;background:var(--ink-2)}
+.dw{display:grid;gap:2px}.dwr{display:grid;grid-template-columns:120px 16px 70px auto minmax(0,1fr);gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.dwr:last-child{border-bottom:0}.dwn{display:flex;flex-wrap:wrap;gap:6px;min-width:0}.dwn .ichip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:760px){.dwr{grid-template-columns:110px 16px 64px minmax(0,1fr)}.dwr .dwn{grid-column:1/-1}}
 </style>
 
 </head>
@@ -1340,6 +1343,20 @@ function eqChart(X){const a=X.eq,b=X.beq,W=720,H=220,all=[...a,...b].map(z=>z[1]
   return `<svg viewBox="0 0 ${W} ${H}" class="eqc" role="img" aria-label="มูลค่าพอร์ตเทียบตลาด"><line x1="0" x2="${W}" y1="${y(1)}" y2="${y(1)}" stroke="var(--line)" stroke-dasharray="3 4"/>${yrs.filter(([k],j)=>!j||k/(a.length-1)*W-(yrs[j-1][0]/(a.length-1)*W)>48).map(([k,yy])=>`<text x="${x(k)}" y="${H-4}" class="eqy">${+yy+543}</text>`).join("")}
    <path d="${path(b)}" fill="none" stroke="var(--ink-2)" stroke-width="1.6" opacity=".7"/><path d="${path(a)} L${W},${H-22} L0,${H-22}Z" fill="color-mix(in srgb,var(--accent) 18%,transparent)"/><path d="${path(a)}" fill="none" stroke="var(--accent)" stroke-width="2.6"/></svg>
    <div class="legend"><span style="--c:var(--accent)">ระบบนี้ (เริ่ม 1.00 → ${a.at(-1)[1].toFixed(2)})</span><span style="--c:var(--ink-2)">หุ้นทั้งตลาดเฉลี่ย (→ ${b.at(-1)[1].toFixed(2)})</span></div>`}
+// เฝ้าระวังรายวัน: แท่งเทียนวันนี้ เส้น 50 วัน และข่าว 3 วันของหุ้นที่ระบบถืออยู่ (เป็นคำเตือน ไม่เปลี่ยนกติกาที่ทดสอบไว้)
+function candleSVG(b){if(!b)return "";const hi=b.h,lo=b.l,r=(hi-lo)||1,y=v=>(2+(hi-v)/r*24).toFixed(1),up=b.c>=b.o,col=up?"var(--up)":"var(--down)";
+  return `<svg width="14" height="28" viewBox="0 0 14 28" aria-hidden="true"><line x1="7" x2="7" y1="${y(hi)}" y2="${y(lo)}" stroke="${col}" stroke-width="1.4"/><rect x="2.5" y="${y(Math.max(b.o,b.c))}" width="9" height="${Math.max(1.5,Math.abs(b.c-b.o)/r*24).toFixed(1)}" rx="1" fill="${col}"/></svg>`}
+function dailyWatch(syms){loadHist(syms);const rows=syms.map(stockBySym).filter(Boolean).map(st=>{const q=S.quotes?.q?.[st.s],B=hasBars(st)?barsOf(st):null,n=B?B.length-1:-1;
+    const s50=B&&n>=50?B.slice(-50).reduce((a,b)=>a+b.c,0)/50:null,c=B?B[n].c:q?.p,below=s50!=null&&c<s50;
+    const news=newsFor(st).filter(x=>ageDays(x.date)<=3).map(x=>({x,v:impactOn(x,st).v})).filter(z=>Math.abs(z.v)>=.1).sort((a,b)=>Math.abs(b.v)-Math.abs(a.v)).slice(0,2);
+    const neg=news.some(z=>z.v<=-.2&&((z.x.tickers||[]).includes(st.s)||(z.x.sectors||[]).includes(st.sec)));return{st,B:B?B[n]:null,chg:q?.chg??(B&&n?(B[n].c/B[n-1].c-1)*100:null),below,news,neg}});
+  const nUp=S.metaLive?.newsUpdated,qUp=S.quotes?.updated;
+  return `<section class="card"><div class="card-h"><div><h2 class="ih">${ic("bell")}เฝ้าระวังรายวัน</h2><div class="sub-t">ราคา ${qUp?ago(qUp):"–"} · ข่าว ${nUp?ago(nUp):"–"} · ระบบอัปเดตราคาทุก ~2 นาทีช่วงตลาดเปิด ข่าวทุก ~30 นาที</div></div></div>
+   ${rows.length?`<div class="dw">${rows.map(r=>`<div class="dwr"><a href="#s-${esc(r.st.s)}" class="pl2">${logo(r.st.s)}<b>${esc(r.st.s)}</b></a>${candleSVG(r.B)}<span class="num ${cls(r.chg||0)}">${r.chg!=null?pct(r.chg,2):"–"}</span>
+     <span class="chips">${r.below?`<span class="pill sm p-sell">ต่ำกว่าเส้น 50 วัน</span>`:`<span class="pill sm p-buy">ทรงยังดี</span>`}${r.neg?`<span class="pill sm p-sell2">ข่าวลบของบริษัท/กลุ่ม</span>`:""}</span>
+     ${r.news.length?`<span class="dwn">${r.news.map(z=>`<a class="ichip ${z.v>0?"up":"down"}" href="${esc(safeUrl(z.x.url))}" target="_blank" rel="noopener" title="${esc(z.x.titleTh||z.x.title)}">${z.v>0?"▲":"▼"} ${MAGL(z.v)} · ${esc((z.x.titleTh||z.x.title).slice(0,48))}…</a>`).join("")}</span>`:`<span class="muted dwn" style="font-size:12.5px">ไม่มีข่าวสำคัญใน 3 วัน</span>`}</div>`).join("")}</div>
+   <p class="foot" style="margin:10px 0 0">คำเตือนเหล่านี้ไม่เปลี่ยนกติกาของระบบ (ทดสอบแล้ว: ปรับพอร์ตรายวันทำให้ผลแย่ลง เพราะโดนสะบัดและเสียค่าธรรมเนียมบ่อย) · ถ้าต้องการความปลอดภัยมากขึ้น การขายเมื่อหลุดเส้น 50 วันลดการลงหนักสุดจาก ~15% เหลือ ~9% แต่ผลตอบแทนลดจาก ~16% เหลือ ~10% ต่อปี</p>`
+   :`<p class="muted" style="margin:0">ตอนนี้ไม่มีหุ้นที่ต้องเฝ้าระวัง</p>`}</section>`}
 function vStrategy(){const m=S.mkt,X=S.strat?.[m],t=STRAT_TXT[m],c=(v,l)=>`<button class="chip" data-mkt="${v}" aria-pressed="${m===v}">${l}</button>`;
   const head=`<div class="card-h" style="margin:0"><div><h1>ระบบลงทุน${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</h1><p class="muted" style="margin:4px 0 0">${t.name}</p></div><div class="chips">${c("TH","หุ้นไทย")}${c("US","หุ้นสหรัฐฯ")}</div></div>`;
   if(!X)return head+`<section class="card empty">${S.live?"ยังไม่มีผลการคำนวณ ระบบจะคำนวณในรอบอัปเดตถัดไป":"กำลังโหลด…"}</section>`;
@@ -1365,6 +1382,7 @@ function vStrategy(){const m=S.mkt,X=S.strat?.[m],t=STRAT_TXT[m],c=(v,l)=>`<butt
   <section class="card"><h2 class="ih">${ic("trend")}มูลค่าพอร์ตเทียบตลาด</h2>${eqChart(X)}
    <div class="ybars">${yrs.map(([y,a,b])=>`<div class="yb"><div class="ybc"><span class="ys">${ybar(a)}</span><span class="ys bm">${ybar(b)}</span></div><b class="num ${cls(a)}">${a>0?"+":""}${a}%</b><span class="muted num">ตลาด ${b!=null?(b>0?"+":"")+b+"%":"–"}</span><span class="muted">${+y+543}</span></div>`).join("")}</div></section>
   <section class="card"><div class="card-h"><h2 class="ih">${ic("target")}สิ่งที่ต้องทำ</h2><label class="field" style="min-width:180px">เงินลงทุนของคุณ (${cu})<input id="capIn" data-cap="${m}" type="number" min="0" step="${m==="TH"?10000:500}" inputmode="decimal" value="${cap}"></label></div>${todo}</section>
+  ${dailyWatch(m==="TH"?X.now.holdings.map(h=>h.s):[...new Set([...X.now.open.map(p=>p.s),...X.now.orders.map(o=>o.s)])])}
   <section class="card method"><h2>ระบบทำงานอย่างไร</h2><ul>${t.how.map(h=>`<li>${esc(h)}</li>`).join("")}</ul>
    <p class="foot" style="margin:10px 0 0">เลือกจากการทดลองกว่า 70 แนวคิดด้วยราคาจริง 5 ปี · ทดสอบแบบพอร์ตจริง (เงินจำกัด ค่าธรรมเนียม สลิปเพจ สภาพคล่อง) · ตรวจซ้ำแบบ walk-forward · ระบบบันทึกคำแนะนำทุกวันไว้ตรวจผลจริงไปข้างหน้า (เริ่ม 28 ต.ค. 69)</p>
    <p class="foot warn" style="margin:6px 0 0">ข้อจำกัด: ทดสอบกับหุ้นที่ยังซื้อขายอยู่วันนี้ (ไม่มีหุ้นที่ถูกถอดออกจากตลาด) ผลจริงจึงอาจต่ำกว่านี้ · ผลในอดีตไม่รับประกันอนาคต · ไม่ใช่คำแนะนำการลงทุน</p></section>`}
