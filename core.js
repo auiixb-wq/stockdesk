@@ -48,8 +48,8 @@ const FA_BASE={
  property:{rg:6,eg:6,nm:18,roe:12,de:1.2,cr:.8,fcf:1,pe:18,dy:3},
  materials:{rg:1,eg:-4,nm:5,roe:6,de:.9,cr:1.6,fcf:1,pe:16,dy:3.5}
 };
-const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare"];
-const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more",compare:"more"};
+const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare","signals"];
+const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more",compare:"more",signals:"home"};
 const DEF_COST={TH:.17,US:.10}; // % ต่อขา: ค่าคอมออนไลน์ไทย ~0.157% + VAT, สหรัฐฯ เผื่อสเปรดและค่าแปลงสกุลเงิน
 // ค่าเริ่มต้นเลือกจากการทดสอบราคาจริง 24 หุ้น 5 ปี (28 ต.ค. 2569): ชนะ 66% ช่วงสร้าง / 71% ช่วงทดสอบ และกำไรทั้งสองช่วง
 const RULES={sl:3,tp:1.5,hold:20,thr:40,split:.7,warm:60,wk:true};
