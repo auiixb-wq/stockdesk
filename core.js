@@ -35,8 +35,8 @@ const STOCKS=[
  {s:"KO",n:"Coca-Cola",m:"US",sec:"consumer",p:70,v:.01}
 ];
 // ค่ากลางงบการเงินของข้อมูลตัวอย่างแต่ละ sector
-const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare","signals","strategy"];
-const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more",compare:"more",signals:"home",strategy:"strategy"};
+const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare","signals","strategy","sync"];
+const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more",compare:"more",signals:"home",strategy:"strategy",sync:"watch"};
 const DEF_COST={TH:.17,US:.10}; // % ต่อขา: ค่าคอมออนไลน์ไทย ~0.157% + VAT, สหรัฐฯ เผื่อสเปรดและค่าแปลงสกุลเงิน
 // ค่าเริ่มต้นเลือกจากการทดสอบราคาจริง 24 หุ้น 5 ปี (28 ต.ค. 2569): ชนะ 66% ช่วงสร้าง / 71% ช่วงทดสอบ และกำไรทั้งสองช่วง
 // rs = ต้องแข็งกว่าหุ้นอื่นในตลาดเดียวกัน (ผลตอบแทน 63 วันอยู่ในกลุ่มบน rs%) · ทดสอบ 5 ปี ~1,400 หุ้น: ชนะ 68–69% กำไร +0.50/+0.54% ต่อไม้
@@ -60,7 +60,7 @@ const thDate=iso=>{try{return new Intl.DateTimeFormat("th-TH",{day:"numeric",mon
 const thMonth=iso=>{try{return new Intl.DateTimeFormat("th-TH",{month:"short",year:"2-digit"}).format(new Date(iso.slice(0,7)+"-01T00:00:00"))}catch{return iso}};
 function toast(msg){const t=document.createElement("div");t.className="toast";t.setAttribute("role","status");t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2800)}
 const lsGet=k=>{try{return JSON.parse(localStorage.getItem(k)||"null")}catch{return null}};
-const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}};
+const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}if(typeof S!=="undefined")S.onSave?.(k)};
 const costOf=m=>((lsGet("cost")||{})[m]??DEF_COST[m])/100;
 // ช่วงราคา (tick size) ของตลาดหลักทรัพย์แห่งประเทศไทย
 function tick(p){return p<2?.01:p<5?.02:p<10?.05:p<25?.1:p<100?.25:p<200?.5:p<400?1:2}

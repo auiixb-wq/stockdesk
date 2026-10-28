@@ -511,3 +511,11 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .dw{display:grid;gap:2px}.dwr{display:grid;grid-template-columns:120px 16px 70px auto minmax(0,1fr);gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);font-size:13.5px}
 .dwr:last-child{border-bottom:0}.dwn{display:flex;flex-wrap:wrap;gap:6px;min-width:0}.dwn .ichip{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:760px){.dwr{grid-template-columns:110px 16px 64px minmax(0,1fr)}.dwr .dwn{grid-column:1/-1}}
+
+/* ซิงก์พอร์ต */
+.sybar{display:flex!important;flex-direction:row!important;align-items:center;gap:12px;flex-wrap:wrap}
+.sybar .ms{display:flex;flex-direction:column;gap:2px;flex:1;min-width:180px}
+.syf{display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap;margin:0}
+.syf input{flex:1 1 180px;min-width:0;padding:9px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);font:inherit;color:inherit}
+.syset{display:grid;gap:12px;max-width:440px}.syset input{padding:10px 12px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface-2);font:inherit;color:inherit}
+.systeps{margin:0;padding-left:0;list-style:none;display:grid;gap:8px;font-size:14px}.systeps code{background:var(--surface-2);padding:1px 6px;border-radius:6px}

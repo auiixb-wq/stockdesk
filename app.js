@@ -509,6 +509,72 @@ function addForm(){return `<section class="card"><h2 style="margin-bottom:10px">
   <label class="field" style="grid-column:span 2">ไฟล์ CSV<input id="addFile" type="file" accept=".csv,text/csv,text/plain" required></label>
   <div><button class="btn primary" type="submit">เพิ่มหุ้น</button></div></form></section>`}
 
+/* ---------- ซิงก์พอร์ตข้ามเครื่อง: เข้ารหัสในเบราว์เซอร์ด้วยรหัสผ่าน แล้วเก็บใน branch "vault" ของ repo บน GitHub ----------
+   token.enc = GitHub token ที่เข้ารหัสด้วยรหัสผ่าน (มี salt) · data.enc = รายการโปรด/พอร์ต/หน้าเทียบ/เงินลงทุน ที่เข้ารหัสด้วยกุญแจเดียวกัน
+   กุญแจ = PBKDF2-SHA256 600,000 รอบ → AES-GCM 256 บิต · ไม่มีใครอ่านได้ถ้าไม่รู้รหัสผ่าน */
+const SYNC_KEYS=["watch","hold","cmp","capTH","capUS"];
+const VAULT=(()=>{const h=location.hostname,p=location.pathname.split("/").filter(Boolean)[0];return h.endsWith("github.io")&&p?{o:h.split(".")[0],r:p}:{o:"auiixb-wq",r:"stockdesk"}})();
+const SY={st:"unknown",tok:null,key:null,salt:null,sha:null,at:null,busy:false,err:null,timer:null};
+const b64=u=>btoa(String.fromCharCode(...new Uint8Array(u))),unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const utf8=s=>new TextEncoder().encode(s),fromUtf8=b=>new TextDecoder().decode(b);
+async function syDerive(pw,salt,extractable){const base=await crypto.subtle.importKey("raw",utf8(pw),"PBKDF2",false,["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:600000,hash:"SHA-256"},base,{name:"AES-GCM",length:256},extractable,["encrypt","decrypt"])}
+async function syEnc(obj,key){const iv=crypto.getRandomValues(new Uint8Array(12));return{v:1,iv:b64(iv),ct:b64(await crypto.subtle.encrypt({name:"AES-GCM",iv},key,utf8(JSON.stringify(obj))))}}
+async function syDec(box,key){return JSON.parse(fromUtf8(await crypto.subtle.decrypt({name:"AES-GCM",iv:unb64(box.iv)},key,unb64(box.ct))))}
+async function gh(path,opt={},tok=SY.tok){const r=await fetch("https://api.github.com/repos/"+VAULT.o+"/"+VAULT.r+path,{...opt,cache:"no-store",headers:{Accept:"application/vnd.github+json",...(tok?{Authorization:"Bearer "+tok}:{}),...(opt.headers||{})}});
+  if(r.status===404)return null;if(!r.ok){const e=new Error("GitHub "+r.status);e.status=r.status;throw e}return r.status===204?{}:r.json()}
+async function syGet(name,tok){const f=await gh("/contents/"+name+"?ref=vault",{},tok);return f?{sha:f.sha,box:JSON.parse(fromUtf8(unb64(f.content.replace(/\n/g,""))))}:null}
+async function syPut(name,obj,sha){return gh("/contents/"+name,{method:"PUT",body:JSON.stringify({message:"vault: "+name,branch:"vault",content:b64(utf8(JSON.stringify(obj))),...(sha?{sha}:{})})})}
+const syLocal=()=>Object.fromEntries(SYNC_KEYS.map(k=>[k,lsGet(k)]));
+function syApply(d){for(const k of SYNC_KEYS){if(d[k]==null){try{localStorage.removeItem(k)}catch{}}else try{localStorage.setItem(k,JSON.stringify(d[k]))}catch{}}S.watch=lsGet("watch")||[];S.cache.clear();if(S._info)S._info.clear()}
+async function syRemember(){try{const raw=await crypto.subtle.exportKey("raw",SY.key);sessionStorage.setItem("sy",JSON.stringify({k:b64(raw),t:SY.tok,s:b64(SY.salt),sha:SY.sha}))}catch{}}
+async function syRestore(){try{const j=JSON.parse(sessionStorage.getItem("sy")||"null");if(!j)return false;SY.key=await crypto.subtle.importKey("raw",unb64(j.k),{name:"AES-GCM"},true,["encrypt","decrypt"]);SY.tok=j.t;SY.salt=unb64(j.s);SY.sha=j.sha;SY.st="open";return true}catch{return false}}
+// สถานะเมื่อเปิดเว็บ: ปลดล็อกอยู่ (ในแท็บนี้) → ดึงข้อมูลล่าสุด · ไม่งั้นตรวจว่าเคยตั้งค่าไว้หรือยัง
+async function syInit(){if(await syRestore()){await syPull();return}
+  try{const f=await gh("/contents/token.enc?ref=vault",{},null);SY.st=f?"locked":"none"}catch{SY.st="offline"}if(route().v==="watch"||route().v==="sync")render()}
+async function syPull(){try{const f=await syGet("data.enc");if(f){SY.sha=f.sha;const d=await syDec(f.box,SY.key);syApply(d.data);SY.at=d.updated;await syRemember()}SY.err=null}catch(e){SY.err="ดึงข้อมูลไม่สำเร็จ ("+e.message+")"}render()}
+async function syPush(){if(SY.st!=="open"||SY.busy)return;SY.busy=true;const body={updated:Date.now(),data:syLocal()};
+  try{let r;try{r=await syPut("data.enc",await syEnc(body,SY.key),SY.sha)}catch(e){if(e.status!==409&&e.status!==422)throw e;const f=await syGet("data.enc");SY.sha=f?.sha;r=await syPut("data.enc",await syEnc(body,SY.key),SY.sha)}
+    SY.sha=r.content.sha;SY.at=body.updated;SY.err=null;await syRemember()}catch(e){SY.err="บันทึกขึ้น GitHub ไม่สำเร็จ ("+e.message+") ข้อมูลยังอยู่ในเครื่องนี้"}SY.busy=false;const b=$("#syBadge");if(b)b.outerHTML=syBadge()}
+S.onSave=k=>{if(SY.st==="open"&&SYNC_KEYS.includes(k)){clearTimeout(SY.timer);SY.timer=setTimeout(syPush,1500)}};
+async function sySetup(tok,pw){const me=await gh("",{},tok);if(!me)throw new Error("ไม่พบ repo "+VAULT.o+"/"+VAULT.r);if(!me.permissions?.push)throw new Error("token นี้ไม่มีสิทธิ์เขียน repo (ต้องตั้ง Contents: Read and write)");
+  if(!(await gh("/git/ref/heads/vault",{},tok))){const main=await gh("/git/ref/heads/"+(me.default_branch||"main"),{},tok);await gh("/git/refs",{method:"POST",body:JSON.stringify({ref:"refs/heads/vault",sha:main.object.sha})},tok)}
+  SY.salt=crypto.getRandomValues(new Uint8Array(16));SY.key=await syDerive(pw,SY.salt,true);SY.tok=tok;
+  const old=await syGet("token.enc",tok);await syPut("token.enc",{...(await syEnc({t:tok},SY.key)),salt:b64(SY.salt)},old?.sha);
+  const d=await syGet("data.enc",tok);SY.sha=d?.sha;SY.st="open";await syPush();await syRemember()}
+async function syUnlock(pw){const f=await syGet("token.enc",null);if(!f)throw new Error("ยังไม่ได้ตั้งค่าซิงก์");SY.salt=unb64(f.box.salt);const key=await syDerive(pw,SY.salt,true);
+  let t;try{t=(await syDec(f.box,key)).t}catch{throw new Error("รหัสผ่านไม่ถูกต้อง")}SY.key=key;SY.tok=t;SY.st="open";await syPull()}
+function syLock(){clearTimeout(SY.timer);SY.key=SY.tok=SY.sha=null;SY.st="locked";try{sessionStorage.removeItem("sy")}catch{}syApply({});render()}
+function syBadge(){const t=SY.st==="open"?(SY.busy?"กำลังบันทึก…":SY.err?SY.err:SY.at?"ซิงก์แล้ว "+new Date(SY.at).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"}):"ซิงก์แล้ว"):"";
+  return `<span id="syBadge" class="muted" style="font-size:12.5px">${esc(t)}</span>`}
+function syncBar(){if(SY.st==="open")return `<section class="card sybar"><span class="ico" aria-hidden="true">${svgI("shield")}</span><span class="ms"><b>พอร์ตซิงก์ข้ามเครื่องอยู่</b>${syBadge()}</span><button class="btn sm" data-sylock>ล็อกและล้างจากเครื่องนี้</button></section>`;
+  if(SY.st==="locked")return `<section class="card sybar"><span class="ico" aria-hidden="true">${svgI("shield")}</span><form class="syf" data-syunlock><span class="ms"><b>ปลดล็อกพอร์ตของคุณ</b><span class="muted" style="font-size:12.5px">ใส่รหัสผ่านเพื่อดึงรายการโปรดและสัดส่วนพอร์ตจาก GitHub</span></span><input id="syPw" type="password" autocomplete="current-password" placeholder="รหัสผ่าน" required><button class="btn sm primary" type="submit">ปลดล็อก</button></form>${SY.err?`<p class="foot down" style="margin:6px 0 0;flex-basis:100%">${esc(SY.err)}</p>`:""}</section>`;
+  if(SY.st==="none")return `<a class="card sybar" href="#sync" style="text-decoration:none;color:inherit"><span class="ico" aria-hidden="true">${svgI("shield")}</span><span class="ms"><b>เก็บพอร์ตไว้ใช้ได้ทุกเครื่อง</b><span class="muted" style="font-size:12.5px">ตั้งรหัสผ่านครั้งเดียว แล้วเปิดพอร์ตจากมือถือหรือคอมเครื่องไหนก็ได้</span></span><span class="btn sm primary">ตั้งค่า →</span></a>`;
+  return ""}
+function vSync(){const step=(n,t)=>`<li><b>${n}</b> ${t}</li>`;
+  if(SY.st==="open")return `<h1>ซิงก์พอร์ตข้ามเครื่อง</h1>${syncBar()}<p class="muted">ข้อมูลที่ซิงก์: รายการโปรด จำนวนหุ้นและต้นทุน ราคาแจ้งเตือน หุ้นในหน้าเทียบ และเงินลงทุนในหน้าระบบลงทุน · บันทึกอัตโนมัติทุกครั้งที่แก้</p>`;
+  if(SY.st==="locked")return `<h1>ซิงก์พอร์ตข้ามเครื่อง</h1>${syncBar()}`;
+  return `<h1>ตั้งค่าซิงก์พอร์ตข้ามเครื่อง</h1>
+  <section class="card method"><h2>ทำครั้งเดียว (ราว 5 นาที บนเว็บ GitHub ไม่ต้องติดตั้งอะไร)</h2><ol class="systeps">
+   ${step("1.",`เปิด <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">github.com → Settings → Developer settings → Fine-grained tokens → Generate new token</a>`)}
+   ${step("2.",`Token name: <code>stockdesk-sync</code> · Expiration: <b>1 year</b> (หรือ No expiration)`)}
+   ${step("3.",`Repository access: <b>Only select repositories</b> → เลือก <code>${esc(VAULT.o)}/${esc(VAULT.r)}</code>`)}
+   ${step("4.",`Permissions → Repository permissions → <b>Contents: Read and write</b> (อย่างอื่นไม่ต้องเปิด)`)}
+   ${step("5.",`กด Generate token แล้วคัดลอกรหัสที่ขึ้นต้นด้วย <code>github_pat_</code> มาวางด้านล่าง`)}</ol></section>
+  <section class="card"><form class="syset" data-sysetup>
+   <label class="field">GitHub token<input id="syTok" type="password" autocomplete="off" placeholder="github_pat_…" required></label>
+   <label class="field">ตั้งรหัสผ่าน (อย่างน้อย 10 ตัวอักษร)<input id="syPw1" type="password" autocomplete="new-password" minlength="10" required></label>
+   <label class="field">ยืนยันรหัสผ่าน<input id="syPw2" type="password" autocomplete="new-password" minlength="10" required></label>
+   <button class="btn primary" type="submit"${SY.setting?" disabled":""}>${SY.setting?"กำลังตั้งค่า…":"เข้ารหัสและเริ่มซิงก์"}</button>${SY.err?`<p class="foot down" style="margin:0">${esc(SY.err)}</p>`:""}</form>
+   <p class="foot" style="margin:12px 0 0">token และพอร์ตถูกเข้ารหัสในเบราว์เซอร์ก่อนส่งขึ้น GitHub (branch <code>vault</code>) · ใช้รหัสผ่านยาวและไม่ซ้ำกับที่อื่น เพราะไฟล์เข้ารหัสอยู่ใน repo สาธารณะ · ลืมรหัสผ่านจะกู้ข้อมูลไม่ได้ ต้องตั้งค่าใหม่ · token หมดอายุเมื่อไรให้ตั้งค่าใหม่ด้วยรหัสผ่านเดิมได้</p></section>`}
+document.addEventListener("submit",async e=>{const f=e.target;
+  if(f.dataset.syunlock!=null){e.preventDefault();const pw=$("#syPw").value;SY.err=null;const b=f.querySelector("button");b.disabled=true;b.textContent="กำลังปลดล็อก…";
+    try{await syUnlock(pw);toast("ปลดล็อกแล้ว")}catch(x){SY.err=x.message;SY.st="locked";render()}}
+  if(f.dataset.sysetup!=null){e.preventDefault();const tok=$("#syTok").value.trim(),p1=$("#syPw1").value,p2=$("#syPw2").value;
+    if(p1!==p2){SY.err="รหัสผ่านสองช่องไม่ตรงกัน";render();return}if(p1.length<10){SY.err="รหัสผ่านต้องยาวอย่างน้อย 10 ตัวอักษร";render();return}
+    SY.setting=true;SY.err=null;render();try{await sySetup(tok,p1);SY.setting=false;toast("ตั้งค่าซิงก์เรียบร้อย");location.hash="watch"}catch(x){SY.setting=false;SY.st="none";SY.err=x.message;render()}}});
+document.addEventListener("click",e=>{if(e.target.closest("[data-sylock]")){syLock();toast("ล็อกแล้ว ข้อมูลพอร์ตถูกล้างจากเครื่องนี้")}});
+
 /* ---------- watchlist ---------- */
 async function toggleFav(sym){const list=S.watch.includes(sym)?S.watch.filter(x=>x!==sym):S.watch.concat(sym);S.watch=list;
   if(S.db&&S.uid){try{await S.db.collection("data/users/"+S.uid).doc("watch").set({kind:"watch",list})}catch{toast("บันทึกรายการโปรดไม่สำเร็จ")}}else lsSet("watch",list);render()}
@@ -519,7 +585,7 @@ let curRange=126;
 function render(){
   const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mkt===S.mkt));document.documentElement.dataset.mkt=S.mkt;document.querySelector('meta[name="theme-color"]')?.setAttribute("content",S.mkt==="US"?"#0F1E3D":"#11261B");document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
   killCharts();
-  $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="strategy"?vStrategy():vHome()}</div>`;
+  $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="strategy"?vStrategy():r.v==="sync"?vSync():vHome()}</div>`;
   if(r.v==="stock"){const st=stockBySym(r.sym);if(st&&hasBars(st)){const R=analyze(st);if($("#cMain"))drawCharts(R,$("#cRsi")?curRange:126);calc(R)}}
 }
 function calc(R){const out=$("#calcOut");if(!out)return;const cap=+$("#capIn").value||0,rk=+$("#riskIn").value||0,P=R.plan,m=R.st.m;const per=P.entry-P.sl;let sh=per>0?Math.floor(cap*rk/100/per):0;const lot=m==="TH"?100:1;sh=Math.floor(Math.min(sh,cap/P.entry)/lot)*lot;
@@ -642,7 +708,7 @@ function liveBadge(){const el=$("#live");if(!el)return;const u=S.quotes?.updated
 function applyTheme(m){const r=document.documentElement;if(m==="light"||m==="dark")r.setAttribute("data-theme",m);else r.removeAttribute("data-theme");lsSet("theme",m);
   const b=$("#themeBtn");if(b){b.innerHTML=svgI(m==="light"?"sun":m==="dark"?"moon":"auto",19);b.title=m==="light"?"โหมดสว่าง":m==="dark"?"โหมดมืด":"ตามระบบ";b.setAttribute("aria-label","สลับโหมดสี: ตอนนี้"+b.title)}}
 /* ---------- watchlist ---------- */
-function planState(R){const P=R.plan,p=R.last;if(p<=P.sl)return["ต่ำกว่าจุดตัดขาดทุน","p-sell2"];if(p>=P.tp2)return["ถึงเป้าขาย TP2","p-buy2"];if(p>=P.tp1)return["ถึงเป้าขาย TP1","p-buy"];if(p>=P.lo&&p<=P.hi)return["อยู่ในโซนซื้อ","p-buy"];if(p<P.lo)return[`ต่ำกว่าโซนซื้อ ${pct((p/P.lo-1)*100,1)}`,"p-hold"];return[`เหนือโซนซื้อ ${pct((p/P.hi-1)*100,1)}`,"p-hold"]}
+function planState(R){const P=R.plan,p=R.last;if(!P||p==null)return["กำลังโหลด…","p-hold"];if(p<=P.sl)return["ต่ำกว่าจุดตัดขาดทุน","p-sell2"];if(p>=P.tp2)return["ถึงเป้าขาย TP2","p-buy2"];if(p>=P.tp1)return["ถึงเป้าขาย TP1","p-buy"];if(p>=P.lo&&p<=P.hi)return["อยู่ในโซนซื้อ","p-buy"];if(p<P.lo)return[`ต่ำกว่าโซนซื้อ ${pct((p/P.lo-1)*100,1)}`,"p-hold"];return[`เหนือโซนซื้อ ${pct((p/P.hi-1)*100,1)}`,"p-hold"]}
 /* ---------- portfolio (holdings in this browser) ---------- */
 const SEC_COL={energy:"#E8833A",bank:"#2E9E5B",tech:"#3D7BF5",comm:"#9A5CF0",consumer:"#E0A100",health:"#E0464B",transport:"#1B9AAA",utility:"#6C8EAD",property:"#B5651D",materials:"#8A8F8C"};
 const MKT_COL={TH:"#1E4E9C",US:"#E0A100"};
@@ -677,13 +743,14 @@ function vWatch(){
   const sug=allStocks().filter(s=>s.m===S.mkt&&!S.watch.includes(s.s)&&liquid(s)).map(info).filter(R=>R.overall!=null).sort((a,b)=>b.overall-a.overall).slice(0,6);
   const b=(v,l)=>`<button class="chip" data-wsort="${v}" aria-pressed="${sort===v}">${l}</button>`;
   return `<div class="card-h" style="margin:0"><div><h1>รายการโปรด${S.mkt==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</h1><p class="muted" style="margin:4px 0 0">${list.length} หุ้น · บันทึกไว้ในเครื่องนี้${other?` · มีหุ้น${S.mkt==="TH"?"สหรัฐฯ":"ไทย"}อีก ${other} ตัว <button class="linkbtn" style="display:inline;margin:0" data-mkt="${S.mkt==="TH"?"US":"TH"}">สลับไปดู</button>`:""}</p></div><div class="chips">${b("add","ตามที่เพิ่ม")}${b("score","คะแนน")}${b("chg","เปลี่ยนแปลงวันนี้")}</div></div>
+  ${syncBar()}
   ${list.length?alertsCard(list):""}
   ${list.length?advisorCard():""}
   ${list.length?portCard():""}
   ${list.length?riskCard(portfolio()):""}
   ${list.length?`<section class="card"><div class="wl">${list.map(R=>{const st=R.st,ps=planState(R),P=R.plan,x=h[st.s],ed=S.editHold===st.s;return `<div class="wr"><a class="wl-a" href="#s-${esc(st.s)}">${logo(st.s)}<span class="ms"><b>${esc(st.s)} <span class="pill sm ${R.v[1]}">${R.v[0]}</span></b><span class="muted">${esc(st.n)}${x?.q>0?` · ถือ ${x.q.toLocaleString()} หุ้น`:""}</span></span></a>
     <span class="wl-p"><span class="num pxv" data-q="${esc(st.s)}">${cur(st.m)}${fmt(R.last)}</span>${chgPill(R.chg,st.s)}</span>
-    <span class="wl-s"><span class="chips"><span class="pill ${ps[1]}">${ps[0]}</span>${R.pb.now?`<span class="pill p-buy2">ซื้อตอนย่อ</span>`:""}</span><span class="muted num" style="font-size:12px">ซื้อ ${fmt(P.lo)}–${fmt(P.hi)} · TP ${fmt(P.tp1)} · SL ${fmt(P.sl)}</span></span>
+    <span class="wl-s"><span class="chips"><span class="pill ${ps[1]}">${ps[0]}</span>${R.pb?.now?`<span class="pill p-buy2">ซื้อตอนย่อ</span>`:""}</span><span class="muted num" style="font-size:12px">${P?`ซื้อ ${fmt(P.lo)}–${fmt(P.hi)} · TP ${fmt(P.tp1)} · SL ${fmt(P.sl)}`:"กำลังโหลดแผน…"}</span></span>
     <span class="wl-b"><button class="btn sm ghost" data-edithold="${esc(st.s)}" aria-expanded="${ed}">✎ พอร์ต</button><button class="icon-btn" data-unfav="${esc(st.s)}" aria-label="เอา ${esc(st.s)} ออกจากรายการโปรด" title="เอาออก">✕</button></span>
     ${ed?`<div class="hold-ed"><label class="field">จำนวนหุ้นที่ถือ<input id="hq-${esc(st.s)}" data-hold="${esc(st.s)}" data-k="q" type="number" min="0" step="${st.m==="TH"?100:1}" inputmode="decimal" value="${x?.q??""}" placeholder="เช่น ${st.m==="TH"?"1000":"10"}"></label><label class="field">ต้นทุนต่อหุ้น (${cur(st.m)}) ไม่บังคับ<input id="hc-${esc(st.s)}" data-hold="${esc(st.s)}" data-k="c" type="number" min="0" step="any" inputmode="decimal" value="${x?.c??""}" placeholder="${fmt(R.last)}"></label><label class="field">แจ้งเตือนถ้าราคาต่ำกว่า<input data-hold="${esc(st.s)}" data-k="lo" type="number" min="0" step="any" inputmode="decimal" value="${x?.lo??""}" placeholder="${fmt(P.sl)}"></label><label class="field">แจ้งเตือนถ้าราคาสูงกว่า<input data-hold="${esc(st.s)}" data-k="hi" type="number" min="0" step="any" inputmode="decimal" value="${x?.hi??""}" placeholder="${fmt(P.tp1)}"></label><button class="btn sm primary" data-edithold="">เสร็จ</button></div>`:""}</div>`}).join("")}</div></section>`
   :`<section class="card empty"><h2 style="margin-bottom:6px">ยังไม่มีหุ้นในรายการโปรด</h2><p style="margin:0 auto">แตะ ☆ ในหน้าหุ้น หรือเพิ่มจากคำแนะนำด้านล่าง</p></section>`}
@@ -908,7 +975,7 @@ function vAccuracy(){
 /* ---------- boot ---------- */
 S.watch=lsGet("watch")||[];S.mkt=["TH","US"].includes(lsGet("mkt"))?lsGet("mkt"):"TH";S.px=lsGet("px")||{};S.fa=lsGet("fa")||{};if(lsGet("rulesV")!==2){try{localStorage.removeItem("rules")}catch{}lsSet("rulesV",2)}Object.assign(RULES,lsGet("rules")||{});
 applyTheme(lsGet("theme")||"system");
-render();loadAll();
+render();loadAll();syInit();
 setInterval(refreshQuotes,60000);
 setInterval(()=>{if(!document.hidden&&!document.querySelector("details[open],input:focus,select:focus"))loadAll()},15*60000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-(S.loadedAt||0)>5*60000)loadAll()});
