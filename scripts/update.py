@@ -189,8 +189,8 @@ def tier(src):
     return 3
 
 
-POS = r"\b(beat|beats|surge|surges|soar|jump|jumps|rally|rallies|gain|gains|record high|upgrade|upgraded|raises|raised|strong|growth|buy rating|outperform)\b|พุ่ง|ทะยาน|บวก|กำไรเพิ่ม|โต|ปรับเป้าขึ้น|แนะนำซื้อ|ฟื้น|นิวไฮ"
-NEG = r"\b(miss|misses|plunge|plunges|slump|drop|drops|fall|falls|tumble|sink|downgrade|downgraded|cut|cuts|weak|loss|losses|lawsuit|probe|warning|sell rating|underperform)\b|ร่วง|ดิ่ง|ลบ|ขาดทุน|กำไรลด|หดตัว|ปรับเป้าลง|แนะนำขาย|ทรุด"
+POS = r"\b(beat|beats|surge|surges|soar|jump|jumps|rally|rallies|gain|gains|record high|upgrade|upgraded|raises|raised|strong|growth|buy rating|outperform)\b|พุ่ง|ทะยาน|บวก|กำไรเพิ่ม|เติบโต|ปรับเป้าขึ้น|แนะนำซื้อ|ฟื้น|นิวไฮ"
+NEG = r"\b(miss|misses|plunge|plunges|slump|drop|drops|fall|falls|tumble|sink|downgrade|downgraded|cut|cuts|weak|loss|losses|lawsuit|probe|warning|sell rating|underperform)\b|ร่วง|ดิ่ง|ติดลบ|ปิดลบ|ปรับตัวลง|ขาดทุน|กำไรลด|หดตัว|ปรับเป้าลง|แนะนำขาย|ทรุด"
 UP = r"\b(rise|rises|rising|rose|jump|jumps|surge|surges|climb|climbs|higher|soar|soars|spike|hike|hikes)\b|ขึ้น|พุ่ง|เพิ่ม|สูงขึ้น|ปรับขึ้น"
 DN = r"\b(fall|falls|fell|drop|drops|slide|slides|lower|decline|declines|plunge|ease|eases|cut|cuts|tumble)\b|ร่วง|ลด|ลง|ต่ำลง|ปรับลด|ดิ่ง"
 FACTOR_KW = {
@@ -287,6 +287,8 @@ def fetch_news():
             x["tickers"] = sorted(set(x["tickers"]) | set(tickers))
             x["sectors"] = sorted(set(x["sectors"]) | set(sectors))
             return
+        if re.search(r"facebook|youtube|tiktok|instagram|twitter|pantip|blockdit", item.get("source") or "", re.I):
+            return
         text = item["title"]
         found[key] = {**item, "tier": tier(item["source"]), "tickers": list(tickers), "sectors": list(sectors),
                       "market": market, "sentiment": sentiment(text), "factors": factor_links(text)}
@@ -318,9 +320,18 @@ def fetch_news():
 
 def market_strip():
     out = {}
-    for k, y in CFG["indices"].items():
+    for k, ys in CFG["indices"].items():
         try:
-            d = yf.Ticker(y).history(period="5d", interval="1d")["Close"].dropna()
+            d = None
+            for y in (ys if isinstance(ys, list) else [ys]):  # ลองสัญลักษณ์สำรองตามลำดับ
+                try:
+                    d = yf.Ticker(y).history(period="5d", interval="1d")["Close"].dropna()
+                    if len(d) >= 2:
+                        break
+                except Exception:
+                    d = None
+            if d is None or len(d) < 2:
+                raise ValueError("ไม่มีข้อมูลจากทุกสัญลักษณ์")
             out[k] = {"v": round(float(d.iloc[-1]), 2), "chg": round((float(d.iloc[-1]) / float(d.iloc[-2]) - 1) * 100, 2),
                       "date": d.index[-1].strftime("%Y-%m-%d")}
         except Exception as e:
