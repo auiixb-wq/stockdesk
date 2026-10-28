@@ -29,8 +29,11 @@ def load(name, default):
 
 
 def save(name, obj):
-    with open(os.path.join(DATA, name), "w", encoding="utf-8") as f:
+    # เขียนไฟล์ชั่วคราวแล้วสลับ เพื่อไม่ให้อีก process อ่านเจอไฟล์ที่เขียนไม่เสร็จ
+    path = os.path.join(DATA, name)
+    with open(path + f".{os.getpid()}.tmp", "w", encoding="utf-8") as f:
         json.dump(obj, f, ensure_ascii=False, separators=(",", ":"))
+    os.replace(path + f".{os.getpid()}.tmp", path)
 
 
 def num(x, nd=4):

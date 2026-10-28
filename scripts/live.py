@@ -1,7 +1,7 @@
 """รันต่อเนื่องตลอดช่วงตลาดเปิด: ดึงราคาล่าสุดทุก ~2 นาที แล้วเขียน live/quotes.json
 
 GitHub Actions แบบตั้งเวลา (cron) มักล่าช้าหรือข้ามรอบ งานนี้จึงเปิดค้างไว้ทั้งช่วงตลาดแทน
-ทุก ~30 นาทีจะรันรอบใหญ่ (ราคาย้อนหลัง ข่าว ปัจจัย) ด้วย update.py
+ทุก ~30 นาทีจะรันรอบใหญ่ (ราคาย้อนหลัง ข่าว ปัจจัย) ด้วย update.py แยกอีก process
 """
 import datetime as dt, json, os, subprocess, sys, time
 
@@ -43,32 +43,37 @@ def publish_site():
 
 def main():
     t0 = time.time()
-    last_full = 0
+    last_full, full = 0, None
     while time.time() - t0 < MAX_RUN:
         now = dt.datetime.now(dt.timezone.utc)
         if not session_open(now):
             print("ตลาดปิด หยุดทำงาน", now.isoformat())
             break
         tick = time.time()
+        # รอบใหญ่ (ข่าว ปัจจัย สรุปคะแนน) รันแยกเป็นอีก process ราคาจะได้อัปเดตทุก 2 นาทีต่อไม่สะดุด
+        if full is not None and full.poll() is not None:
+            print("รอบใหญ่เสร็จ", full.returncode)
+            publish_site()
+            full = None
+        if full is None and tick - last_full >= FULL_EVERY:
+            full = subprocess.Popen([sys.executable, "scripts/update.py"], cwd=ROOT)
+            last_full = tick
         try:
-            if tick - last_full >= FULL_EVERY:
-                update.ERRORS.clear()
-                update.main()
-                publish_site()
-                last_full = tick
-            else:
-                prices = update.load("prices.json", {})
-                update.fetch_quotes(prices)
-                meta = update.load("meta.json", {})
-                update.ERRORS.clear()
-                meta["indices"] = update.market_strip() or meta.get("indices", {})
-                meta["quotesUpdated"] = int(time.time())
-                update.save("meta.json", meta)
+            prices = update.load("prices.json", {})
+            update.fetch_quotes(prices)
+            meta = update.load("meta.json", {})
+            update.ERRORS.clear()
+            meta["indices"] = update.market_strip() or meta.get("indices", {})
+            meta["quotesUpdated"] = int(time.time())
+            update.save("meta.json", meta)
             publish_live()
             print("ok", dt.datetime.now(dt.timezone.utc).strftime("%H:%M:%S"), round(time.time() - tick, 1), "s")
         except Exception as e:  # รอบนี้ล้มก็ไปต่อรอบหน้า
             print("error:", e)
         time.sleep(max(10, INTERVAL - (time.time() - tick)))
+    if full is not None:
+        full.wait()
+        publish_site()
 
 
 if __name__ == "__main__":
