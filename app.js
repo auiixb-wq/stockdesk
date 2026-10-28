@@ -135,7 +135,8 @@ function tPeers(R){const st=R.st,list=[{x:st,u:uniOf(st.s)||{}},...peersOf(st,12
 /* ---------- ข่าว: รวมข่าวซ้ำเป็นเหตุการณ์ + ช่องทางผลกระทบ ---------- */
 function tri(s){s=(s||"").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ");const g=new Set();for(let i=0;i<s.length-2;i++)g.add(s.slice(i,i+3));return g}
 function events(list){const out=[];for(const x of list){const t=tri(x.titleTh||x.title);let hit=null;for(const e of out){if(Math.abs(ageDays(e.date)-ageDays(x.date))>2)continue;let k=0;for(const a of t)if(e.tri.has(a))k++;if(k/((t.size+e.tri.size-k)||1)>.42){hit=e;break}}
-  if(hit){hit.items.push(x);if((x.tier||3)<(hit.lead.tier||3))hit.lead=x}else out.push({lead:x,items:[x],tri:t,date:x.date})}return out}
+  if(hit){hit.items.push(x);if(nDetail(x)>nDetail(hit.lead))hit.lead=x}else out.push({lead:x,items:[x],tri:t,date:x.date})}return out}
+const nDetail=x=>(x.summaryTh||x.summary||"").length+.3*(x.title||"").length+(3-(x.tier||3))*40;
 function channelsHTML(x){const F=FBY(),L=(x.factors||[]).filter(l=>l.eff&&F[l.id]?.channels);if(!L.length)return "";
   return `<div class="chs">${L.map(l=>{const f=F[l.id];return `<div><b>${esc(f.short||f.name)} ${l.eff>0?"▲":"▼"}</b><ul>${f.channels.slice(0,4).map(c=>{const e=c.e*l.eff;return `<li><span class="${e>0?"up":e<0?"down":"muted"}">${e>0?"บวก":e<0?"ลบ":"ขึ้นกับเงื่อนไข"}</span> ${esc(c.who)} <span class="muted">· ผ่าน${esc(c.via)} · ${esc(c.h)} · ${esc(c.why)}</span></li>`}).join("")}</ul></div>`}).join("")}<p class="foot" style="margin:4px 0 0">กลไกที่คาดว่าจะส่งผลต่อธุรกิจ ไม่ใช่การยืนยันว่าราคาหุ้นจะขึ้นหรือลง</p></div>`}
 
@@ -186,10 +187,28 @@ function nfx(x){const L=newsLinks(x).via;if(!L.length)return "";return `<div cla
 function impChips(x){const I=newsImpacts(x,S.watch);if(!I.stocks.length&&!I.secs.length)return "";
   const ch=(href,l,v)=>`<${href?`a href="${href}"`:"span"} class="ichip ${v>0?"up":"down"}" title="ขนาดผลกระทบ ${v>0?"+":""}${v.toFixed(2)} (ถ่วงด้วยความน่าเชื่อถือของแหล่งข่าว)">${l} ${v>0?"▲":"▼"} ${MAGL(v)}</${href?"a":"span"}>`;
   return `<div class="imp"><span class="muted">กระทบ</span>${I.stocks.map(([st,v])=>ch("#s-"+esc(st.s),esc(st.s),v)).join("")}${I.secs.map(([m,sec,v])=>ch("",`กลุ่ม${esc(SECTORS[sec].th)}${m==="US"?" (US)":""}`,v)).join("")}</div>`}
-function newsHTML(list,limit){if(!list.length)return `<div class="empty">${S.dbState==="loading"?"กำลังโหลดข่าว…":S.dbState==="off"?"โหลดข่าวไม่สำเร็จ ลองรีเฟรชหน้า":"ยังไม่มีข่าวที่เกี่ยวข้อง"}</div>`;
-  const ev=events(list);return `<div class="news">${ev.slice(0,limit||999).map(E=>{const x=E.lead,more=E.items.filter(y=>y!==x);return `<article class="ni"><div class="meta"><span class="tier t${x.tier||3}">${["","ระดับ 1","ระดับ 2","ระดับ 3"][x.tier||3]}</span><b style="color:var(--ink)">${esc(x.source)}</b><span>${x.approx?thMonth(x.date):thDate(x.date)}</span>${sentTag(x.sentiment)}</div><a class="t" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">${esc(x.titleTh||x.title)}</a>${x.summary?`<p>${esc(x.summary)}</p>`:""}${channelsHTML(x)||nfx(x)}${impChips(x)}<div class="chips">${x.seen?`<span class="chip" title="เวลาที่ระบบพบข่าวนี้">ระบบพบ ${new Date(x.seen*1000).toLocaleString("th-TH",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>`:""}</div>
-  ${more.length?`<details class="evm"><summary>อีก ${more.length} แหล่งข่าวรายงานเรื่องเดียวกัน</summary><ul>${more.map(y=>`<li><span class="tier t${y.tier||3}">${["","ร.1","ร.2","ร.3"][y.tier||3]}</span> <b>${esc(y.source)}</b> · <a href="${esc(safeUrl(y.url))}" target="_blank" rel="noopener">${esc(y.titleTh||y.title)}</a></li>`).join("")}</ul></details>`:""}</article>`}).join("")}</div>`}
-const sortedNews=()=>[...S.news].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+const TIERN=["","ระดับ 1","ระดับ 2","ระดับ 3"];
+const nTs=x=>x.ts||Date.parse(x.date+"T12:00:00+07:00")/1e3;
+function ago(x){if(x.approx)return thMonth(x.date);const t=x.ts,d=Date.now()/1e3-(t||0);if(!t)return thDate(x.date);
+  if(d<3600)return Math.max(1,Math.round(d/60))+" นาทีที่แล้ว";if(d<86400)return Math.round(d/3600)+" ชม.ที่แล้ว";
+  return new Date(t*1e3).toLocaleString("th-TH",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
+function dayLab(x){const t=new Date(nTs(x)*1e3),k=t.toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"}),n=new Date(),y=new Date(n-864e5),f=d=>d.toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"});
+  return [k,k===f(n)?"วันนี้":k===f(y)?"เมื่อวาน":t.toLocaleDateString("th-TH",{weekday:"long",day:"numeric",month:"long"})]}
+// หุ้นที่ข่าวพูดถึง: โลโก้ ชื่อย่อ และราคาเปลี่ยนแปลงวันนี้ กดแล้วไปหน้าหุ้น
+function nStocks(x){const ts=(x.tickers||[]).map(s=>stockBySym(s)).filter(st=>st&&(x.market==="ALL"||!x.market||st.m===x.market));
+  if(!ts.length){const sec=(x.sectors||[]).map(k=>SECTORS[k]?.th).filter(Boolean);return `<div class="nst"><span class="ntag">${(x.factors||[]).length?"ข่าวเศรษฐกิจ/ปัจจัย":sec.length?"ข่าวกลุ่ม"+esc(sec.slice(0,2).join(", ")):"ข่าวตลาด"}</span></div>`}
+  return `<div class="nst">${ts.slice(0,5).map(st=>{const R=info(st);return `<a class="nsk" href="#s-${esc(st.s)}">${logo(st.s)}<b>${esc(st.s)}</b>${R.chg!=null?chgPill(R.chg,st.s):""}</a>`}).join("")}${ts.length>5?`<span class="muted">+${ts.length-5}</span>`:""}</div>`}
+function newsCard(E){const x=E.lead,alts=[...E.items.filter(y=>y!==x).map(y=>({s:y.source,u:y.url,t:y.tier,h:y.titleTh||y.title})),...(x.alt||[])],th=x.titleTh||x.title,sm=x.summaryTh||x.summary,deep=channelsHTML(x)||nfx(x);
+  return `<article class="ni">${nStocks(x)}<a class="t" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">${esc(th)}</a>${x.titleTh&&x.titleTh!==x.title?`<div class="ot">${esc(x.title)}</div>`:""}
+  ${sm?`<p class="sm">${esc(sm)}</p>`:""}
+  <div class="meta"><span class="tier t${x.tier||3}" title="${["","สำนักข่าวหลักหรือประกาศทางการ","สื่อธุรกิจและบทวิเคราะห์","เว็บรวบรวมข่าว"][x.tier||3]}">${TIERN[x.tier||3]}</span><b>${esc(x.source)}</b><span>${ago(x)}</span>${sentTag(x.sentiment)}${alts.length?`<span class="muted">· รายงานโดย ${alts.length+1} แหล่ง</span>`:""}</div>
+  ${impChips(x)}
+  ${deep||alts.length?`<details class="evm"><summary>${[deep?"กลไกผลกระทบ":"",alts.length?`แหล่งข่าวอื่น ${alts.length} แหล่ง`:""].filter(Boolean).join(" · ")}</summary>${deep}${alts.length?`<ul>${alts.map(y=>`<li><span class="tier t${y.t||3}">${["","ร.1","ร.2","ร.3"][y.t||3]}</span> <b>${esc(y.s)}</b> · <a href="${esc(safeUrl(y.u))}" target="_blank" rel="noopener">${esc(y.h||"อ่านข่าว")}</a></li>`).join("")}</ul>`:""}</details>`:""}</article>`}
+function newsHTML(list,limit,days){if(!list.length)return `<div class="empty">${S.dbState==="loading"?"กำลังโหลดข่าว…":S.dbState==="off"?"โหลดข่าวไม่สำเร็จ ลองรีเฟรชหน้า":"ยังไม่มีข่าวที่ตรงกับตัวกรอง"}</div>`;
+  const ev=events(list).slice(0,limit||999);let last="",h="";
+  for(const E of ev){if(days){const [k,l]=dayLab(E.lead);if(k!==last){h+=`<h3 class="nday">${l}</h3>`;last=k}}h+=newsCard(E)}
+  return `<div class="news">${h}</div>`}
+const sortedNews=()=>[...S.news].sort((a,b)=>nTs(b)-nTs(a));
 function sampleNotice(){if(S.live)return `<div class="notice ok" role="note"><b>ราคาจริง</b><span>ระบบดึงราคาใหม่ทุก ~2 นาทีช่วงตลาดเปิด · หุ้นไทยจาก CNBC ล่าช้าราว 15 นาที (สำรองด้วย Yahoo) · หุ้นสหรัฐฯ จาก Yahoo · ไม่ใช่ราคาเรียลไทม์ ไม่ใช้ส่งคำสั่งซื้อขาย</span></div>`;return `<div class="notice" role="note"><b>ข้อมูลจำลอง</b><span>ยังโหลดราคาจริงไม่ได้ ตัวเลขในหน้านี้เป็นข้อมูลจำลอง</span></div>`}
 function statBox(k,v,s,c){return `<div><div class="k">${k}</div><div class="v ${c||""}">${v}</div>${s?`<div class="s">${s}</div>`:""}</div>`}
 
@@ -274,14 +293,27 @@ function vMarket(){
   <section class="card" id="mlist">${marketList()}</section>${sampleNotice()}
   <p class="foot">หุ้นที่ไม่อยู่ในรายการ (เช่นหุ้นนอกตลาด) เพิ่มได้จากไฟล์ CSV · ตั้งชื่อไฟล์เป็นชื่อหุ้น เช่น PTT.BK.csv</p>`;
 }
+function newsList(){const f=S.nf,q=(S.nq||"").trim(),Q=q.toUpperCase(),mine=new Set([...S.watch,...Object.keys(holds())]);
+  let list=sortedNews().filter(x=>!x.market||x.market==="ALL"||x.market===S.mkt);
+  if(f==="mine")list=list.filter(x=>(x.tickers||[]).some(t=>mine.has(t)));else if(f==="co")list=list.filter(x=>(x.tickers||[]).length);
+  else if(f==="macro")list=list.filter(x=>!(x.tickers||[]).length||newsLinks(x).via.length);else if(f==="pos")list=list.filter(x=>x.sentiment>0);else if(f==="neg")list=list.filter(x=>x.sentiment<0);
+  if(S.nsec)list=list.filter(x=>(x.sectors||[]).includes(S.nsec)||(x.tickers||[]).some(t=>stockBySym(t)?.sec===S.nsec));
+  if(q)list=list.filter(x=>(x.tickers||[]).includes(Q)||(x.titleTh||"").includes(q)||(x.title||"").toLowerCase().includes(q.toLowerCase())||(x.summaryTh||"").includes(q));
+  return list}
+function newsBody(){const list=newsList(),n=events(list).length,lim=S.nlim||20;
+  return `${newsHTML(list,lim,true)}${n>lim?`<div style="text-align:center;padding:12px 0 2px"><button class="btn ghost sm" data-nmore>ดูข่าวเพิ่ม (เหลืออีก ${n-lim} เรื่อง)</button></div>`:""}`}
 function vNews(){
-  const f=S.nf;let list=sortedNews().filter(x=>!x.market||x.market==="ALL"||x.market===S.mkt);
-  if(f==="macro")list=list.filter(x=>!(x.tickers||[]).length);else if(f==="fac")list=list.filter(x=>newsLinks(x).via.length);else if(f!=="all")list=list.filter(x=>(x.sectors||[]).includes(f));
-  const secs=[...new Set(S.news.flatMap(x=>x.sectors||[]))];
-  const b=(v,l)=>`<button class="chip" data-nf="${v}" aria-pressed="${f===v}">${l}</button>`;
-  return `<div><h1>ฟีดข่าว${S.mkt==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</h1><p class="muted" style="margin:4px 0 0">ข่าวจากแหล่งที่ตรวจสอบได้ ผูกกับหุ้นรายตัวและ sector · ระดับ 1 = สำนักข่าวหลักหรือประกาศทางการ, ระดับ 2 = สื่อธุรกิจและบทวิเคราะห์โบรกเกอร์, ระดับ 3 = เว็บรวบรวมข้อมูล · ข่าวระดับสูงมีน้ำหนักในคะแนนมากกว่า</p></div>
-  <div class="chips"><button class="chip" data-mkt="TH" aria-pressed="${S.mkt==="TH"}">หุ้นไทย</button><button class="chip" data-mkt="US" aria-pressed="${S.mkt==="US"}">หุ้นสหรัฐฯ</button><span style="width:8px"></span>${b("all","ทั้งหมด")}${b("macro","มหภาค")}${b("fac","กระทบปัจจัย")}${secs.map(s=>b(s,SECTORS[s]?.th||s)).join("")}</div>
-  <section class="card">${newsHTML(list,S.nlim||15)}${events(list).length>(S.nlim||15)?`<div style="text-align:center;padding:12px 0 2px"><button class="btn ghost sm" data-nmore>ดูข่าวเพิ่ม (เหลืออีก ${events(list).length-(S.nlim||15)} เรื่อง)</button></div>`:""}</section>`;
+  const all=S.news.filter(x=>!x.market||x.market==="ALL"||x.market===S.mkt),day=all.filter(x=>Date.now()/1e3-nTs(x)<86400);
+  const srcs=new Set(all.map(x=>x.source)),top={};for(const x of all.filter(x=>Date.now()/1e3-nTs(x)<2*86400))for(const t of x.tickers||[]){const st=stockBySym(t);if(st&&st.m===S.mkt)top[t]=(top[t]||0)+1}
+  const hot=Object.entries(top).sort((a,b)=>b[1]-a[1]).slice(0,14),f=S.nf||"all";
+  const b=(v,l)=>`<button class="chip" data-nf="${v}" aria-pressed="${f===v}">${l}</button>`,secs=Object.entries(SECTORS);
+  const byS={};for(const x of all){const k=x.source;(byS[k]??={n:0,t:x.tier||3}).n++}
+  return `<div><h1>ข่าว${S.mkt==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</h1><p class="muted" style="margin:4px 0 0">${day.length} ข่าวใน 24 ชม. · ทั้งหมด ${all.length} ข่าวจาก ${srcs.size} แหล่ง · ข่าวเรื่องเดียวกันรวมเป็นเรื่องเดียว แสดงฉบับที่ละเอียดที่สุด${S.newsUpd?` · อัปเดต ${new Date(S.newsUpd*1e3).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"})} น.`:""}</p></div>
+  ${hot.length?`<section><div class="fnh" style="margin-bottom:8px">หุ้นที่เป็นข่าวมากที่สุด 2 วันนี้</div><div class="hotn">${hot.map(([t,c])=>`<button class="hchip" data-nq="${esc(t)}" aria-pressed="${S.nq===t}">${logo(t)}<b>${esc(t)}</b><span class="cnt">${c}</span></button>`).join("")}</div></section>`:""}
+  <div class="nbar"><input id="nq" type="search" placeholder="ค้นหาหุ้นหรือคำในข่าว เช่น ${S.mkt==="TH"?"PTT, ดอกเบี้ย":"NVDA, earnings"}" value="${esc(S.nq||"")}" autocomplete="off"><select id="nsec" aria-label="กลุ่มอุตสาหกรรม"><option value="">ทุกกลุ่ม</option>${secs.map(([k,v])=>`<option value="${k}"${S.nsec===k?" selected":""}>${v.th}</option>`).join("")}</select></div>
+  <div class="chips">${b("all","ทั้งหมด")}${b("mine","หุ้นของฉัน")}${b("co","ข่าวบริษัท")}${b("macro","เศรษฐกิจ/ปัจจัย")}${b("pos","ข่าวบวก")}${b("neg","ข่าวลบ")}</div>
+  <section class="card" id="nlist">${newsBody()}</section>
+  <details class="card nsrc"><summary>แหล่งข่าวทั้งหมด ${srcs.size} แหล่ง และระดับความน่าเชื่อถือ</summary><p class="foot" style="margin:8px 0">ระดับ 1 = สำนักข่าวหลักระดับโลกหรือประกาศทางการ · ระดับ 2 = สื่อธุรกิจและบทวิเคราะห์ · ระดับ 3 = เว็บรวบรวมข่าว · ข่าวระดับสูงมีน้ำหนักในคะแนนหุ้นมากกว่า</p><div class="chips">${Object.entries(byS).sort((a,b)=>a[1].t-b[1].t||b[1].n-a[1].n).map(([k,v])=>`<span class="chip"><span class="tier t${v.t}">${["","ร.1","ร.2","ร.3"][v.t]}</span> ${esc(k)} · ${v.n}</span>`).join("")}</div></details>`;
 }
 const CATS=[["rates","ดอกเบี้ยและพันธบัตร"],["energy","พลังงานและสินค้าโภคภัณฑ์"],["fx","ค่าเงิน"],["macro","เศรษฐกิจและเงินเฟ้อ"],["flow","ตลาดและกระแสเงินทุน"],["theme","ธีมและนโยบาย"]];
 function fbar(v){const w=Math.abs(v)*50;return `<span class="fbar" title="แรงปัจจุบัน ${v>0?"+":""}${v}"><span class="dv-c"></span>${v?`<i class="${v>0?"pos":"neg"}" style="width:${w}%"></i>`:""}</span>`}
@@ -591,13 +623,14 @@ function calc(R){const out=$("#calcOut");if(!out)return;const cap=+$("#capIn").v
   out.innerHTML=`<dt>จำนวนหุ้นที่ซื้อได้${m==="TH"?" (ล็อต 100)":""}</dt><dd class="num">${sh.toLocaleString()}</dd><dt>เงินที่ใช้</dt><dd class="num">${cur(m)}${fmt(sh*P.entry)}</dd><dt>ขาดทุนสูงสุดถ้าโดน SL</dt><dd class="num down">−${cur(m)}${fmt(sh*per)}</dd><dt>กำไรถ้าถึง TP2</dt><dd class="num up">+${cur(m)}${fmt(sh*(P.tp2-P.entry))}</dd>`}
 document.addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;
-  if(t.dataset.mkt){S.mkt=t.dataset.mkt;lsSet("mkt",S.mkt);S.mlimit=60;S.sgl=20;S.nlim=15;S.sec=null;render();window.scrollTo(0,0)}
+  if(t.dataset.mkt){S.mkt=t.dataset.mkt;lsSet("mkt",S.mkt);S.mlimit=60;S.sgl=20;S.nlim=20;S.nq="";S.sec=null;render();window.scrollTo(0,0)}
   else if(t.dataset.sort){S.sort=t.dataset.sort;render()}
   else if(t.dataset.scr){S.scr=t.dataset.scr;render()}
-  else if(t.dataset.nf){S.nf=t.dataset.nf;S.nlim=15;render()}
+  else if(t.dataset.nf){S.nf=t.dataset.nf;S.nlim=20;render()}
+  else if(t.dataset.nq!=null){S.nq=S.nq===t.dataset.nq?"":t.dataset.nq;S.nlim=20;render()}
   else if(t.dataset.clearsec){S.sec=null;render()}
   else if(t.dataset.fm){S.fm=t.dataset.fm;render()}
-  else if(t.dataset.nmore!=null){S.nlim=(S.nlim||15)+15;render()}
+  else if(t.dataset.nmore!=null){S.nlim=(S.nlim||20)+20;const nl=$("#nlist");if(nl)nl.innerHTML=newsBody();else render()}
   else if(t.dataset.mover){S.mover=t.dataset.mover;render()}
   else if(t.dataset.secall!=null){S.secAll=!S.secAll;render()}
   else if(t.dataset.sgm){S.sgm=t.dataset.sgm;S.sgl=20;render()}
@@ -643,6 +676,8 @@ document.addEventListener("submit",async e=>{e.preventDefault();
     if(S.db&&S.uid){try{await S.db.collection("data/users/"+S.uid).doc("fa-"+sym).set(o)}catch(err){toast("บันทึกไม่สำเร็จ ลองอีกครั้ง");return}}else{const all=lsGet("fa")||{};all[sym]=o;lsSet("fa",all)}
     S.fa[sym]=o;S.cache.clear();toast("บันทึกงบแล้ว");render()}
 });
+let nqT;document.addEventListener("input",e=>{if(e.target.id!=="nq")return;clearTimeout(nqT);nqT=setTimeout(()=>{S.nq=e.target.value;S.nlim=20;const nl=$("#nlist");if(nl)nl.innerHTML=newsBody()},200)});
+document.addEventListener("change",e=>{if(e.target.id==="nsec"){S.nsec=e.target.value||null;S.nlim=20;render()}});
 document.addEventListener("change",e=>{const t=e.target;if(t.dataset&&t.dataset.cap){const v=Math.max(0,+t.value||0),k="cap"+t.dataset.cap;if(lsGet(k)!==v){lsSet(k,v);setTimeout(render,0)}}});
 document.addEventListener("dragover",e=>{const d=e.target.closest&&e.target.closest("#drop");if(d){e.preventDefault();d.classList.add("over")}});
 document.addEventListener("dragleave",e=>{const d=e.target.closest&&e.target.closest("#drop");if(d)d.classList.remove("over")});
@@ -686,7 +721,7 @@ async function loadAll(){
 const q=L.q,meta=L.meta;
   S.universe=uni?.items||[];S.summary=sum?.s||{};S.hist??={};S._allK=null;
   S.prices=px||{};S.quotes=q;S.fundLive=fund||{};S.macro=macro||{};S.metaLive=meta;S.live=!!(sum&&Object.keys(sum.s||{}).length);
-  S.factors=buildFactors(man,macro).sort((a,b)=>(a.order||0)-(b.order||0));S.news=mergeNews(man?.news||[],news?.items||[]);
+  S.factors=buildFactors(man,macro).sort((a,b)=>(a.order||0)-(b.order||0));S.news=mergeNews(man?.news||[],news?.items||[]);S.newsUpd=news?.updated;
   const ix=meta?.indices||{};S.meta={updatedAt:meta?new Date(meta.updated*1000).toISOString():null,...ix};
   S.dbState=man||news?"ready":"off";S.cache.clear();S.bars.clear();S.loadedAt=Date.now();render();liveBadge();
 }

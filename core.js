@@ -225,7 +225,7 @@ function fx(f){const base=(f.dir||0)*(f.strength??1);let s=0,w=0;for(const x of 
 const sgn=v=>v>.15?1:v<-.15?-1:0;
 // ผลของข่าวต่อหุ้นหนึ่งตัว ผ่านปัจจัยที่ข่าวนั้นกระทบ
 function newsLinks(x,st){const F=FBY();let v=0;const via=[];for(const l of x.factors||[]){const f=F[l.id];if(!f||!l.eff)continue;if(st){if(!(f.scope==="ALL"||f.scope===st.m))continue;const k=impactOf(f,st);if(!k)continue;v+=l.eff*k;via.push([f,l.eff,l.eff*k])}else via.push([f,l.eff,0])}return{v:clamp(v,-1,1),via}}
-function newsFor(st){return S.news.filter(x=>(x.tickers||[]).includes(st.s)||((x.sectors||[]).includes(st.sec)&&(x.market===st.m||x.market==="ALL"))||newsLinks(x,st).via.length)}
+function newsFor(st){return S.news.filter(x=>((x.tickers||[]).includes(st.s)&&(!x.market||x.market==="ALL"||x.market===st.m))||((x.sectors||[]).includes(st.sec)&&(x.market===st.m||x.market==="ALL"))||newsLinks(x,st).via.length)}
 function newsScore(st){let s=0,w=0;const list=newsFor(st);for(const x of list){const dir=(x.tickers||[]).includes(st.s)?1:(x.sectors||[]).includes(st.sec)?.5:0,ind=newsLinks(x,st),b=newsW(x);
   if(dir){s+=b*dir*(x.sentiment||0);w+=b*dir}if(ind.via.length){s+=b*.6*ind.v;w+=b*.6}}return{s:w?s/w:0,n:list.length}}
 // ขนาดผลกระทบของข่าวหนึ่งข่าวต่อหุ้น: ทางตรง (ข่าวพูดถึงหุ้น) + ทางกลุ่ม + ผ่านปัจจัยมหภาค แล้วถ่วงด้วยความน่าเชื่อถือของแหล่งข่าว

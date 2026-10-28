@@ -540,7 +540,20 @@ def sentiment(text):
 NEWS_UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
            "Accept": "application/rss+xml, application/xml, text/xml, */*"}
 BKK = dt.timezone(dt.timedelta(hours=7))
-NEWS_DAYS, NEWS_MAX = 12, 1100
+NEWS_DAYS, NEWS_CAP = 12, {"TH": 600, "US": 650, "ALL": 60}
+# เว็บรวมข่าวคุณภาพต่ำ/เนื้อหาสร้างอัตโนมัติ — ไม่นำมาแสดง
+JUNK_SRC = re.compile(r"facebook|youtube|tiktok|instagram|twitter|pantip|blockdit|logos-pres|ad-hoc-news|marketbeat|pluang|traders union|"
+                      r"tradingkey|kalkine|stock titan|moomoo|tikr|quiver|stocks down under|share2trade|stocktwits|ainvest|"
+                      r"benzinga india|newsbreak|msn$|digital journal|openpr|scanx|marketscreener|financial content|"
+                      r"timothy sykes|insidermonkey|insider monkey|zerohedge|investorplace|coincentral|the globe and mail", re.I)
+
+
+def norm_src(s):
+    s = (s or "").strip()
+    s = re.sub(r"^(Investing\.com)\s+\w+.*$", r"\1", s)
+    s = re.sub(r"^Yahoo!? Finance.*$", "Yahoo Finance", s)
+    return {"bangkokbiznews": "กรุงเทพธุรกิจ", "Thansettakij": "ฐานเศรษฐกิจ", "Thunhoon": "ทันหุ้น", "ข่าวหุ้นธุรกิจออนไลน์": "ข่าวหุ้น",
+            "สำนักข่าวอินโฟเควสท์": "อินโฟเควสท์", "thestandard.co": "THE STANDARD", "Thairath.co.th": "ไทยรัฐ"}.get(s, s)
 
 # ฟีดตรงของสำนักข่าว (ทดสอบแล้วว่าเข้าถึงได้จาก GitHub Actions) — ข่าวทั่วไปจะถูกกรองให้เหลือเฉพาะข่าวหุ้น/เศรษฐกิจ
 FEEDS = [
@@ -659,10 +672,23 @@ def _get(url, timeout=20):
 
 def parse_feed(raw, default_src):
     """RSS หรือ Atom → [{title, summary, url, ts, source}]"""
-    root = ET.fromstring(raw)
+    try:
+        root = ET.fromstring(raw)
+        nodes = [{c.tag.split("}")[-1]: c for c in e} for e in root.iter() if e.tag.split("}")[-1] in ("item", "entry")]
+    except ET.ParseError:  # ฟีดบางเจ้ามีอักขระผิดรูป: แยกด้วย regex แทน
+        txt = raw.decode("utf-8", "ignore") if isinstance(raw, bytes) else raw
+        nodes = []
+        for blk in re.findall(r"<item[\s>].*?</item>", txt, re.S):
+            f = {}
+            for tg in ("title", "link", "description", "pubDate", "source"):
+                m = re.search(rf"<{tg}[^>]*>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?</{tg}>", blk, re.S)
+                if m:
+                    el = ET.Element(tg)
+                    el.text = m.group(1).strip()
+                    f[tg] = el
+            nodes.append(f)
     out = []
-    for it in [e for e in root.iter() if e.tag.split("}")[-1] in ("item", "entry")]:
-        f = {c.tag.split("}")[-1]: c for c in it}
+    for f in nodes:
         title = _clean(f["title"].text if "title" in f else "")
         link = f.get("link")
         url = (link.text or link.get("href")) if link is not None else None
@@ -675,7 +701,7 @@ def parse_feed(raw, default_src):
             summ = ""
         if summ and (summ.lower().startswith(title.lower()[:40]) and len(summ) < len(title) + 20):
             summ = ""
-        pd = f.get("pubDate") or f.get("published") or f.get("updated") or f.get("date")
+        pd = next((f[k] for k in ("pubDate", "published", "updated", "date") if f.get(k) is not None), None)
         ts = _ts(pd.text) if pd is not None and pd.text else None
         if title and url:
             out.append({"title": title, "summary": summ[:320], "url": url.strip(), "ts": ts or int(time.time()), "source": source.strip()})
@@ -735,13 +761,23 @@ class Tagger:
             self.en[m] = (re.compile(r"(?<![\w&])(" + "|".join(re.escape(k) for k in ks) + r")(?![\w&])"), d) if ks else (None, d)
         self.us_name = {v: k for k, v in sorted(names["US"].items(), key=lambda kv: len(kv[0]))}
         self.th_alias = sorted([(k, v) for k, v in TH_ALIAS.items() if v and v in self.th_syms], key=lambda kv: -len(kv[0]))
-        self.sym_re = re.compile(r"(?<![A-Za-z0-9&\-.])([A-Z][A-Z0-9&]{0,9}(?:-[A-Z])?)(?![A-Za-z0-9&])")
+        self.sym_re = re.compile(r"(?<![A-Za-z0-9&.])([A-Z][A-Z0-9&]{0,9}(?:-[A-Z])?)(?![A-Za-z0-9&])")
+
+    def protect(self, text, market):
+        """แทนชื่อบริษัทด้วยรหัสชั่วคราวก่อนแปล กันชื่อเฉพาะถูกแปลเป็นคำไทย (เช่น Waste Management)"""
+        rx, _ = self.en[market]
+        ph = {}
+        def sub(m):
+            k = f"ZQ{len(ph)}X"
+            ph[k] = m.group(1)
+            return k
+        return (rx.sub(sub, text) if rx else text), ph
 
     def tag(self, text, market):
         found = []
         pool = self.th_syms if market == "TH" else self.us_syms
         add = lambda s: s in pool and s not in found and found.append(s)
-        thai = bool(re.search(r"[฀-๿]", text))
+        thai = bool(re.search(r"[\u0e00-\u0e7f]", text))
         for m in re.finditer(r"\((?:NYSE|NASDAQ|Nasdaq|NYSE American|AMEX|SET|mai)\s*:\s*([A-Z.\-]{1,6})\)|\$([A-Z]{1,5})\b|หุ้น\s?([A-Z][A-Z0-9&]{1,9})", text):
             s = (m.group(1) or m.group(2) or m.group(3)).replace(".", "-")
             add(s)
@@ -871,7 +907,7 @@ def fetch_news():
         jobs.append(("macro", q, q.get("m", "ALL"), None))
     th_q = list(dict.fromkeys([s for s in curated if s in TG.th_syms] + th[:150]))
     us_q = list(dict.fromkeys([s for s in curated if s in TG.us_syms] + us[:250]))
-    for s in rot(th_q, 25, 35):
+    for s in rot(th_q, 30, 50):
         jobs.append(("gq", (f'"{s}" หุ้น', "th", 3), "TH", s))
     for s in rot(us_q, 12, 18):
         nm = TG.us_name.get(s, s)
@@ -937,15 +973,16 @@ def fetch_news():
         kind, arg, m, qs = job
         if it["ts"] < cutoff or it["ts"] > now_s + 3600:
             continue
-        if re.search(r"facebook|youtube|tiktok|instagram|twitter|pantip|blockdit|logos-pres", it.get("source") or "", re.I):
+        it["source"] = norm_src(it.get("source"))
+        if JUNK_SRC.search(it["source"]):
             continue
         text = it["title"] + " " + (it.get("summary") or "")[:400]
-        thai = bool(re.search(r"[฀-๿]", it["title"]))
+        thai = bool(re.search(r"[\u0e00-\u0e7f]", it["title"]))
         mk = "TH" if thai or (kind == "gq" and arg[1] == "th") else m
         tk = TG.tag(text, mk if mk != "ALL" else "TH")
         if mk == "US" and not tk and kind == "feed":
             tk = TG.tag(text, "US")
-        if qs and qs not in tk and kind in ("yahoo", "sa"):
+        if qs and qs not in tk and (kind == "sa" or (kind == "yahoo" and qs in it.get("rel", []))):
             tk = [qs] + tk
         if kind == "yahoo":
             tk += [r for r in it.get("rel", []) if r in TG.us_syms and r not in tk][:3]
@@ -984,21 +1021,35 @@ def fetch_news():
         items.append(x)
     groups = cluster(items)
     groups.sort(key=lambda x: -x["ts"])
-    groups = groups[:NEWS_MAX]
+    cnt, kept = {}, []
+    for G in groups:  # เพดานต่อตลาด ไม่ให้ข่าวสหรัฐฯ ที่มีปริมาณมากเบียดข่าวไทย
+        m = G["market"]
+        if cnt.get(m, 0) < NEWS_CAP.get(m, 60):
+            cnt[m] = cnt.get(m, 0) + 1
+            kept.append(G)
+    groups = kept
     # แปลหัวข่าวและคำโปรยภาษาอังกฤษเป็นไทย (เก็บแคชไว้ แปลเฉพาะข่าวใหม่)
-    need = []
+    need, prot = [], {}
     for G in groups:
-        if not re.search(r"[฀-๿]", G["title"]):
+        if not re.search(r"[\u0e00-\u0e7f]", G["title"]):
             for k in ("title", "summary"):
                 v = G.get(k)
-                if v and v not in tr_cache and len(need) < 700:
-                    need.append(v)
-    tr_cache.update(translate_th(list(dict.fromkeys(need))))
+                if v and v not in tr_cache and len(need) < 900:
+                    pv, ph = TG.protect(v[:260], G["market"] if G["market"] in ("TH", "US") else "US")
+                    prot[pv] = (v, ph)
+                    need.append(pv)
+    for pv, th in translate_th(list(dict.fromkeys(need))).items():
+        v, ph = prot[pv]
+        if all(k in th for k in ph):  # ถ้ารหัสชื่อบริษัทหายระหว่างแปล ใช้ต้นฉบับแทน
+            for k, name in ph.items():
+                th = th.replace(k, name)
+            tr_cache[v] = th
     for G in groups:
         if G.get("title") in tr_cache:
             G["titleTh"] = tr_cache[G["title"]]
         if G.get("summary") in tr_cache:
             G["summaryTh"] = tr_cache[G["summary"]]
+            G["summary"] = G["summary"][:200]
         if not G.get("alt"):
             G.pop("alt", None)
         for k in ("summary", "factors", "sectors"):

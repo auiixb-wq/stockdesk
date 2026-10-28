@@ -505,3 +505,19 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .syf input{flex:1 1 180px;min-width:0;padding:9px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface-2);font:inherit;color:inherit}
 .syset{display:grid;gap:12px;max-width:440px}.syset input{padding:10px 12px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface-2);font:inherit;color:inherit}
 .systeps{margin:0;padding-left:0;list-style:none;display:grid;gap:8px;font-size:14px}.systeps code{background:var(--surface-2);padding:1px 6px;border-radius:6px}
+/* news page */
+.nst{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.nsk{display:inline-flex;align-items:center;gap:6px;padding:3px 8px 3px 3px;border:1px solid var(--line);border-radius:99px;text-decoration:none;color:var(--ink);font-size:13px;background:var(--surface)}
+.nsk:hover{border-color:var(--ink-2)}.nsk .logo{width:22px;height:22px;font-size:calc(22px*var(--fs,.36))}.nsk .cp{font-size:11.5px;padding:1px 6px}
+.ntag{font-size:12px;font-weight:600;color:var(--ink-2);background:var(--bg-2,var(--line));padding:3px 9px;border-radius:99px}
+.ni .ot{font-size:12.5px;color:var(--ink-2);line-height:1.4;margin-top:-2px}
+.ni p.sm{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.55}
+.nday{font-size:13px;font-weight:700;color:var(--ink-2);margin:16px 0 2px;padding-bottom:6px;border-bottom:1px solid var(--line);letter-spacing:.02em}
+.nday:first-child{margin-top:0}
+.hotn{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.hchip{flex:none;display:inline-flex;align-items:center;gap:6px;padding:4px 10px 4px 4px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--ink);font:inherit;font-size:13px;cursor:pointer}
+.hchip .logo{width:24px;height:24px;font-size:calc(24px*var(--fs,.36))}.hchip .cnt{font-size:11.5px;color:var(--ink-2);background:var(--line);border-radius:99px;padding:0 6px}
+.hchip[aria-pressed="true"]{border-color:var(--accent,var(--ink));box-shadow:0 0 0 1px var(--accent,var(--ink)) inset}
+.nbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.nbar input,.nbar select{font:inherit;font-size:14px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);min-width:0}
+.nsrc summary{cursor:pointer;font-weight:600;font-size:14px}
