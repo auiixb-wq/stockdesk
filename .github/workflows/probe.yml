@@ -9,7 +9,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
-      - run: true
+      - run: pip install -r requirements.txt && git fetch -q --depth 1 origin gh-pages
       - run: python scripts/probe.py
       - run: |
-          mkdir _p && cp probe.json _p/ && cd _p && git init -q -b probe && git add -A && git -c user.name=bot -c user.email=a@b commit -qm p && git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe
+          mkdir _p && cp probe.json news.json _p/ && cd _p && git init -q -b probe && git add -A && git -c user.name=bot -c user.email=a@b commit -qm p && git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" probe

@@ -469,11 +469,12 @@ def fetch_macro():
 
 
 # ---------- news ----------
-TIER1 = ["reuters", "bloomberg", "wall street journal", "wsj", "financial times", "ft.com", "associated press", "ap news",
+TIER1 = ["reuters", "bloomberg", "barron's", "barrons", "wall street journal", "wsj", "financial times", "ft.com", "associated press", "ap news",
          "set.or.th", "ตลาดหลักทรัพย์", "bank of thailand", "ธนาคารแห่งประเทศไทย", "federal reserve", "sec.gov", "nikkei"]
 TIER2 = ["cnbc", "marketwatch", "barron", "yahoo finance", "investopedia", "motley fool", "the motley fool", "business insider",
          "bangkok post", "nation thailand", "nationthailand", "kaohoon", "ข่าวหุ้น", "thansettakij", "ฐานเศรษฐกิจ",
-         "prachachat", "ประชาชาติ", "กรุงเทพธุรกิจ", "bangkokbiznews", "infoquest", "อินโฟเควสท์", "mgr", "ผู้จัดการ",
+         "prachachat", "ประชาชาติ", "ทันหุ้น", "thunhoon", "hoonsmart", "หุ้นสมาร์ท", "มิติหุ้น", "mitihoon", "seeking alpha",
+         "nasdaq", "business wire", "pr newswire", "stock2morrow", "efinance", "อีไฟแนนซ์", "the bangkok insight", "กรุงเทพธุรกิจ", "bangkokbiznews", "infoquest", "อินโฟเควสท์", "mgr", "ผู้จัดการ",
          "the standard", "money channel", "efinancethai", "kasikorn", "innovestx", "investing.com", "zacks", "benzinga"]
 
 
@@ -536,86 +537,475 @@ def sentiment(text):
     return 1 if p > n else -1 if n > p else 0
 
 
-def rss(query, lang="th"):
-    hl, gl, ceid = ("th", "TH", "TH:th") if lang == "th" else ("en-US", "US", "US:en")
-    url = "https://news.google.com/rss/search?q=" + urllib.parse.quote(query + " when:3d") + f"&hl={hl}&gl={gl}&ceid={ceid}"
-    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    root = ET.fromstring(urllib.request.urlopen(req, timeout=20).read())
-    items = []
-    for it in root.iter("item"):
-        title = html.unescape(it.findtext("title") or "")
-        src = it.find("source")
-        source = src.text if src is not None else title.rsplit(" - ", 1)[-1]
-        title = re.sub(r"\s+-\s+[^-]+$", "", title)
-        try:
-            date = email.utils.parsedate_to_datetime(it.findtext("pubDate")).strftime("%Y-%m-%d")
-        except Exception:
-            date = NOW.strftime("%Y-%m-%d")
-        items.append({"title": title, "source": source, "url": it.findtext("link"), "date": date})
-    return items
+NEWS_UA = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+           "Accept": "application/rss+xml, application/xml, text/xml, */*"}
+BKK = dt.timezone(dt.timedelta(hours=7))
+NEWS_DAYS, NEWS_MAX = 12, 1100
+
+# ฟีดตรงของสำนักข่าว (ทดสอบแล้วว่าเข้าถึงได้จาก GitHub Actions) — ข่าวทั่วไปจะถูกกรองให้เหลือเฉพาะข่าวหุ้น/เศรษฐกิจ
+FEEDS = [
+    ("CNBC", "US", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114"),
+    ("CNBC", "US", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839135"),
+    ("CNBC", "US", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664"),
+    ("CNBC", "US", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910"),
+    ("CNBC", "US", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=20910258"),
+    ("MarketWatch", "US", "https://feeds.content.dowjones.io/public/rss/mw_topstories"),
+    ("MarketWatch", "US", "https://feeds.content.dowjones.io/public/rss/mw_marketpulse"),
+    ("Wall Street Journal", "US", "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain"),
+    ("Financial Times", "US", "https://www.ft.com/markets?format=rss"),
+    ("Nasdaq", "US", "https://www.nasdaq.com/feed/rssoutbound?category=Markets"),
+    ("Nasdaq", "US", "https://www.nasdaq.com/feed/rssoutbound?category=Earnings"),
+    ("Seeking Alpha", "US", "https://seekingalpha.com/market_currents.xml"),
+    ("Investing.com", "US", "https://www.investing.com/rss/news_25.rss"),
+    ("Business Wire", "US", "https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEFtRWA=="),
+    ("PR Newswire", "US", "https://www.prnewswire.com/rss/financial-services-latest-news/financial-services-latest-news-list.rss"),
+    ("ข่าวหุ้น", "TH", "https://www.kaohoon.com/feed"),
+    ("ทันหุ้น", "TH", "https://thunhoon.com/feed/"),
+    ("อินโฟเควสท์", "TH", "https://www.infoquest.co.th/feed"),
+    ("ประชาชาติธุรกิจ", "TH", "https://www.prachachat.net/finance/feed"),
+    ("ประชาชาติธุรกิจ", "TH", "https://www.prachachat.net/feed"),
+    ("กรุงเทพธุรกิจ", "TH", "https://www.bangkokbiznews.com/rss/feed.xml"),
+    ("ฐานเศรษฐกิจ", "TH", "https://www.thansettakij.com/rss"),
+    ("Bangkok Post", "TH", "https://www.bangkokpost.com/rss/data/business.xml"),
+    ("Nation Thailand", "TH", "https://www.nationthailand.com/rss/business"),
+]
+# สำนักข่าวที่ไม่มีฟีดตรงหรือบล็อกเซิร์ฟเวอร์ ดึงผ่าน Google News แบบจำกัดเว็บไซต์
+SITE_Q = [
+    ("site:reuters.com stocks OR shares OR earnings", "en", "US"), ("site:reuters.com Thailand OR Thai", "en", "TH"),
+    ("site:bloomberg.com stocks OR earnings", "en", "US"), ("site:apnews.com stocks OR earnings", "en", "US"),
+    ("site:barrons.com stock", "en", "US"), ("site:cnbc.com stock earnings", "en", "US"),
+    ("site:hoonsmart.com หุ้น", "th", "TH"), ("site:efinancethai.com หุ้น", "th", "TH"), ("site:mitihoon.com หุ้น", "th", "TH"),
+    ("site:thunhoon.com หุ้น", "th", "TH"), ("site:kaohoon.com หุ้น", "th", "TH"), ("site:infoquest.co.th หุ้น", "th", "TH"),
+    ("site:thestandard.co หุ้น", "th", "TH"), ("site:moneychannel.co.th หุ้น", "th", "TH"), ("site:set.or.th", "th", "TH"),
+    ("site:bangkokpost.com SET stocks", "en", "TH"), ("site:stock2morrow.com หุ้น", "th", "TH"),
+]
+REL = re.compile(r"stock|share|equit|market|earning|revenue|profit|guidance|analyst|investor|dividend|ipo|merger|acquisi|deal|"
+                 r"fed\b|rate|yield|inflation|oil|dollar|tariff|nasdaq|s&p|dow\b|wall street|"
+                 r"หุ้น|ตลาดหลักทรัพย์|\bSET\b|กำไร|ขาดทุน|ผลประกอบการ|รายได้|ปันผล|โบรก|นักลงทุน|ดอกเบี้ย|เงินบาท|เงินเฟ้อ|น้ำมัน|ลงทุน|ส่งออก|เศรษฐกิจ|ก\.ล\.ต", re.I)
+# ตัวย่อที่บังเอิญตรงกับชื่อหุ้น — ไม่นับเป็นการพูดถึงหุ้น เว้นแต่มีรูปแบบชัดเจน เช่น (NYSE: X) หรือ "หุ้น X"
+ACRO = set("AI IT CEO CFO GDP IPO ETF ESG EV USA US UK EU USD THB SEC FDA FED FOMC CPI PCE PMI EPS AGM OPEC NYSE BOI BOT EEC SME "
+           "ETC IND BIG ADD ACE AGE ALT APP BIZ BTC BYD DDD III IP JR MAX NEW ONE PRO SUN WIN PR CI CM AS BA BR AU EP FE FM FN GC HL "
+           "KC TV CEO COO ROE ROI NPL LTV QE SET MAI GOLD Q1 Q2 Q3 Q4 H1 H2 YOY QOQ IMF WTO OECD ASEAN NASA API EBITDA CAGR CEO EVP "
+           "NOW ALL ARE CAN FOR HAS ITS OUT SEE TWO WAY GO ON OR AN AT BE BY DO IF IN IS NO OF SO TO UP WE A B C D E F G H I J K L M N "
+           "O P Q R S T U V W X Y Z CAT LOW KEY TECH REAL LIFE MAIN SAFE FAST GOOD BEST CASH HOME CARE PLAY RUN FUN".split())
+TH_ALIAS = {"ปตท.สผ": "PTTEP", "ปตท. สผ": "PTTEP", "พีทีทีอีพี": "PTTEP", "พีทีที โกลบอล": "PTTGC", "พีทีทีจีซี": "PTTGC", "โออาร์": "OR",
+            "ปตท.": "PTT", "ท่าอากาศยานไทย": "AOT", "ทอท.": "AOT", "กสิกรไทย": "KBANK", "ไทยพาณิชย์": "SCB", "ธนาคารกรุงไทย": "KTB",
+            "ธนาคารกรุงเทพ": "BBL", "กรุงศรีอยุธยา": "BAY", "ทีทีบี": "TTB", "เอไอเอส": "ADVANC", "แอดวานซ์ อินโฟร์": "ADVANC",
+            "ทรู คอร์ปอเรชั่น": "TRUE", "ซีพี ออลล์": "CPALL", "ปูนซิเมนต์ไทย": "SCC", "เอสซีจี": "SCC", "กัลฟ์": "GULF",
+            "เดลต้า อีเลคโทรนิคส์": "DELTA", "เดลต้า": "DELTA", "กรุงเทพดุสิตเวชการ": "BDMS", "บำรุงราษฎร์": "BH", "ซีพีเอฟ": "CPF",
+            "เจริญโภคภัณฑ์อาหาร": "CPF", "เซ็นทรัลพัฒนา": "CPN", "ไทยออยล์": "TOP", "ไออาร์พีซี": "IRPC", "บ้านปู": "BANPU",
+            "ไมเนอร์ อินเตอร์": "MINT", "ทิสโก้": "TISCO", "เมืองไทย แคปปิตอล": "MTC", "ศรีสวัสดิ์": "SAWAD", "บีทีเอส": "BTS",
+            "ช.การช่าง": "CK", "แลนด์ แอนด์ เฮ้าส์": "LH", "พฤกษา": "PSH", "ศุภาลัย": "SPALI", "แสนสิริ": "SIRI", "การบินไทย": "THAI",
+            "เบอร์ลี่ ยุคเกอร์": "BJC", "โกลบอลเฮ้าส์": "GLOBAL", "โฮม โปรดักส์": "HMPRO", "โฮมโปร": "HMPRO", "ไทยยูเนี่ยน": "TU",
+            "อินโดรามา": "IVL", "โอสถสภา": "OSP", "คาราบาว": "CBG", "เคซีอี": "KCE", "ฮานา ไมโครอิเล็คโทรนิคส์": "HANA",
+            "กรุงเทพประกันภัย": "BKI", "เมืองไทยประกันชีวิต": "TLI", "ไทยประกันชีวิต": "TLI", "ราช กรุ๊ป": "RATCH", "ผลิตไฟฟ้า": "EGCO",
+            "บี.กริม": "BGRIM", "กันกุล": "GUNKUL", "ซีพี แอ็กซ์ตร้า": "CPAXT", "แม็คโคร": "CPAXT", "เซ็นทรัล รีเทล": "CRC",
+            "ศรีตรังแอโกรอินดัสทรี": "STA", "ศรีตรัง": "STA", "ไทยวาโก้": "WACOAL", "เอสซีบี เอกซ์": "SCB", "กรุงไทยการ์ด": "KTC",
+            "อิออน": "AEONTS", "บางจาก": "BCP", "ไทยเบฟ": None, "ซีเค พาวเวอร์": "CKP", "ทางด่วนและรถไฟฟ้า": "BEM", "บีอีเอ็ม": "BEM",
+            "เอ็กโก": "EGCO", "สหพัฒน์": "SPC", "ดุสิตธานี": "DUSIT", "เซ็นทรัล พลาซา": "CENTEL", "แอสเสท เวิรด์": "AWC",
+            "ดับบลิวเอชเอ": "WHA", "อมตะ": "AMATA", "โรจนะ": "ROJNA", "ไทยรุ่งเรือง": None, "ธนชาต": "TCAP", "เกียรตินาคินภัทร": "KKP",
+            "ไทยคม": "THCOM", "อาร์เอส": "RS", "เวิร์คพอยท์": "WORK", "แพลน บี": "PLANB", "วีจีไอ": "VGI", "ซินเน็ค": "SYNEX",
+            "คอมเซเว่น": "COM7", "เจมาร์ท": "JMART", "เจ เอ็ม ที": "JMT", "ไทยแอร์เอเชีย": "AAV", "เอเชีย เอวิเอชั่น": "AAV",
+            "บางกอก แอร์เวย์ส": "BA", "บางกอกแอร์เวย์ส": "BA", "อีซูซุ": None, "โตโยต้า": None}
+US_ALIAS = {"Google": "GOOGL", "Alphabet": "GOOGL", "Facebook": "META", "Meta Platforms": "META", "Berkshire": "BRK-B",
+            "JPMorgan": "JPM", "JP Morgan": "JPM", "Goldman Sachs": "GS", "Goldman": "GS", "Morgan Stanley": "MS", "Bank of America": "BAC",
+            "Wells Fargo": "WFC", "Citigroup": "C", "Citi": "C", "Coca-Cola": "KO", "Walmart": "WMT", "Exxon": "XOM", "ExxonMobil": "XOM",
+            "Chevron": "CVX", "Eli Lilly": "LLY", "Lilly": "LLY", "UnitedHealth": "UNH", "Visa": "V", "Mastercard": "MA", "Netflix": "NFLX",
+            "Intel": "INTC", "Boeing": "BA", "Disney": "DIS", "McDonald's": "MCD", "Starbucks": "SBUX", "Nike": "NKE", "Salesforce": "CRM",
+            "Oracle": "ORCL", "Palantir": "PLTR", "SpaceX": "SPCX", "TSMC": "TSM", "Taiwan Semiconductor": "TSM", "Nvidia": "NVDA",
+            "Apple": "AAPL", "Microsoft": "MSFT", "Amazon": "AMZN", "Tesla": "TSLA", "Broadcom": "AVGO", "Micron": "MU", "AMD": "AMD",
+            "Advanced Micro Devices": "AMD", "Qualcomm": "QCOM", "Costco": "COST", "Home Depot": "HD", "Procter & Gamble": "PG",
+            "Johnson & Johnson": "JNJ", "Pfizer": "PFE", "Merck": "MRK", "AbbVie": "ABBV", "Novo Nordisk": "NVO", "PepsiCo": "PEP",
+            "Caterpillar": "CAT", "Uber": "UBER", "Airbnb": "ABNB", "PayPal": "PYPL", "Adobe": "ADBE", "IBM": "IBM", "Cisco": "CSCO",
+            "Super Micro": "SMCI", "Supermicro": "SMCI", "CoreWeave": "CRWV", "Coinbase": "COIN", "Robinhood": "HOOD", "AT&T": "T",
+            "Verizon": "VZ", "Comcast": "CMCSA", "General Motors": "GM", "Ford": "F", "Lockheed": "LMT", "ASML": "ASML", "Arm Holdings": "ARM",
+            "Alibaba": "BABA", "Shopify": "SHOP", "Dell": "DELL", "Snowflake": "SNOW", "CrowdStrike": "CRWD", "Moderna": "MRNA",
+            "BlackRock": "BLK", "Charles Schwab": "SCHW", "American Express": "AXP", "UPS": "UPS", "FedEx": "FDX", "Delta Air": "DAL",
+            "United Airlines": "UAL", "Lowe's": "LOW", "Chipotle": "CMG", "Applied Materials": "AMAT", "Lam Research": "LRCX",
+            "Texas Instruments": "TXN", "Marvell": "MRVL", "ServiceNow": "NOW", "Intuit": "INTU", "Booking Holdings": "BKNG"}
+NAME_STOP = set("american general first united national international global the new great southern northern western eastern "
+                "pacific atlantic central capital financial energy health digital data public bank royal standard universal "
+                "advanced applied enterprise service services group holdings industries realty trust community bangkok thai thailand siam "
+                "krung asia asian block match target booking equity waste republic regions progressive discover carrier crown steel "
+                "vista marathon constellation insight select essential alliance summit liberty frontier pioneer victory quest nexus "
+                "prime apollo atlas titan ultra super smart south north west east world first solutions systems technologies taiwan texas "
+                "space philip morgan international mitsubishi sumitomo japan china hong canadian british dutch royal".split())
 
 
-def yahoo_news(t):
+def _clean(s):
+    s = html.unescape(re.sub(r"<[^>]+>", " ", s or ""))
+    s = re.sub(r"\s+", " ", s).strip()
+    s = re.sub(r"(The post .*? appeared first on .*|อ่านต่อ.*|Continue reading.*|\[…\]|\[\.\.\.\])$", "", s).strip()
+    return s
+
+
+def _ts(s):
+    try:
+        d = email.utils.parsedate_to_datetime(s)
+        if d.tzinfo is None:
+            d = d.replace(tzinfo=dt.timezone.utc)
+        return int(d.timestamp())
+    except Exception:
+        pass
+    try:
+        return int(dt.datetime.fromisoformat(str(s).replace("Z", "+00:00")).timestamp())
+    except Exception:
+        return None
+
+
+def _get(url, timeout=20):
+    return urllib.request.urlopen(urllib.request.Request(url, headers=NEWS_UA), timeout=timeout).read()
+
+
+def parse_feed(raw, default_src):
+    """RSS หรือ Atom → [{title, summary, url, ts, source}]"""
+    root = ET.fromstring(raw)
     out = []
-    for n in (yf.Ticker(t).news or [])[:8]:
-        c = n.get("content", n)
-        title = c.get("title")
-        url = (c.get("canonicalUrl") or {}).get("url") or c.get("link")
-        src = (c.get("provider") or {}).get("displayName") or c.get("publisher")
-        pd = c.get("pubDate") or c.get("providerPublishTime")
-        try:
-            date = dt.datetime.fromtimestamp(pd, dt.timezone.utc).strftime("%Y-%m-%d") if isinstance(pd, (int, float)) else str(pd)[:10]
-        except Exception:
-            date = NOW.strftime("%Y-%m-%d")
+    for it in [e for e in root.iter() if e.tag.split("}")[-1] in ("item", "entry")]:
+        f = {c.tag.split("}")[-1]: c for c in it}
+        title = _clean(f["title"].text if "title" in f else "")
+        link = f.get("link")
+        url = (link.text or link.get("href")) if link is not None else None
+        desc = f.get("description") if "description" in f else f.get("summary")
+        summ = _clean(desc.text if desc is not None else "")
+        src = f.get("source")
+        source = (src.text if src is not None and src.text else default_src) or ""
+        if default_src == "Google News":  # หัวข่าว Google ลงท้ายด้วย " - ชื่อสำนักข่าว" และคำโปรยเป็นแค่ลิงก์ซ้ำ
+            title = re.sub(r"\s+-\s+[^-]+$", "", title)
+            summ = ""
+        if summ and (summ.lower().startswith(title.lower()[:40]) and len(summ) < len(title) + 20):
+            summ = ""
+        pd = f.get("pubDate") or f.get("published") or f.get("updated") or f.get("date")
+        ts = _ts(pd.text) if pd is not None and pd.text else None
         if title and url:
-            out.append({"title": title, "source": src or "Yahoo Finance", "url": url, "date": date})
+            out.append({"title": title, "summary": summ[:320], "url": url.strip(), "ts": ts or int(time.time()), "source": source.strip()})
     return out
 
 
+def gnews(q, lang="th", days=3):
+    hl, gl, ceid = ("th", "TH", "TH:th") if lang == "th" else ("en-US", "US", "US:en")
+    url = "https://news.google.com/rss/search?q=" + urllib.parse.quote(f"{q} when:{days}d") + f"&hl={hl}&gl={gl}&ceid={ceid}"
+    return parse_feed(_get(url), "Google News")
+
+
+def yahoo_search(sym):
+    d = json.loads(_get("https://query1.finance.yahoo.com/v1/finance/search?q=" + urllib.parse.quote(sym) + "&newsCount=12&quotesCount=0"))
+    out = []
+    for n in d.get("news", []):
+        if n.get("title") and n.get("link"):
+            out.append({"title": _clean(n["title"]), "summary": "", "url": n["link"], "ts": n.get("providerPublishTime") or int(time.time()),
+                        "source": n.get("publisher") or "Yahoo Finance", "rel": [r for r in n.get("relatedTickers", []) if "." not in r]})
+    return out
+
+
+class Tagger:
+    """หาว่าข่าวพูดถึงหุ้นตัวไหน จากชื่อย่อ ชื่อบริษัท และชื่อเรียกที่ใช้บ่อย"""
+
+    def __init__(self, uni):
+        th = [x for x in uni if x["m"] == "TH"]
+        us = sorted([x for x in uni if x["m"] == "US"], key=lambda x: -(x.get("mc") or 0))
+        self.th_syms = {x["s"] for x in th}
+        self.us_syms = {x["s"] for x in us}
+        first = {}
+        for x in us[:400]:
+            w = (x.get("n") or "").split()
+            if w:
+                first[w[0]] = first.get(w[0], 0) + 1
+        names = {"TH": {}, "US": {}}
+        for x in th + us[:400]:
+            n = re.sub(r"\((Thailand|Thai)\)|[.,]", " ", x.get("n") or "")
+            n = re.sub(r"\b(Public Company Limited|Public Co\.? Ltd\.?|Company Limited|Corporation|Incorporated|Inc\.?|Corp\.?|Co\.?|Ltd\.?|"
+                       r"plc|PLC|Limited|Holdings?|Group|N V|S A|AG|SE|L P|Platforms|The|com)\b", " ", n)
+            w = n.split()
+            while w and w[-1].lower() in ("of", "&", "and", "de", "the", "-"):
+                w.pop()
+            if not w:
+                continue
+            one = x["m"] == "US" and len(w[0]) >= 5 and w[0].lower() not in NAME_STOP and first.get(w[0], 0) <= 1
+            a = w[0] if one or len(w) == 1 else " ".join(w[:2])
+            if a.split()[-1].lower() in ("of", "&", "and", "de"):
+                a = " ".join(w[:3])
+            if len(a) >= 5 and a.lower() not in NAME_STOP and (len(a.split()) > 1 or a.lower() not in NAME_STOP) and not (
+                    len(a.split()) == 1 and a.lower() in NAME_STOP):
+                names[x["m"]].setdefault(a, x["s"])
+        names["US"].update({k: v for k, v in US_ALIAS.items() if v in self.us_syms})
+        self.en = {}
+        for m, d in names.items():
+            ks = sorted(d, key=len, reverse=True)
+            self.en[m] = (re.compile(r"(?<![\w&])(" + "|".join(re.escape(k) for k in ks) + r")(?![\w&])"), d) if ks else (None, d)
+        self.us_name = {v: k for k, v in sorted(names["US"].items(), key=lambda kv: len(kv[0]))}
+        self.th_alias = sorted([(k, v) for k, v in TH_ALIAS.items() if v and v in self.th_syms], key=lambda kv: -len(kv[0]))
+        self.sym_re = re.compile(r"(?<![A-Za-z0-9&\-.])([A-Z][A-Z0-9&]{0,9}(?:-[A-Z])?)(?![A-Za-z0-9&])")
+
+    def tag(self, text, market):
+        found = []
+        pool = self.th_syms if market == "TH" else self.us_syms
+        add = lambda s: s in pool and s not in found and found.append(s)
+        thai = bool(re.search(r"[฀-๿]", text))
+        for m in re.finditer(r"\((?:NYSE|NASDAQ|Nasdaq|NYSE American|AMEX|SET|mai)\s*:\s*([A-Z.\-]{1,6})\)|\$([A-Z]{1,5})\b|หุ้น\s?([A-Z][A-Z0-9&]{1,9})", text):
+            s = (m.group(1) or m.group(2) or m.group(3)).replace(".", "-")
+            add(s)
+        for m in self.sym_re.finditer(text):
+            s = m.group(1)
+            if s in ACRO:
+                continue
+            if market == "TH" and s in self.th_syms and (thai or len(s) >= 3):
+                add(s)
+            elif market == "US" and s in self.us_syms and len(s) >= 3 and not thai:
+                add(s)
+        rx, d = self.en[market]
+        if rx:
+            for m in rx.finditer(text):
+                add(d.get(m.group(1)))
+        if market == "TH":
+            rest = text
+            for k, v in self.th_alias:
+                if k in rest:
+                    add(v)
+                    rest = rest.replace(k, " ")
+        return found[:8]
+
+
+def translate_th(texts):
+    """แปลข้อความอังกฤษเป็นไทยทีละชุด (ใช้ Google Translate endpoint สาธารณะ) — ล้มเหลวก็คืนค่าเดิม"""
+    out = {}
+    batch, size = [], 0
+    def run(b):
+        q = "\n".join(t.replace("\n", " ") for t in b)
+        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=th&dt=t&q=" + urllib.parse.quote(q)
+        d = json.loads(_get(url, 20))
+        res = "".join(seg[0] for seg in d[0] if seg and seg[0]).split("\n")
+        if len(res) == len(b):
+            out.update({s: r.strip() for s, r in zip(b, res)})
+    for t in texts:
+        if size + len(t) > 1500 and batch:
+            try:
+                run(batch)
+            except Exception as e:
+                ERRORS.append(f"translate: {str(e)[:60]}")
+                return out
+            batch, size = [], 0
+            time.sleep(0.3)
+        batch.append(t)
+        size += len(t) + 1
+    if batch:
+        try:
+            run(batch)
+        except Exception as e:
+            ERRORS.append(f"translate: {str(e)[:60]}")
+    return out
+
+
+def _tri(s):
+    s = re.sub(r"[^\w]+", " ", (s or "").lower())
+    return {s[i:i + 3] for i in range(len(s) - 2)}
+
+
+def _detail(x):
+    """ความละเอียดของข่าว: คำโปรยยาวกว่าและแหล่งข่าวระดับสูงกว่าได้คะแนนมากกว่า"""
+    return len(x.get("summary") or "") + 0.3 * len(x["title"]) + (3 - x["tier"]) * 40
+
+
+def cluster(items):
+    """รวมข่าวเรื่องเดียวกันจากหลายแหล่ง เก็บฉบับที่ละเอียดที่สุดเป็นข่าวหลัก ที่เหลือเป็นแหล่งเพิ่มเติม"""
+    items.sort(key=lambda x: -_detail(x))
+    groups, index = [], {}
+    for x in items:
+        t = _tri(x["title"])
+        cnt = {}
+        for g in t:
+            for gi in index.get(g, ()):
+                cnt[gi] = cnt.get(gi, 0) + 1
+        hit = None
+        for gi, k in sorted(cnt.items(), key=lambda kv: -kv[1])[:5]:
+            G = groups[gi]
+            if abs(G["ts"] - x["ts"]) > 2.5 * 86400:
+                continue
+            if k / ((len(t) + len(G["_t"]) - k) or 1) > .45:
+                hit = G
+                break
+        if hit:
+            if x["url"] != hit["url"] and len(hit["alt"]) < 8 and all(a["u"] != x["url"] for a in hit["alt"]):
+                hit["alt"].append({"s": x["source"], "u": x["url"], "t": x["tier"], "h": x["title"][:140]})
+            hit["tickers"] = list(dict.fromkeys(hit["tickers"] + x["tickers"]))[:8]
+            hit["sectors"] = sorted(set(hit["sectors"]) | set(x["sectors"]))
+            hit["ts"] = min(hit["ts"], x["ts"])
+            hit["seen"] = min(hit["seen"], x["seen"])
+            if not hit["factors"] and x["factors"]:
+                hit["factors"] = x["factors"]
+            continue
+        x = {**x, "alt": list(x.get("alt") or []), "_t": t}
+        gi = len(groups)
+        groups.append(x)
+        for g in t:
+            index.setdefault(g, []).append(gi)
+    for G in groups:
+        G.pop("_t", None)
+    return groups
+
+
 def fetch_news():
-    found = {}
-
-    def add(item, tickers=(), sectors=(), market="ALL"):
-        if not item.get("url") or not item.get("title"):
-            return
-        key = re.sub(r"\W+", "", item["title"].lower())[:80]
-        x = found.get(key)
-        if x:
-            x["tickers"] = sorted(set(x["tickers"]) | set(tickers))
-            x["sectors"] = sorted(set(x["sectors"]) | set(sectors))
-            return
-        if re.search(r"facebook|youtube|tiktok|instagram|twitter|pantip|blockdit", item.get("source") or "", re.I):
-            return
-        text = item["title"]
-        found[key] = {**item, "tier": tier(item["source"]), "tickers": list(tickers), "sectors": list(sectors),
-                      "market": market, "sentiment": sentiment(text), "factors": factor_links(text)}
-
+    t0 = time.time()
+    uni = load("universe.json", {"items": []})["items"] or [{"s": s["s"], "n": s.get("n", s["s"]), "m": s["m"], "sec": s["sec"]} for s in CFG["stocks"]]
     for s in CFG["stocks"]:
-        try:
-            if s["m"] == "US":
-                for it in yahoo_news(ysym(s)):
-                    add(it, [s["s"]], [s["sec"]], "US")
-            else:
-                for it in rss(f'"{s["s"]}" หุ้น')[:6]:
-                    add(it, [s["s"]], [s["sec"]], "TH")
-            time.sleep(0.5)
-        except Exception as e:
-            ERRORS.append(f"news {s['s']}: {str(e)[:80]}")
+        if not any(u["s"] == s["s"] for u in uni):
+            uni.append({"s": s["s"], "n": s.get("n", s["s"]), "m": s["m"], "sec": s["sec"], "mc": 1e15})
+    TG = Tagger(uni)
+    sec_of = {(x["m"], x["s"]): x.get("sec") for x in uni}
+    th = [x["s"] for x in sorted([x for x in uni if x["m"] == "TH"], key=lambda x: -(x.get("mc") or 0))]
+    us = [x["s"] for x in sorted([x for x in uni if x["m"] == "US"], key=lambda x: -(x.get("mc") or 0))]
+    curated = [s["s"] for s in CFG["stocks"]]
+    slot = int(time.time() // 1800)  # หมุนเวียนรายชื่อหุ้นที่ค้นข่าวทุกครึ่งชั่วโมง เพื่อไม่ให้ยิง Google ถี่เกิน
+
+    def rot(lst, keep, n):
+        rest = lst[keep:]
+        if not rest:
+            return lst[:keep]
+        k = (slot * n) % len(rest)
+        return lst[:keep] + (rest[k:k + n] + rest[:max(0, k + n - len(rest))])
+
+    jobs = []  # (kind, arg, market, queried_ticker)
+    jobs += [("feed", (src, url), m, None) for src, m, url in FEEDS]
+    jobs += [("gq", (q, lang, 2), m, None) for q, lang, m in SITE_Q]
     for q in CFG["macroQueries"]:
+        jobs.append(("macro", q, q.get("m", "ALL"), None))
+    th_q = list(dict.fromkeys([s for s in curated if s in TG.th_syms] + th[:150]))
+    us_q = list(dict.fromkeys([s for s in curated if s in TG.us_syms] + us[:250]))
+    for s in rot(th_q, 25, 35):
+        jobs.append(("gq", (f'"{s}" หุ้น', "th", 3), "TH", s))
+    for s in rot(us_q, 12, 18):
+        nm = TG.us_name.get(s, s)
+        jobs.append(("gq", (f'"{nm}" stock', "en", 2), "US", s))
+    for s in us_q[:200]:
+        jobs.append(("yahoo", s, "US", s))
+    for s in rot(us_q, 20, 20)[:40]:
+        jobs.append(("sa", s, "US", s))
+    for i in range(0, 120, 10):
+        jobs.append(("yrss", ",".join(us_q[i:i + 10]), "US", None))
+
+    def run(job):
+        kind, arg, m, qs = job
         try:
-            for it in rss(q["q"], q.get("lang", "th"))[:6]:
-                add(it, [], q.get("sectors", []), q.get("m", "ALL"))
+            if kind == "feed":
+                return job, parse_feed(_get(arg[1]), arg[0])
+            if kind == "gq":
+                time.sleep(0.4)
+                return job, gnews(*arg)
+            if kind == "macro":
+                time.sleep(0.4)
+                return job, gnews(arg["q"], arg.get("lang", "th"), 3)[:8]
+            if kind == "yahoo":
+                return job, yahoo_search(arg)
+            if kind == "sa":
+                return job, parse_feed(_get(f"https://seekingalpha.com/api/sa/combined/{urllib.parse.quote(arg)}.xml"), "Seeking Alpha")[:10]
+            if kind == "yrss":
+                return job, parse_feed(_get("https://feeds.finance.yahoo.com/rss/2.0/headline?s=" + arg + "&region=US&lang=en-US"), "Yahoo Finance")
         except Exception as e:
-            ERRORS.append(f"news '{q['q']}': {str(e)[:80]}")
-    cutoff = (NOW - dt.timedelta(days=30)).strftime("%Y-%m-%d")
-    # เวลาที่ระบบพบข่าวครั้งแรก (ไม่เปลี่ยนในรอบถัดไป) ใช้แสดงคู่กับเวลาเผยแพร่ของแหล่งข่าว
-    seen = {x.get("url"): x.get("seen") for x in load("news.json", {}).get("items", []) if x.get("seen")}
+            return job, e
+        return job, []
+
+    import concurrent.futures as cf
+    stats, raw = {}, []
+    gjobs = [j for j in jobs if j[0] in ("gq", "macro")]
+    ojobs = [j for j in jobs if j[0] not in ("gq", "macro")]
+    with cf.ThreadPoolExecutor(10) as ex, cf.ThreadPoolExecutor(3) as gx:  # Google ช้ากว่าเพื่อไม่ให้ถูกจำกัด
+        futs = [ex.submit(run, j) for j in ojobs] + [gx.submit(run, j) for j in gjobs]
+        for f in cf.as_completed(futs):
+            job, res = f.result()
+            key = job[0] if job[0] != "feed" else job[1][0]
+            st = stats.setdefault(key, [0, 0, 0])
+            if isinstance(res, Exception):
+                st[2] += 1
+                if st[2] <= 2:
+                    ERRORS.append(f"news {key} {str(job[1])[:40]}: {str(res)[:60]}")
+                continue
+            st[0] += 1
+            st[1] += len(res)
+            raw += [(job, it) for it in res]
+
+    cutoff = time.time() - NEWS_DAYS * 86400
+    old = load("news.json", {}).get("items", [])
+    seen = {x.get("url"): x.get("seen") for x in old if x.get("seen")}
+    for a in old:
+        for b in a.get("alt") or []:
+            seen.setdefault(b["u"], a.get("seen"))
+    tr_cache = {x["title"]: x["titleTh"] for x in old if x.get("titleTh")}
+    tr_cache.update({x["summary"]: x["summaryTh"] for x in old if x.get("summaryTh") and x.get("summary")})
     now_s = int(time.time())
-    for x in found.values():
-        x["seen"] = seen.get(x["url"], now_s)
-    items = [x for x in found.values() if x["date"] >= cutoff]
-    items.sort(key=lambda x: x["date"], reverse=True)
-    out = {"updated": int(time.time()), "items": items[:300]}
+    items, by_url = [], {}
+    for job, it in raw:
+        kind, arg, m, qs = job
+        if it["ts"] < cutoff or it["ts"] > now_s + 3600:
+            continue
+        if re.search(r"facebook|youtube|tiktok|instagram|twitter|pantip|blockdit|logos-pres", it.get("source") or "", re.I):
+            continue
+        text = it["title"] + " " + (it.get("summary") or "")[:400]
+        thai = bool(re.search(r"[฀-๿]", it["title"]))
+        mk = "TH" if thai or (kind == "gq" and arg[1] == "th") else m
+        tk = TG.tag(text, mk if mk != "ALL" else "TH")
+        if mk == "US" and not tk and kind == "feed":
+            tk = TG.tag(text, "US")
+        if qs and qs not in tk and kind in ("yahoo", "sa"):
+            tk = [qs] + tk
+        if kind == "yahoo":
+            tk += [r for r in it.get("rel", []) if r in TG.us_syms and r not in tk][:3]
+        fac = factor_links(it["title"] + ". " + (it.get("summary") or "")[:160])
+        if kind in ("feed", "gq") and not qs and not tk and not fac and not REL.search(text):
+            continue  # ข่าวทั่วไปที่ไม่เกี่ยวกับหุ้นหรือเศรษฐกิจ
+        if kind == "gq" and qs and qs not in tk and not fac:
+            continue  # ผลค้นหาที่ไม่ได้พูดถึงหุ้นที่ค้นจริง
+        market = mk if mk in ("TH", "US") else "ALL"
+        if kind == "macro":
+            market = arg.get("m", "ALL")
+        x = by_url.get(it["url"])
+        if x:
+            x["tickers"] = list(dict.fromkeys(x["tickers"] + tk))[:8]
+            continue
+        mm = "TH" if market == "ALL" else market
+        secs = sorted({sec_of.get((mm, s)) for s in tk if sec_of.get((mm, s))} | (set(arg.get("sectors", [])) if kind == "macro" else set()))
+        d = dt.datetime.fromtimestamp(it["ts"], BKK)
+        x = {"title": it["title"], "summary": it.get("summary") or "", "source": it["source"] or "", "url": it["url"],
+             "date": d.strftime("%Y-%m-%d"), "ts": it["ts"], "tier": tier(it["source"]), "tickers": tk[:8], "sectors": secs,
+             "market": market, "sentiment": sentiment(text), "factors": fac, "seen": seen.get(it["url"], now_s)}
+        by_url[it["url"]] = x
+        items.append(x)
+    # ข่าวเดิมในรอบก่อน ๆ ที่ยังไม่หมดอายุ (กันข่าวหายถ้าบางแหล่งล้มเหลวรอบนี้)
+    for x in old:
+        if x.get("url") in by_url or (x.get("ts") or 0) < cutoff:
+            continue
+        if not x.get("ts"):
+            continue
+        x = {k: v for k, v in x.items() if k not in ("titleTh", "summaryTh")}
+        for a in x.pop("alt", None) or []:
+            if a["u"] not in by_url:
+                items.append({**x, "title": a.get("h") or x["title"], "summary": "", "source": a["s"], "url": a["u"], "tier": a["t"], "alt": []})
+                by_url[a["u"]] = items[-1]
+        by_url[x["url"]] = x
+        items.append(x)
+    groups = cluster(items)
+    groups.sort(key=lambda x: -x["ts"])
+    groups = groups[:NEWS_MAX]
+    # แปลหัวข่าวและคำโปรยภาษาอังกฤษเป็นไทย (เก็บแคชไว้ แปลเฉพาะข่าวใหม่)
+    need = []
+    for G in groups:
+        if not re.search(r"[฀-๿]", G["title"]):
+            for k in ("title", "summary"):
+                v = G.get(k)
+                if v and v not in tr_cache and len(need) < 700:
+                    need.append(v)
+    tr_cache.update(translate_th(list(dict.fromkeys(need))))
+    for G in groups:
+        if G.get("title") in tr_cache:
+            G["titleTh"] = tr_cache[G["title"]]
+        if G.get("summary") in tr_cache:
+            G["summaryTh"] = tr_cache[G["summary"]]
+        if not G.get("alt"):
+            G.pop("alt", None)
+        for k in ("summary", "factors", "sectors"):
+            if not G.get(k):
+                G.pop(k, None)
+    out = {"updated": int(time.time()), "sources": {k: {"ok": v[0], "items": v[1], "fail": v[2]} for k, v in sorted(stats.items())},
+           "seconds": round(time.time() - t0, 1), "items": groups}
     save("news.json", out)
     return out
 
