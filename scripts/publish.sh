@@ -5,8 +5,8 @@ set -euo pipefail
 rm -rf _site && mkdir -p _site/data
 # ใช้ไฟล์หน้าเว็บและ manual.json ล่าสุดจาก main เสมอ (งานที่เปิดค้างทั้งวันจะได้ไม่เอาโค้ดเก่าทับ)
 SITE="index.html core.js manifest.webmanifest sw.js icon.svg symbols.json manual.json"
-git fetch -q origin main --depth=1 && git checkout -q FETCH_HEAD -- $SITE img || echo "ใช้ไฟล์เดิม: ดึง main ไม่สำเร็จ"
-cp $SITE _site/ && cp -r img _site/
+git fetch -q origin main --depth=1 && git checkout -q FETCH_HEAD -- $SITE || echo "ใช้ไฟล์เดิม: ดึง main ไม่สำเร็จ"
+cp $SITE _site/
 find data -maxdepth 1 -type f -name '*.json' -exec cp {} _site/data/ \;
 touch _site/.nojekyll
 cd _site && git init -q -b gh-pages && git add -A
