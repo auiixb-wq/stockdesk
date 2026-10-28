@@ -107,6 +107,9 @@ def fetch_quotes(prices):
             old = load("quotes.json", {"q": {}})["q"]
             allq = {**old, **market_quotes(uni, open_m)}
             allq.update({k: v for k, v in q.items() if v.get("ts") and (k not in allq or (allq[k].get("ts") or 0) <= v["ts"])})
+            if "TH" in open_m:
+                fresh = cnbc_th_quotes(uni)
+                allq.update({k: v for k, v in fresh.items() if (allq.get(k, {}).get("ts") or 0) <= v["ts"]})
             q = allq
     except Exception as e:
         ERRORS.append(f"market quotes: {str(e)[:80]}")
@@ -167,6 +170,35 @@ def quote_of(x):
     p, prev = num(x.get("regularMarketPrice")), num(x.get("regularMarketPreviousClose"))
     return {"p": p, "prev": prev, "chg": num(x.get("regularMarketChangePercent"), 3), "ts": x.get("regularMarketTime"),
             "v": x.get("regularMarketVolume")}
+
+
+def cnbc_th_quotes(uni):
+    """ราคาหุ้นไทยจาก CNBC (ล่าช้าราว 15 นาที เร็วกว่า Yahoo ที่ล่าช้าราว 30 นาที) ขอทีละ 40 ตัว"""
+    syms = [i["s"] for i in uni["items"] if i["m"] == "TH" and re.fullmatch(r"[A-Z0-9]+", i["s"])]
+    got = {}
+    for k in range(0, len(syms), 40):
+        part = syms[k:k + 40]
+        url = ("https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols="
+               + urllib.parse.quote("|".join(s + "-TH" for s in part))
+               + "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json")
+        try:
+            d = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=20).read())
+            rows = d["FormattedQuoteResult"]["FormattedQuote"]
+        except Exception as e:
+            ERRORS.append(f"cnbc TH {k}: {str(e)[:80]}")
+            continue
+        for q in rows if isinstance(rows, list) else [rows]:
+            try:
+                s = str(q["symbol"]).removesuffix("-TH")
+                p = float(str(q["last"]).replace(",", ""))
+                prev = float(str(q.get("previous_day_closing") or "0").replace(",", "")) or None
+                ts = int(dt.datetime.strptime(q["last_time"], "%Y-%m-%dT%H:%M:%S.%f%z").timestamp())
+                v = int(str(q.get("volume") or "0").replace(",", "")) or None
+                if p > 0:
+                    got[s] = {"p": p, "prev": prev, "chg": round((p / prev - 1) * 100, 3) if prev else None, "ts": ts, "v": v, "src": "CNBC"}
+            except Exception:
+                continue
+    return got
 
 
 def fetch_universe():
