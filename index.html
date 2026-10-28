@@ -860,8 +860,8 @@ function pbCard(R){const p=R.pb,c=R.last,atr=R.plan.atr,a=p.all,m=R.st.m;
   <div class="stat">${statBox("RSI(2) ตอนนี้",p.r2!=null?p.r2.toFixed(1):"–","ต้องต่ำกว่า 5",p.r2<5?"up":"")}${statBox("ราคาเทียบ SMA200",p.s200?pct((c/p.s200-1)*100,1):"–",p.s200&&c>p.s200?"อยู่เหนือ (ผ่าน)":"อยู่ใต้ (ไม่ผ่าน)",p.s200&&c>p.s200?"up":"down")}${statBox("ชนะในอดีต (หุ้นนี้)",a.n?a.win.toFixed(0)+"%":"–",`${a.n||0} ไม้ ย้อนหลัง 5 ปี`,a.n&&a.win>=65?"up":"")}${statBox("กำไรเฉลี่ยต่อไม้",a.n?pct(a.avg,2):"–",a.n?`ถือเฉลี่ย ${a.hold.toFixed(1)} วัน`:"",a.n?cls(a.avg):"")}</div>
   ${p.now?`<p style="margin:12px 0 0"><b>แผน:</b> ซื้อที่ราคาเปิดวันทำการถัดไป · ขายเมื่อราคาปิดเหนือ SMA5 (ตอนนี้ ${cur(m)}${fmt(p.s5)}) · ตัดขาดทุนถ้าต่ำกว่าประมาณ ${cur(m)}${fmt(rt(c-3*atr,m,"floor"))}</p>`:""}</section>`}
 function tChart(R){const M=R.model;return `<section class="card"><div class="card-h"><h2>กราฟราคา</h2><div class="chips" id="rng">${[["3M",63],["6M",126],["1Y",252],["ทั้งหมด",0]].map(([l,v])=>`<button class="chip" data-r="${v}" aria-pressed="false">${l}</button>`).join("")}<button class="chip" id="markBtn" aria-pressed="${S.marks}">จุดซื้อขายย้อนหลัง</button></div></div>
-      <div class="chartbox" id="cMain"></div><div class="subc" id="cRsi"><span class="sublabel">RSI 14</span></div><div class="subc" id="cMacd"><span class="sublabel">MACD 12,26,9</span></div>
-      <div class="legend"><span style="--c:var(--c1)">EMA 20</span><span style="--c:var(--c2)">EMA 50</span><span style="--c:var(--c3)">EMA 200</span><span style="--c:var(--ink-2)">Bollinger / แนวรับต้าน</span><span style="--c:var(--accent)">จุดเข้า</span><span style="--c:var(--up)">TP</span><span style="--c:var(--down)">SL</span></div></section>
+      <div class="chartbox" id="cMain"></div><div class="subc" id="cRsi"><span class="sublabel">RSI 14</span></div><div class="subc" id="cMacd"><span class="sublabel">ADX 14 · +DI / −DI</span></div>
+      <div class="legend"><span style="--c:var(--c1)">EMA 20</span><span style="--c:var(--c2)">EMA 50</span><span style="--c:var(--c3)">EMA 200</span><span style="--c:var(--ink-2)">แนวรับ / แนวต้าน</span><span style="--c:var(--accent)">จุดเข้า</span><span style="--c:var(--up)">TP</span><span style="--c:var(--down)">SL</span></div></section>
     <section class="card"><div class="card-h"><div><h2>อินดิเคเตอร์ ${R.tech.rows.length} ตัวบอกอะไร</h2><div class="sub-t">น้ำหนัก: ${M.name}</div></div><span class="pill ${R.tech.score>=20?"p-buy":R.tech.score<=-20?"p-sell":"p-hold"}">คะแนนเทคนิค ${Math.round(R.techP)}/100</span></div>
       <div style="max-width:420px;margin-bottom:12px">${tally(R.tech.rows)}</div>
       <div class="ilist">${R.tech.rows.map(r=>`<details class="ii"><summary><span class="light" style="--c:${r.v>0?"var(--up)":r.v<0?"var(--down)":"var(--ink-2)"}"></span><span class="in"><b>${r.name}</b><span class="muted">${r.why}</span></span><span class="vote ${cls(r.v)}">${r.v>0?"ซื้อ":r.v<0?"ขาย":"กลาง"}</span></summary><div class="id"><div><span class="muted">คืออะไร:</span> ${r.mean}</div><div><span class="muted">ค่าล่าสุด:</span> <span class="num">${r.val}</span> · <span class="muted">น้ำหนัก</span> <span class="num">${r.w.toFixed(2)}</span>${r.w!==r.w0?` (${r.w>r.w0?"เพิ่ม":"ลด"}จาก ${r.w0} ตามผลทดสอบ)`:""}</div></div></details>`).join("")}</div>
@@ -923,7 +923,7 @@ function drawCharts(R,range){
   const vol=main.addHistogramSeries({priceScaleId:"v",priceFormat:{type:"volume"},lastValueVisible:false,priceLineVisible:false});main.priceScale("v").applyOptions({scaleMargins:{top:.82,bottom:0}});
   vol.setData(R.B.map((b,i)=>({time:b.t,value:b.v,color:(i&&b.c<R.B[i-1].c?dn:up)+"55"})));
   const ln=(a,color,w=1.5,style=0)=>{const s=main.addLineSeries({color,lineWidth:w,lineStyle:style,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});s.setData(ser(a));return s};
-  ln(R.I.e20,tok("--c1"));ln(R.I.e50,tok("--c2"));ln(R.I.e200,tok("--c3"));ln(R.I.up,ink2,1,2);ln(R.I.lo,ink2,1,2);
+  ln(R.I.e20,tok("--c1"));ln(R.I.e50,tok("--c2"));ln(R.I.e200,tok("--c3"));
   const P=R.plan,pl=(price,color,title,style=0)=>cs.createPriceLine({price,color,lineWidth:1,lineStyle:style,axisLabelVisible:true,title});
   pl(P.entry,acc,"เข้า",0);pl(P.tp1,up,"TP1",2);pl(P.tp2,up,"TP2",2);pl(P.sl,dn,"SL",2);
   if(P.L.sup[0])pl(P.L.sup[0].p,ink2,"แนวรับ",3);if(P.L.res[0])pl(P.L.res[0].p,ink2,"แนวต้าน",3);
@@ -931,10 +931,10 @@ function drawCharts(R,range){
   if(full){const r=mk("cRsi",{timeScale:{borderVisible:false,visible:false},rightPriceScale:{scaleMargins:{top:.1,bottom:.1}}});
   const rs=r.addLineSeries({color:tok("--c3"),lineWidth:1.5,priceLineVisible:false,lastValueVisible:true});rs.setData(ser(R.I.rsi));
   rs.createPriceLine({price:70,color:dn,lineWidth:1,lineStyle:2,axisLabelVisible:false});rs.createPriceLine({price:30,color:up,lineWidth:1,lineStyle:2,axisLabelVisible:false});
-  const md=mk("cMacd",{});const h=md.addHistogramSeries({priceLineVisible:false,lastValueVisible:false});
-  h.setData(R.I.hist.map((v,i)=>v==null?{time:T[i]}:{time:T[i],value:v,color:v>=0?up+"99":dn+"99"}));
-  md.addLineSeries({color:tok("--c2"),lineWidth:1.5,priceLineVisible:false,lastValueVisible:false}).setData(ser(R.I.macd));
-  md.addLineSeries({color:tok("--c1"),lineWidth:1.5,priceLineVisible:false,lastValueVisible:false}).setData(ser(R.I.sig));}
+  const md=mk("cMacd",{});const ax=md.addLineSeries({color:tok("--ink"),lineWidth:2,priceLineVisible:false,lastValueVisible:true});ax.setData(ser(R.I.adx));
+  ax.createPriceLine({price:25,color:ink2,lineWidth:1,lineStyle:2,axisLabelVisible:false});
+  md.addLineSeries({color:up,lineWidth:1.2,priceLineVisible:false,lastValueVisible:false}).setData(ser(R.I.pdi));
+  md.addLineSeries({color:dn,lineWidth:1.2,priceLineVisible:false,lastValueVisible:false}).setData(ser(R.I.mdi));}
   let busy=false;S.charts.forEach(c=>c.timeScale().subscribeVisibleLogicalRangeChange(rg=>{if(busy||!rg)return;busy=true;S.charts.forEach(o=>{if(o!==c)o.timeScale().setVisibleLogicalRange(rg)});busy=false}));
   setRange(R.B.length,range);
 }
