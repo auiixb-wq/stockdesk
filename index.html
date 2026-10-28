@@ -456,13 +456,21 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .advr summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;flex-wrap:wrap}.advr summary::-webkit-details-marker{display:none}
 .advr summary .logo{width:30px;height:30px;font-size:10px}.adv-s{flex-basis:100%;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .advr[open] summary{margin-bottom:8px}
+.mswitch{display:inline-flex;padding:3px;border-radius:99px;background:var(--surface-2);gap:2px;flex:none}
+.mswitch button,.mbig button{border:0;background:transparent;color:var(--ink-2);font:600 13px var(--f-body);padding:6px 12px;border-radius:99px;cursor:pointer;white-space:nowrap}
+.mswitch button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.mbig{display:inline-flex;margin-top:16px;padding:4px;border-radius:99px;background:rgba(255,255,255,.12);gap:4px}
+.mbig button{font-size:15px;padding:9px 20px;color:var(--deep-ink)}.mbig button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+@media (max-width:820px){.mswitch button{padding:5px 9px;font-size:12px}}
+@media (max-width:560px){.brand .bt{display:none}}
 </style>
 
 </head>
 <body>
 <header class="top">
   <div class="top-in">
-    <a class="brand" href="#home"><i>฿</i>stockdesk</a>
+    <a class="brand" href="#home" aria-label="stockdesk หน้าแรก"><i>฿</i><span class="bt">stockdesk</span></a>
+    <div class="mswitch" role="group" aria-label="เลือกตลาด"><button type="button" data-mkt="TH">หุ้นไทย</button><button type="button" data-mkt="US">หุ้น US</button></div>
     <nav class="tabs" aria-label="เมนูหลัก">
       <a class="tab" href="#home" data-v="home">หน้าแรก</a>
       <a class="tab" href="#market" data-v="market">ตลาด</a>
@@ -678,7 +686,7 @@ function sectorNet(m){return Object.keys(SECTORS).map(sec=>{const syms=allStocks
   S.factors.forEach(f=>{if((f.scope==="ALL"||f.scope===m)&&f.impacts?.[sec]){const e=Math.round(fx(f)*f.impacts[sec]*100)/100;if(e){v+=e;dr.push([f.short||f.name,e])}}});return{sec,v:Math.round(v*10)/10,dr,syms}}).filter(Boolean).sort((a,b)=>b.v-a.v)}
 const logoStack=syms=>`<span class="lstack">${syms.slice(0,4).map(s=>logo(s)).join("")}</span>`;
 function vHome(){
-  const all=allStocks().filter(liquid).map(info).filter(R=>R.overall!=null),m=S.meta||{};
+  const all=allStocks().filter(s=>s.m===S.mkt&&liquid(s)).map(info).filter(R=>R.overall!=null),m=S.meta||{},MK=S.mkt;
   const avg=all.reduce((a,r)=>a+r.overall,0)/all.length;
   const cnt=k=>all.filter(r=>r.v[1]===k).length,buy=cnt("p-buy2")+cnt("p-buy"),hold=cnt("p-hold"),avoid=cnt("p-sell")+cnt("p-sell2");
   const mood=avg>=58?["คึกคัก","หุ้นส่วนใหญ่ให้สัญญาณบวก"]:avg>=50?["ทรงตัว","มีทั้งหุ้นแข็งและอ่อน ต้องเลือกตัว"]:avg>=45?["ระมัดระวัง","สัญญาณซื้อยังน้อย รอจังหวะ"]:["อ่อนแอ","หุ้นส่วนใหญ่ยังเป็นขาลง"];
@@ -691,14 +699,14 @@ function vHome(){
     <div class="sc-p"><span class="num" data-q="${esc(R.st.s)}">${cur(R.st.m)}${fmt(R.last)}</span>${chgPill(R.chg,R.st.s)}</div><div class="sc-sp">${sparkArea(R,240,56)}</div>
     <div class="sc-v"><span class="pill ${R.v[1]}">${R.v[0]}</span><span class="conf muted" style="margin:0"><span class="dot" style="--c:${R.conf.c}"></span>เชื่อถือ ${R.conf.t}</span></div>
     <div class="sc-n"><span><i>ซื้อ</i><b class="num">${fmt(P.entry)}</b></span><span><i>เป้า</i><b class="num up">${fmt(P.tp2)}</b></span><span><i>ตัดขาดทุน</i><b class="num down">${fmt(P.sl)}</b></span></div></a>`};
-  const secs=["TH","US"].flatMap(mk=>{const g={};all.filter(R=>R.st.m===mk).forEach(R=>(g[R.st.sec]??=[]).push(R));return Object.entries(g).map(([sec,arr])=>{const a=arr.reduce((x,r)=>x+r.overall,0)/arr.length;return{mk,sec,a,fs:factorScore(arr[0].st),syms:arr.map(r=>r.st.s)}})}).sort((x,y)=>y.a-x.a);
-  const news=sortedNews().slice(0,3);
+  const secs=[MK].flatMap(mk=>{const g={};all.filter(R=>R.st.m===mk).forEach(R=>(g[R.st.sec]??=[]).push(R));return Object.entries(g).map(([sec,arr])=>{const a=arr.reduce((x,r)=>x+r.overall,0)/arr.length;return{mk,sec,a,fs:factorScore(arr[0].st),syms:arr.map(r=>r.st.s)}})}).sort((x,y)=>y.a-x.a);
+  const news=sortedNews().filter(x=>!x.market||x.market==="ALL"||x.market===MK).slice(0,3);
   const pbNow=all.filter(R=>R.pb.now),pbNear=all.filter(R=>!R.pb.now&&R.pb.near).sort((a,b)=>a.pb.r2-b.pb.r2).slice(0,4);
   return `<section class="hx">
-    <div class="hx-l"><div class="hx-date">${todayTh()}</div><h1 class="hx-t">${greet()}<br><span>ตลาดวันนี้ <em>${mood[0]}</em></span></h1><p class="hx-s">${mood[1]} · จาก ${all.length} หุ้นที่ติดตาม</p>
+    <div class="hx-l"><div class="hx-date">${todayTh()}</div><h1 class="hx-t">${greet()}<br><span>${MK==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}วันนี้ <em>${mood[0]}</em></span></h1><p class="hx-s">${mood[1]} · จาก ${all.length} หุ้นที่ติดตาม</p>
       <div class="mood"><div class="mbar"><i style="flex:${buy};background:var(--accent)"></i><i style="flex:${hold};background:var(--deep-2)"></i><i style="flex:${avoid};background:#FF8A8E"></i></div><div class="mlab"><span><b>${buy}</b> น่าซื้อ</span><span><b>${hold}</b> ถือ/รอ</span><span><b>${avoid}</b> ระวัง</span></div></div>
-      <div class="chips" style="margin-top:14px">${mktChip("TH")}${mktChip("US")}</div></div>
-    <div class="hx-r">${idx("set","SET Index")}${idx("spx","S&P 500")}${idx("ndx","Nasdaq")}</div>
+      <div class="mbig" role="group" aria-label="เลือกตลาด"><button type="button" data-mkt="TH" aria-pressed="${MK==="TH"}">หุ้นไทย</button><button type="button" data-mkt="US" aria-pressed="${MK==="US"}">หุ้นสหรัฐฯ</button></div><div class="chips" style="margin-top:10px">${mktChip(MK)}</div></div>
+    <div class="hx-r">${MK==="TH"?idx("set","SET Index")+idx("gold","ทองคำ (US$/ออนซ์)"):idx("spx","S&P 500")+idx("ndx","Nasdaq")}</div>
   </section>
   ${S.live?"":sampleNotice()}
   ${fav.length?`<section><div class="sh"><h2>รายการโปรด</h2></div><div class="rail">${fav.map(card).join("")}</div></section>`:""}
@@ -708,7 +716,7 @@ function vHome(){
   <section><div class="sh"><div><h2>สัญญาณเด่นวันนี้</h2><p class="muted">คะแนนรวมสูงสุดเฉพาะหุ้นที่ระบบเชื่อถือสูง/ปานกลาง เลื่อนดูได้ แตะการ์ดเพื่อดูแผนเต็ม</p></div><a class="btn ghost sm" href="#market">ดูทั้งตลาด →</a></div><div class="rail">${top.map(card).join("")}</div></section>
   <div class="grid g2 hgrid">
     <section class="card"><div class="card-h"><div class="seg">${[["up","ขึ้นแรงสุด"],["dn","ลงแรงสุด"]].map(([k,l])=>`<button class="chip" data-mover="${k}" aria-pressed="${(S.mover||"up")===k}">${l}</button>`).join("")}</div></div>${((S.mover||"up")==="up"?gain:lose).map(mini).join("")}</section>
-    <section class="card fcard-mini"><div class="card-h"><h2>ปัจจัยที่ต้องจับตา</h2><a class="btn ghost sm" href="#factors">ทั้งหมด</a></div>${S.factors.length?[...S.factors].sort((a,b)=>Math.abs(fx(b))-Math.abs(fx(a))).slice(0,5).map(f=>{const e=factorEffects(f);return `<a class="fm" href="#factors">${arrowTile(sgn(fx(f)))}<span class="ms"><b>${esc(f.short||f.name)}</b><span class="muted">${e.help.length?`หนุน${e.help.slice(0,2).map(s=>SECTORS[s].th).join(", ")}`:""}${e.help.length&&e.hurt.length?" · ":""}${e.hurt.length?`กดดัน${e.hurt.slice(0,2).map(s=>SECTORS[s].th).join(", ")}`:""}</span></span></a>`}).join(""):`<div class="empty">กำลังโหลด…</div>`}</section>
+    <section class="card fcard-mini"><div class="card-h"><h2>ปัจจัยที่ต้องจับตา</h2><a class="btn ghost sm" href="#factors">ทั้งหมด</a></div>${S.factors.length?[...S.factors].filter(f=>f.scope==="ALL"||f.scope===MK).sort((a,b)=>Math.abs(fx(b))-Math.abs(fx(a))).slice(0,5).map(f=>{const e=factorEffects(f);return `<a class="fm" href="#factors">${arrowTile(sgn(fx(f)))}<span class="ms"><b>${esc(f.short||f.name)}</b><span class="muted">${e.help.length?`หนุน${e.help.slice(0,2).map(s=>SECTORS[s].th).join(", ")}`:""}${e.help.length&&e.hurt.length?" · ":""}${e.hurt.length?`กดดัน${e.hurt.slice(0,2).map(s=>SECTORS[s].th).join(", ")}`:""}</span></span></a>`}).join(""):`<div class="empty">กำลังโหลด…</div>`}</section>
   </div>
   <section><div class="sh"><div><h2>แผนที่ sector</h2><p class="muted">${S.secAll||secs.length<=8?"":"แข็งสุด 4 และอ่อนสุด 4 กลุ่ม · "}สียิ่งเข้มยิ่งแรง · เขียว = น่าสนใจ แดง = อ่อนแอ · ลูกศร = แรงจากปัจจัยมหภาค</p></div></div>
     <div class="tmap">${(S.secAll||secs.length<=8?secs:[...secs.slice(0,4),...secs.slice(-4)]).map(c=>{const d=c.a-50,int=clamp(Math.abs(d)*3.2,8,55),col=d>=0?"var(--up)":"var(--down)";return `<button class="tm" data-sec="${c.sec}" data-mk="${c.mk}" style="--bgc:color-mix(in srgb,${col} ${int}%,var(--surface))"><span class="tm-top"><span class="mk">${c.mk}</span>${c.fs?arrowTile(c.fs>0?1:-1):""}</span><span class="tm-n">${esc(SECTORS[c.sec].th)}</span><span class="tm-s num">${Math.round(c.a)}</span>${logoStack(c.syms)}</button>`}).join("")}</div>${secs.length>8?`<div style="text-align:center;margin-top:12px"><button class="btn ghost sm" data-secall>${S.secAll?"ย่อ":`ดูทุกกลุ่ม (${secs.length})`}</button></div>`:""}</section>
@@ -729,16 +737,16 @@ function screen(R,k){if(R.lite){const f=R.f||[];switch(k){case "fav":return S.wa
   case "reliable":return R.conf.lv>=2;
   default:return true}}
 function marketList(){const q=(S.mq||"").trim().toUpperCase();
-  let list=allStocks().filter(s=>(S.mkt==="ALL"||s.m===S.mkt)&&(!S.sec||s.sec===S.sec)&&(!q||s.s.includes(q)||(s.n||"").toUpperCase().includes(q))&&(q||S.allLiq||liquid(s))).map(info).filter(R=>screen(R,S.scr));
+  let list=allStocks().filter(s=>s.m===S.mkt&&(!S.sec||s.sec===S.sec)&&(!q||s.s.includes(q)||(s.n||"").toUpperCase().includes(q))&&(q||S.allLiq||liquid(s))).map(info).filter(R=>screen(R,S.scr));
   list.sort(S.sort==="score"?(a,b)=>(b.overall??-1)-(a.overall??-1):S.sort==="chg"?(a,b)=>(b.chg||0)-(a.chg||0):S.sort==="mc"?(a,b)=>(b.st.mc||0)-(a.st.mc||0):(a,b)=>a.st.s.localeCompare(b.st.s));
   const lim=S.mlimit||60;return `<p class="muted" style="margin:0 0 6px;font-size:13px">${list.length.toLocaleString()} หุ้น${q?` ที่ตรงกับ “${esc(q)}”`:""}${!q&&!S.allLiq?` · ซ่อนหุ้นไทยขนาดเล็ก (มูลค่าตลาดต่ำกว่า 5 พันล้านบาท) <button class="linkbtn" data-allliq="1">แสดงทั้งหมด</button>`:""}</p>
   <div class="rows">${list.slice(0,lim).map(rowHTML).join("")||`<div class="empty">ไม่มีหุ้นที่ผ่านตัวกรองนี้</div>`}</div>${list.length>lim?`<div style="text-align:center;margin-top:10px"><button class="btn" data-more="1">แสดงเพิ่ม (เหลือ ${(list.length-lim).toLocaleString()})</button></div>`:""}`}
 function vMarket(){
-  const b=(k,v,l,cur)=>`<button class="chip" data-${k}="${v}" aria-pressed="${cur===v}">${l}</button>`,n=allStocks().length;
-  return `<div class="card-h" style="margin:0"><div><h1>ตลาดหุ้น</h1><div class="chips" style="margin-top:6px">${mktChip("TH")}${mktChip("US")}<span class="chip">${n.toLocaleString()} หุ้น</span></div></div><div class="chips"><button class="btn sm" id="bulkBtn">นำเข้าหลายไฟล์</button><button class="btn primary sm" id="addBtn">+ เพิ่มหุ้นจาก CSV</button></div></div>
+  const b=(k,v,l,cur)=>`<button class="chip" data-${k}="${v}" aria-pressed="${cur===v}">${l}</button>`,n=allStocks().filter(s=>s.m===S.mkt).length;
+  return `<div class="card-h" style="margin:0"><div><h1>${S.mkt==="TH"?"ตลาดหุ้นไทย":"ตลาดหุ้นสหรัฐฯ"}</h1><div class="chips" style="margin-top:6px">${mktChip(S.mkt)}<span class="chip">${n.toLocaleString()} หุ้น</span></div></div><div class="chips"><button class="btn sm" id="bulkBtn">นำเข้าหลายไฟล์</button><button class="btn primary sm" id="addBtn">+ เพิ่มหุ้นจาก CSV</button></div></div>
   <input id="bulkIn" type="file" accept=".csv,text/csv,text/plain" multiple hidden>
   <div class="mq"><input id="mq" type="search" placeholder="ค้นหาในตลาด: ชื่อย่อหรือชื่อบริษัท" value="${esc(S.mq||"")}" autocomplete="off" aria-label="ค้นหาหุ้นในตลาด"></div>
-  <div class="chips">${b("mkt","ALL","ทั้งหมด",S.mkt)}${b("mkt","TH","หุ้นไทย",S.mkt)}${b("mkt","US","หุ้นสหรัฐฯ",S.mkt)}<span style="width:10px"></span>${b("sort","score","คะแนน",S.sort)}${b("sort","chg","เปลี่ยนแปลงวันนี้",S.sort)}${b("sort","mc","มูลค่าตลาด",S.sort)}${b("sort","sym","ชื่อ",S.sort)}</div>
+  <div class="chips">${b("sort","score","คะแนน",S.sort)}${b("sort","chg","เปลี่ยนแปลงวันนี้",S.sort)}${b("sort","mc","มูลค่าตลาด",S.sort)}${b("sort","sym","ชื่อ",S.sort)}</div>
   <div class="chips" aria-label="คัดกรองหุ้น">${SCR.map(([k,l])=>b("scr",k,l,S.scr)).join("")}</div>
   <div class="chips" aria-label="กลุ่มอุตสาหกรรม">${Object.entries(SECTORS).map(([k,v])=>`<button class="chip" data-secf="${k}" aria-pressed="${S.sec===k}">${v.th}</button>`).join("")}</div>
   <div id="addBox"></div>
@@ -746,20 +754,20 @@ function vMarket(){
   <p class="foot">หุ้นที่ไม่อยู่ในรายการ (เช่นหุ้นนอกตลาด) เพิ่มได้จากไฟล์ CSV · ตั้งชื่อไฟล์เป็นชื่อหุ้น เช่น PTT.BK.csv</p>`;
 }
 function vNews(){
-  const f=S.nf;let list=sortedNews();
-  if(f==="TH"||f==="US")list=list.filter(x=>x.market===f||x.market==="ALL");else if(f==="macro")list=list.filter(x=>!(x.tickers||[]).length);else if(f==="fac")list=list.filter(x=>newsLinks(x).via.length);else if(f!=="all")list=list.filter(x=>(x.sectors||[]).includes(f));
+  const f=S.nf;let list=sortedNews().filter(x=>!x.market||x.market==="ALL"||x.market===S.mkt);
+  if(f==="macro")list=list.filter(x=>!(x.tickers||[]).length);else if(f==="fac")list=list.filter(x=>newsLinks(x).via.length);else if(f!=="all")list=list.filter(x=>(x.sectors||[]).includes(f));
   const secs=[...new Set(S.news.flatMap(x=>x.sectors||[]))];
   const b=(v,l)=>`<button class="chip" data-nf="${v}" aria-pressed="${f===v}">${l}</button>`;
-  return `<div><h1>ฟีดข่าว</h1><p class="muted" style="margin:4px 0 0">ข่าวจากแหล่งที่ตรวจสอบได้ ผูกกับหุ้นรายตัวและ sector · ระดับ 1 = สำนักข่าวหลักหรือประกาศทางการ, ระดับ 2 = สื่อธุรกิจและบทวิเคราะห์โบรกเกอร์, ระดับ 3 = เว็บรวบรวมข้อมูล · ข่าวระดับสูงมีน้ำหนักในคะแนนมากกว่า</p></div>
-  <div class="chips">${b("all","ทั้งหมด")}${b("TH","ไทย")}${b("US","สหรัฐฯ")}${b("macro","มหภาค")}${b("fac","กระทบปัจจัย")}${secs.map(s=>b(s,SECTORS[s]?.th||s)).join("")}</div>
+  return `<div><h1>ฟีดข่าว${S.mkt==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</h1><p class="muted" style="margin:4px 0 0">ข่าวจากแหล่งที่ตรวจสอบได้ ผูกกับหุ้นรายตัวและ sector · ระดับ 1 = สำนักข่าวหลักหรือประกาศทางการ, ระดับ 2 = สื่อธุรกิจและบทวิเคราะห์โบรกเกอร์, ระดับ 3 = เว็บรวบรวมข้อมูล · ข่าวระดับสูงมีน้ำหนักในคะแนนมากกว่า</p></div>
+  <div class="chips"><button class="chip" data-mkt="TH" aria-pressed="${S.mkt==="TH"}">หุ้นไทย</button><button class="chip" data-mkt="US" aria-pressed="${S.mkt==="US"}">หุ้นสหรัฐฯ</button><span style="width:8px"></span>${b("all","ทั้งหมด")}${b("macro","มหภาค")}${b("fac","กระทบปัจจัย")}${secs.map(s=>b(s,SECTORS[s]?.th||s)).join("")}</div>
   <section class="card">${newsHTML(list,S.nlim||15)}${events(list).length>(S.nlim||15)?`<div style="text-align:center;padding:12px 0 2px"><button class="btn ghost sm" data-nmore>ดูข่าวเพิ่ม (เหลืออีก ${events(list).length-(S.nlim||15)} เรื่อง)</button></div>`:""}</section>`;
 }
 const CATS=[["rates","ดอกเบี้ยและพันธบัตร"],["energy","พลังงานและสินค้าโภคภัณฑ์"],["fx","ค่าเงิน"],["macro","เศรษฐกิจและเงินเฟ้อ"],["flow","ตลาดและกระแสเงินทุน"],["theme","ธีมและนโยบาย"]];
 function fbar(v){const w=Math.abs(v)*50;return `<span class="fbar" title="แรงปัจจุบัน ${v>0?"+":""}${v}"><span class="dv-c"></span>${v?`<i class="${v>0?"pos":"neg"}" style="width:${w}%"></i>`:""}</span>`}
 function vFactors(){
-  const fm=S.fm||"TH",rows=sectorNet(fm),mx=Math.max(1,...rows.map(r=>Math.abs(r.v)));
+  const fm=S.mkt,rows=sectorNet(fm),mx=Math.max(1,...rows.map(r=>Math.abs(r.v)));
   const best=rows[0],worst=rows.at(-1),linked=S.news.filter(x=>(x.factors||[]).some(l=>l.eff)).length;
-  const b=(v,l)=>`<button class="chip" data-fm="${v}" aria-pressed="${fm===v}">${l}</button>`;
+  const b=(v,l)=>`<button class="chip" data-mkt="${v}" aria-pressed="${fm===v}">${l}</button>`;
   if(!S.factors.length)return `<h1>ปัจจัยมหภาค</h1><div class="card empty">${S.dbState==="loading"?"กำลังโหลดปัจจัย…":"ยังไม่มีข้อมูลปัจจัย"}</div>`;
   const card=f=>{const v=fx(f),e=factorEffects(f),nl=factorNews(f).sort((a,b)=>String(b.date).localeCompare(String(a.date)));return `<article class="fc">${arrowTile(sgn(v),true)}<div style="min-width:0">
     <div class="fc-top"><h3>${esc(f.name)}</h3>${f.value?`<div class="fval"><b class="num">${esc(f.value)}</b><span class="${!f.live&&f.asOf&&ageDays(f.asOf)>35?"warn":"muted"}">${f.asOf?"ณ "+thDate(f.asOf):""}${!f.live&&f.asOf&&ageDays(f.asOf)>35?" · รอตัวเลขใหม่":""}</span></div>`:""}</div>
@@ -773,7 +781,7 @@ function vFactors(){
     <div class="fx-sum">${best&&best.v>0?`<div class="fx-b"><span class="k">ได้แรงหนุนมากสุด</span><span class="v">${esc(SECTORS[best.sec].th)}</span>${logoStack(best.syms)}</div>`:""}${worst&&worst.v<0?`<div class="fx-b dn"><span class="k">โดนกดดันมากสุด</span><span class="v">${esc(SECTORS[worst.sec].th)}</span>${logoStack(worst.syms)}</div>`:""}</div></section>
   <section class="card"><div class="card-h"><div><h2>แรงหนุน / กดดันต่อแต่ละกลุ่ม</h2><div class="sub-t">ขวา = ปัจจัยหนุน · ซ้าย = ปัจจัยกดดัน · ใต้แต่ละแถวบอกว่ามาจากปัจจัยไหน</div></div><div class="chips">${b("TH","หุ้นไทย")}${b("US","หุ้นสหรัฐฯ")}</div></div>
     <div class="div">${rows.map(r=>{const w=Math.abs(r.v)/mx*50;return `<button class="dv" data-sec="${r.sec}" data-mk="${fm}"><span class="dv-n"><b>${esc(SECTORS[r.sec].th)}</b>${logoStack(r.syms)}</span><span class="dv-t"><span class="dv-c"></span>${r.v?`<i class="${r.v>0?"pos":"neg"}" style="width:${w}%"></i>`:""}</span><span class="dv-v ${cls(r.v)}">${r.v>0?"หนุน":r.v<0?"กดดัน":"กลาง"} <span class="num">${r.v>0?"+":""}${r.v}</span></span><span class="dv-d">${r.dr.length?r.dr.sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).map(([n,e])=>`<span class="${cls(e)}">${esc(n)} ${e>0?"+":""}${e}</span>`).join(" · "):`<span class="muted">ไม่มีปัจจัยหลักกระทบ</span>`}</span></button>`}).join("")}</div></section>
-  ${CATS.map(([k,l])=>{const fs=S.factors.filter(f=>(f.cat||"theme")===k);return fs.length?`<section><div class="sh"><h2>${l}</h2></div><div class="fgrid2">${fs.map(card).join("")}</div></section>`:""}).join("")}
+  ${CATS.map(([k,l])=>{const fs=S.factors.filter(f=>(f.cat||"theme")===k&&(f.scope==="ALL"||f.scope===fm));return fs.length?`<section><div class="sh"><h2>${l}</h2></div><div class="fgrid2">${fs.map(card).join("")}</div></section>`:""}).join("")}
   <details class="card"><summary>ตารางความอ่อนไหวเต็ม (สำหรับผู้ที่อยากดูละเอียด)</summary><div class="tscroll" style="margin-top:10px"><table><thead><tr><th>ปัจจัย</th><th class="r">แรง</th>${Object.keys(SECTORS).map(s=>`<th style="text-align:center">${esc(SECTORS[s].th)}</th>`).join("")}</tr></thead><tbody>${S.factors.map(f=>`<tr><td style="white-space:nowrap">${esc(f.short||f.name)}</td><td class="r num ${cls(fx(f))}">${fx(f).toFixed(2)}</td>${Object.keys(SECTORS).map(s=>{const v=f.impacts?.[s]||0;return `<td style="text-align:center">${v?`<span class="imp" style="background:${v>0?"var(--up-bg)":"var(--down-bg)"};color:${v>0?"var(--up)":"var(--down)"}">${v>0?"+":""}${v}</span>`:`<span class="muted">·</span>`}</td>`}).join("")}</tr>`).join("")}</tbody></table></div><p class="foot">ความอ่อนไหว × แรงปัจจุบันของปัจจัย = แรงหนุนหรือกดดันต่อกลุ่มนั้น เช่น bond yield ขึ้น (+) × อสังหาฯ (−1) = กดดันอสังหาฯ</p></details>`;
 }
 function vMethod(){
@@ -987,7 +995,7 @@ async function toggleFav(sym){const list=S.watch.includes(sym)?S.watch.filter(x=
 function route(){const h=location.hash.slice(1);if(h.startsWith("s-"))return{v:"stock",sym:h.slice(2).toUpperCase()};return{v:NAV.includes(h)?h:"home"}}
 let curRange=126;
 function render(){
-  const r=route();document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
+  const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mkt===S.mkt));document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
   killCharts();
   $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():vHome()}</div>`;
   if(r.v==="stock"){const st=stockBySym(r.sym);if(st){const R=analyze(st);if($("#cMain"))drawCharts(R,$("#cRsi")?curRange:126);calc(R)}}
@@ -996,7 +1004,7 @@ function calc(R){const out=$("#calcOut");if(!out)return;const cap=+$("#capIn").v
   out.innerHTML=`<dt>จำนวนหุ้นที่ซื้อได้${m==="TH"?" (ล็อต 100)":""}</dt><dd class="num">${sh.toLocaleString()}</dd><dt>เงินที่ใช้</dt><dd class="num">${cur(m)}${fmt(sh*P.entry)}</dd><dt>ขาดทุนสูงสุดถ้าโดน SL</dt><dd class="num down">−${cur(m)}${fmt(sh*per)}</dd><dt>กำไรถ้าถึง TP2</dt><dd class="num up">+${cur(m)}${fmt(sh*(P.tp2-P.entry))}</dd>`}
 document.addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;
-  if(t.dataset.mkt){S.mkt=t.dataset.mkt;render()}
+  if(t.dataset.mkt){S.mkt=t.dataset.mkt;lsSet("mkt",S.mkt);S.mlimit=60;S.sgl=20;S.nlim=15;S.sec=null;render();window.scrollTo(0,0)}
   else if(t.dataset.sort){S.sort=t.dataset.sort;render()}
   else if(t.dataset.scr){S.scr=t.dataset.scr;render()}
   else if(t.dataset.nf){S.nf=t.dataset.nf;S.nlim=15;render()}
@@ -1023,7 +1031,7 @@ document.addEventListener("click",e=>{
   else if(t.id==="themeBtn"){const m=lsGet("theme")||"system";applyTheme(m==="system"?"light":m==="light"?"dark":"system");toast(m==="system"?"โหมดสว่าง":m==="light"?"โหมดมืด":"ตามระบบ")}
   else if(t.dataset.rules){Object.assign(RULES,JSON.parse(t.dataset.rules));lsSet("rules",JSON.parse(t.dataset.rules));S.cache.clear();S.calib=null;toast("ใช้ค่าใหม่แล้ว คะแนนทุกหุ้นคำนวณใหม่");render()}
   else if(t.dataset.rulesReset){try{localStorage.removeItem("rules")}catch{}Object.assign(RULES,RULES0);S.cache.clear();S.calib=null;render()}
-  else if(t.dataset.sec&&t.dataset.mk){S.sec=t.dataset.sec;S.mkt=t.dataset.mk;S.scr="all";location.hash="market"}
+  else if(t.dataset.sec&&t.dataset.mk){S.sec=t.dataset.sec;S.mkt=t.dataset.mk;lsSet("mkt",S.mkt);S.scr="all";location.hash="market"}
   else if(t.dataset.r!=null&&t.closest("#rng")){curRange=+t.dataset.r;const st=stockBySym(route().sym);if(st)setRange(analyze(st).B.length,curRange)}
   else if(t.id==="markBtn"){S.marks=!S.marks;render()}
   else if(t.dataset.tab){S.tab=t.dataset.tab;render();const n=$(".stabs");if(n&&n.getBoundingClientRect().top<0)n.scrollIntoView()}
@@ -1052,7 +1060,7 @@ document.addEventListener("dragover",e=>{const d=e.target.closest&&e.target.clos
 document.addEventListener("dragleave",e=>{const d=e.target.closest&&e.target.closest("#drop");if(d)d.classList.remove("over")});
 document.addEventListener("drop",e=>{const d=e.target.closest&&e.target.closest("#drop");if(d){e.preventDefault();d.classList.remove("over");const f=e.dataTransfer.files[0];if(f)handleFile(f,route().sym)}});
 const q=$("#q"),sg=$("#sugg");let sel=0;
-function suggest(){const v=q.value.trim().toUpperCase();if(!v){sg.hidden=true;return}const vl=q.value.trim().toLowerCase(),secs=Object.entries(SECTORS).filter(([k,x])=>k.startsWith(vl)||(x.th||"").includes(q.value.trim())||(x.en||"").toLowerCase().includes(vl)).slice(0,2);const hits=allStocks().filter(s=>s.s.startsWith(v)||(s.n||"").toUpperCase().includes(v)).sort((a,b)=>(a.s===v?-1:b.s===v?1:0)||(b.mc||0)-(a.mc||0)).slice(0,7);sel=0;
+function suggest(){const v=q.value.trim().toUpperCase();if(!v){sg.hidden=true;return}const vl=q.value.trim().toLowerCase(),secs=Object.entries(SECTORS).filter(([k,x])=>k.startsWith(vl)||(x.th||"").includes(q.value.trim())||(x.en||"").toLowerCase().includes(vl)).slice(0,2);const hits=allStocks().filter(s=>s.s.startsWith(v)||(s.n||"").toUpperCase().includes(v)).sort((a,b)=>(a.s===v?-1:b.s===v?1:0)||((a.m===S.mkt?0:1)-(b.m===S.mkt?0:1))||(b.mc||0)-(a.mc||0)).slice(0,7);sel=0;
   sg.innerHTML=hits.map((s,i)=>`<a href="#s-${esc(s.s)}" class="${i?"":"on"}">${logo(s.s)}<span><b>${esc(s.s)}</b> <span class="mk">${s.m}</span><br><span class="muted" style="font-size:13px">${esc(s.n)}</span></span></a>`).join("")+secs.map(([k,x])=>`<a href="#market" data-gosec="${k}"><span class="logo" style="background:${SEC_COL[k]}">${esc((x.th||k).slice(0,1))}</span><span><b>กลุ่ม${esc(x.th)}</b><br><span class="muted" style="font-size:13px">ดูหุ้นทั้งหมดในกลุ่มนี้</span></span></a>`).join("")||`<div class="empty" style="padding:14px">ไม่พบหุ้นนี้ เพิ่มได้จากหน้าตลาด</div>`;sg.hidden=false}
 q.addEventListener("input",suggest);
 q.addEventListener("keydown",e=>{const a=[...sg.querySelectorAll("a")];if(e.key==="Escape"){sg.hidden=true;return}if(!a.length)return;if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();sel=(sel+(e.key==="ArrowDown"?1:-1)+a.length)%a.length;a.forEach((x,i)=>x.classList.toggle("on",i===sel))}if(e.key==="Enter"){if(a[sel].dataset.gosec)S.sec=a[sel].dataset.gosec;location.hash=a[sel].getAttribute("href").slice(1);q.value="";sg.hidden=true;q.blur()}});
@@ -1115,7 +1123,7 @@ const holds=()=>lsGet("hold")||{};
 const lum=h=>{const m=/^#([0-9a-f]{6})$/i.exec(h||"");if(!m)return 1;const n=parseInt(m[1],16);return(.299*(n>>16)+.587*(n>>8&255)+.114*(n&255))/255};
 const thbPerUsd=()=>S.macro?.usdthb?.value||null;
 function portfolio(){const h=holds(),fx=thbPerUsd()||36,rows=[];
-  for(const s of S.watch){const x=h[s],st=stockBySym(s);if(!st||!x||!(x.q>0))continue;const R=info(st),k=st.m==="US"?fx:1;if(R.last==null)continue;
+  for(const s of S.watch){const x=h[s],st=stockBySym(s);if(!st||st.m!==S.mkt||!x||!(x.q>0))continue;const R=info(st),k=st.m==="US"?fx:1;if(R.last==null)continue;
     rows.push({st,R,q:x.q,c:x.c||null,val:x.q*R.last*k,cost:x.c>0?x.q*x.c*k:null,day:x.q*R.last*k*(R.chg/100)/(1+R.chg/100)})}
   const tot=rows.reduce((a,r)=>a+r.val,0),costT=rows.filter(r=>r.cost).reduce((a,r)=>a+r.cost,0),valC=rows.filter(r=>r.cost).reduce((a,r)=>a+r.val,0),day=rows.reduce((a,r)=>a+r.day,0);
   return{rows,tot,pl:costT?valC-costT:null,plPct:costT?(valC/costT-1)*100:null,day,dayPct:tot?day/(tot-day)*100:0,fx:thbPerUsd()}}
@@ -1137,11 +1145,11 @@ function portCard(){const P=portfolio(),mode=S.pmode||"stock";
     ${conc?`<p class="foot warn" style="margin:8px 0 0">${esc(top.l)} คิดเป็น ${(top.v/P.tot*100).toFixed(0)}% ของพอร์ต กระจุกตัวสูง ถ้าราคาตัวนี้ลง 10% พอร์ตจะลดราว ${(top.v/P.tot*10).toFixed(1)}%</p>`:""}
     <p class="foot" style="margin:6px 0 0">${P.fx?`หุ้นสหรัฐฯ แปลงเป็นบาทที่ ${P.fx.toFixed(2)} บาท/ดอลลาร์`:"หุ้นสหรัฐฯ แปลงเป็นบาทที่ 36 บาท/ดอลลาร์ (ยังไม่มีอัตราล่าสุด)"} · ข้อมูลพอร์ตเก็บในเครื่องนี้เท่านั้น</p></div></div></section>`}
 function vWatch(){
-  loadHist(S.watch);const list=S.watch.map(s=>stockBySym(s)).filter(Boolean).map(info),h=holds();
+  loadHist(S.watch);const allW=S.watch.map(s=>stockBySym(s)).filter(Boolean),list=allW.filter(st=>st.m===S.mkt).map(info),h=holds(),other=allW.length-list.length;
   const sort=S.wsort||"add";if(sort==="score")list.sort((a,b)=>b.overall-a.overall);else if(sort==="chg")list.sort((a,b)=>b.chg-a.chg);
-  const sug=allStocks().filter(s=>!S.watch.includes(s.s)&&liquid(s)).map(info).filter(R=>R.overall!=null).sort((a,b)=>b.overall-a.overall).slice(0,6);
+  const sug=allStocks().filter(s=>s.m===S.mkt&&!S.watch.includes(s.s)&&liquid(s)).map(info).filter(R=>R.overall!=null).sort((a,b)=>b.overall-a.overall).slice(0,6);
   const b=(v,l)=>`<button class="chip" data-wsort="${v}" aria-pressed="${sort===v}">${l}</button>`;
-  return `<div class="card-h" style="margin:0"><div><h1>รายการโปรด</h1><p class="muted" style="margin:4px 0 0">${list.length} หุ้น · บันทึกไว้ในเครื่องนี้</p></div><div class="chips">${b("add","ตามที่เพิ่ม")}${b("score","คะแนน")}${b("chg","เปลี่ยนแปลงวันนี้")}</div></div>
+  return `<div class="card-h" style="margin:0"><div><h1>รายการโปรด${S.mkt==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</h1><p class="muted" style="margin:4px 0 0">${list.length} หุ้น · บันทึกไว้ในเครื่องนี้${other?` · มีหุ้น${S.mkt==="TH"?"สหรัฐฯ":"ไทย"}อีก ${other} ตัว <button class="linkbtn" style="display:inline;margin:0" data-mkt="${S.mkt==="TH"?"US":"TH"}">สลับไปดู</button>`:""}</p></div><div class="chips">${b("add","ตามที่เพิ่ม")}${b("score","คะแนน")}${b("chg","เปลี่ยนแปลงวันนี้")}</div></div>
   ${list.length?alertsCard(list):""}
   ${list.length?advisorCard():""}
   ${list.length?portCard():""}
@@ -1221,7 +1229,7 @@ function advise(st,wt){const full=hasBars(st),R=full?analyze(st):info(st);if(R.o
   if(wt>.4)why.push(["สัดส่วน",`คิดเป็น ${(wt*100).toFixed(0)}% ของพอร์ต สูงเกินไป ควรลดให้ต่ำกว่า 30%`,-1]);
   const top=facs[0]?.f;const wrong=[P?`ราคาปิดต่ำกว่า ${fmt(P.sl)}`:null,top?`${top.short||top.name} กลับทิศ`:null,news[0]?"มีข่าวใหม่ที่หักล้างข่าวข้างต้น":null].filter(Boolean);
   return{st,R,act,why,wrong,s,zone:P&&act[1]==="p-buy2"?`${fmt(P.lo)}–${fmt(P.hi)}`:null}}
-function advisorCard(){const P=portfolio(),rows=P.rows.length?P.rows.map(r=>[r.st,r.val/P.tot]):S.watch.map(stockBySym).filter(Boolean).map(st=>[st,0]);
+function advisorCard(){const P=portfolio(),rows=P.rows.length?P.rows.map(r=>[r.st,r.val/P.tot]):S.watch.map(stockBySym).filter(st=>st&&st.m===S.mkt).map(st=>[st,0]);
   const A=rows.map(([st,w])=>advise(st,w)).filter(Boolean);if(!A.length)return "";
   const ex=S.factors.map(f=>{let e=0;for(const [st,w] of rows){if(!(f.scope==="ALL"||f.scope===st.m))continue;e+=(P.rows.length?w:1/rows.length)*impactOf(f,st)}return{f,e,now:fx(f)}}).filter(z=>Math.abs(z.e)>=.05).sort((a,b)=>Math.abs(b.e)-Math.abs(a.e)).slice(0,5);
   const tag=v=>v>0?"up":v<0?"down":"muted";
@@ -1231,7 +1239,7 @@ function advisorCard(){const P=portfolio(),rows=P.rows.length?P.rows.map(r=>[r.s
      <ul class="chk">${a.why.map(([k,t,v])=>`<li><span class="${tag(v)}">●</span><span><span class="tag">${k}</span>${esc(t)}</span></li>`).join("")}</ul>
      ${a.wrong.length?`<p class="foot" style="margin:8px 0 0"><b>มุมมองนี้ผิดถ้า:</b> ${a.wrong.map(esc).join(" · ")}</p>`:""}<a class="btn ghost sm" style="margin-top:8px" href="#s-${esc(a.st.s)}">ดูวิเคราะห์เต็ม →</a></details>`).join("")}</div></section>`}
 /* ---------- signals ---------- */
-function vSignals(){const mk=S.sgm||"all",so=S.sgs||"score",lim=S.sgl||20;
+function vSignals(){const mk=S.mkt,so=S.sgs||"score",lim=S.sgl||20;
   const all=allStocks().filter(liquid).map(info).filter(R=>R.overall!=null&&(mk==="all"||R.st.m===mk));
   const now=all.filter(R=>R.pb.now),near=all.filter(R=>!R.pb.now&&R.pb.near).sort((a,b)=>a.pb.r2-b.pb.r2);
   now.sort(so==="rsi"?(a,b)=>a.pb.r2-b.pb.r2:so==="mc"?(a,b)=>(b.st.mc||0)-(a.st.mc||0):(a,b)=>b.overall-a.overall);
@@ -1239,7 +1247,7 @@ function vSignals(){const mk=S.sgm||"all",so=S.sgs||"score",lim=S.sgl||20;
   const row=R=>`<a class="sgr" href="#s-${esc(R.st.s)}">${logo(R.st.s)}<span class="ms"><b>${esc(R.st.s)} <span class="mk">${R.st.m}</span></b><span class="muted">${esc(R.st.n)}</span></span><span class="sgm num"><span>RSI2 <b>${R.pb.r2.toFixed(1)}</b></span><span class="muted">ขายเมื่อปิด &gt; ${fmt(R.pb.s5)}</span></span><span class="sgp"><span class="num" data-q="${esc(R.st.s)}">${cur(R.st.m)}${fmt(R.last)}</span>${chgPill(R.chg,R.st.s)}</span></a>`;
   return `<div><h1>ซื้อตอนย่อวันนี้</h1><p class="muted" style="margin:4px 0 0">หุ้นขาขึ้น (ราคาเหนือ SMA200) ที่ย่อแรงจน RSI(2) ต่ำกว่า 5 · ขายเมื่อปิดเหนือ SMA5 หรือครบ 10 วัน · ตัดขาดทุน 3 ATR</p></div>
   <section class="card sgk"><div><b class="num">${now.length}</b><span class="muted">เข้าเงื่อนไขวันนี้</span></div><div><b class="num">${near.length}</b><span class="muted">ใกล้เข้าเงื่อนไข</span></div><div><b class="num">~67%</b><span class="muted">อัตราชนะย้อนหลัง</span></div><a class="btn ghost sm" href="#accuracy">ผลทดสอบ →</a></section>
-  <div class="sgf"><div class="chips">${c("sgm","all","ทั้งหมด",mk)}${c("sgm","TH","ไทย",mk)}${c("sgm","US","สหรัฐฯ",mk)}</div><div class="chips">${c("sgs","score","คะแนนรวม",so)}${c("sgs","rsi","ย่อแรงสุด",so)}${c("sgs","mc","บริษัทใหญ่",so)}</div></div>
+  <div class="sgf"><div class="chips">${c("mkt","TH","หุ้นไทย",mk)}${c("mkt","US","หุ้นสหรัฐฯ",mk)}</div><div class="chips">${c("sgs","score","คะแนนรวม",so)}${c("sgs","rsi","ย่อแรงสุด",so)}${c("sgs","mc","บริษัทใหญ่",so)}</div></div>
   <section class="card" style="padding:6px 14px">${now.length?now.slice(0,lim).map(row).join(""):`<p class="muted" style="padding:12px 0;margin:0">วันนี้ยังไม่มีหุ้นเข้าเงื่อนไข</p>`}
    ${now.length>lim?`<div style="text-align:center;padding:12px 0"><button class="btn ghost sm" data-sgmore>ดูเพิ่ม (เหลืออีก ${now.length-lim})</button></div>`:""}</section>
   ${near.length?`<details class="card sgn"><summary><b>ใกล้เข้าเงื่อนไข (${near.length})</b> <span class="muted">RSI(2) ต่ำกว่า 15 ยังไม่ถึง 5</span></summary>${near.slice(0,30).map(row).join("")}</details>`:""}
@@ -1316,7 +1324,7 @@ function vAccuracy(){
 }
 
 /* ---------- boot ---------- */
-S.watch=lsGet("watch")||[];S.px=lsGet("px")||{};S.fa=lsGet("fa")||{};Object.assign(RULES,lsGet("rules")||{});
+S.watch=lsGet("watch")||[];S.mkt=["TH","US"].includes(lsGet("mkt"))?lsGet("mkt"):"TH";S.px=lsGet("px")||{};S.fa=lsGet("fa")||{};Object.assign(RULES,lsGet("rules")||{});
 applyTheme(lsGet("theme")||"system");
 render();loadAll();
 setInterval(refreshQuotes,60000);
