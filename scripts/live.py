@@ -65,6 +65,7 @@ def main():
             update.ERRORS.clear()
             meta["indices"] = update.market_strip() or meta.get("indices", {})
             meta["quotesUpdated"] = int(time.time())
+            meta["quotesTiming"] = {**update.QUOTE_T, "total": round(time.time() - tick, 1)}
             update.save("meta.json", meta)
             publish_live()
             print("ok", dt.datetime.now(dt.timezone.utc).strftime("%H:%M:%S"), round(time.time() - tick, 1), "s")

@@ -76,7 +76,11 @@ def fetch_prices():
     return out, status
 
 
+QUOTE_T = {}  # เวลาที่ใช้แต่ละส่วนของการดึงราคา (วินาที) บันทึกใน meta.json ไว้ตรวจว่าส่วนไหนช้า
+
+
 def fetch_quotes(prices):
+    t0 = time.time()
     stocks = CFG["stocks"]
     tick = [ysym(s) for s in stocks]
     q = {}
@@ -103,15 +107,20 @@ def fetch_quotes(prices):
         if ts and dt.datetime.fromtimestamp(ts, dt.timezone.utc).strftime("%Y-%m-%d") > today_bar:
             prev = p["c"][-1]
         q[s["s"]] = {"p": last, "prev": num(prev), "chg": num((last / prev - 1) * 100, 3) if prev else None, "ts": ts}
+    QUOTE_T["intraday"] = round(time.time() - t0, 1)
     try:
         uni = load("universe.json", {"items": []})
         if uni["items"]:
             open_m = [m for m in ("TH", "US") if market_open(m)] or ["TH", "US"]
             old = load("quotes.json", {"q": {}})["q"]
+            t1 = time.time()
             allq = {**old, **market_quotes(uni, open_m)}
+            QUOTE_T["screener"] = round(time.time() - t1, 1)
             allq.update({k: v for k, v in q.items() if v.get("ts") and (k not in allq or (allq[k].get("ts") or 0) <= v["ts"])})
             if "TH" in open_m:
+                t2 = time.time()
                 fresh = cnbc_th_quotes(uni)
+                QUOTE_T["cnbc"] = round(time.time() - t2, 1)
                 allq.update({k: v for k, v in fresh.items() if (allq.get(k, {}).get("ts") or 0) <= v["ts"]})
             q = allq
     except Exception as e:
@@ -179,18 +188,24 @@ def cnbc_th_quotes(uni):
     """ราคาหุ้นไทยจาก CNBC (ล่าช้าราว 15 นาที เร็วกว่า Yahoo ที่ล่าช้าราว 30 นาที) ขอทีละ 40 ตัว"""
     syms = [i["s"] for i in uni["items"] if i["m"] == "TH" and re.fullmatch(r"[A-Z0-9]+", i["s"])]
     got = {}
-    for k in range(0, len(syms), 40):
+
+    def one(k):
         part = syms[k:k + 40]
         url = ("https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols="
                + urllib.parse.quote("|".join(s + "-TH" for s in part))
                + "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json")
         try:
-            d = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=20).read())
+            d = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=15).read())
             rows = d["FormattedQuoteResult"]["FormattedQuote"]
+            return rows if isinstance(rows, list) else [rows]
         except Exception as e:
             ERRORS.append(f"cnbc TH {k}: {str(e)[:80]}")
-            continue
-        for q in rows if isinstance(rows, list) else [rows]:
+            return []
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(8) as ex:  # ขอพร้อมกัน 8 ชุด ให้ทั้งตลาดเสร็จในไม่กี่วินาที
+        batches = list(ex.map(one, range(0, len(syms), 40)))
+    for rows in batches:
+        for q in rows:
             try:
                 s = str(q["symbol"]).removesuffix("-TH")
                 p = float(str(q["last"]).replace(",", ""))
@@ -699,7 +714,7 @@ def main():
         "updated": int(time.time()), "full": os.environ.get("FULL") == "1",
         "fundUpdated": NOW.strftime("%Y-%m-%d") if os.environ.get("FULL") == "1" else old_meta.get("fundUpdated"),
         "newsUpdated": news.get("updated"), "indices": idx,
-        "prices": pstatus, "errors": ERRORS[:50], "seconds": round(time.time() - t0, 1), "timing": tm,
+        "prices": pstatus, "errors": ERRORS[:50], "seconds": round(time.time() - t0, 1), "timing": {**tm, "quotesDetail": QUOTE_T},
     }
     save("meta.json", meta)
     print(json.dumps({k: v for k, v in meta.items() if k != "prices"}, ensure_ascii=False)[:2000])
