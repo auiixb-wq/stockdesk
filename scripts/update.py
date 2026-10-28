@@ -318,11 +318,36 @@ def fetch_news():
     return out
 
 
+UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+
+
+def cnbc_quote(sym):
+    """สำรองจาก CNBC เช่น .SETI = ดัชนี SET"""
+    url = ("https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=" + urllib.parse.quote(sym)
+           + "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json")
+    d = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=20).read())
+    q = d["FormattedQuoteResult"]["FormattedQuote"][0]
+    price = float(str(q["last"]).replace(",", ""))
+    prev = float(str(q.get("previous_day_closing") or q.get("prev_close") or "0").replace(",", "")) or None
+    return price, prev
+
+
+def set_quote():
+    """สำรองจากเว็บตลาดหลักทรัพย์ฯ"""
+    req = urllib.request.Request("https://www.set.or.th/api/set/index/info/list?type=INDEX",
+                                 headers={"User-Agent": UA, "Referer": "https://www.set.or.th/th/market/index/set/overview",
+                                          "Accept": "application/json"})
+    d = json.loads(urllib.request.urlopen(req, timeout=20).read())
+    for x in d.get("indexIndustrySectors", d if isinstance(d, list) else []):
+        if str(x.get("symbol", "")).upper() == "SET":
+            return float(x["last"]), float(x["prior"]) if x.get("prior") else None
+    raise ValueError("ไม่พบ SET ในข้อมูลของ set.or.th")
+
+
 def google_quote(sym):
     """สำรองจาก Google Finance เช่น SET:INDEXBKK (ใช้เมื่อ Yahoo ไม่มีข้อมูล)"""
     req = urllib.request.Request("https://www.google.com/finance/quote/" + sym + "?hl=en",
-                                 headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
-                                          "Accept-Language": "en-US,en;q=0.9"})
+                                 headers={"User-Agent": UA, "Accept-Language": "en-US,en;q=0.9", "Cookie": "CONSENT=YES+cb; SOCS=CAI"})
     h = urllib.request.urlopen(req, timeout=20).read().decode("utf-8", "ignore")
     m = re.search(r'data-last-price="([\d.]+)"', h)
     if not m:
@@ -350,12 +375,21 @@ def market_strip():
                 out[k] = {"v": round(float(d.iloc[-1]), 2), "chg": round((float(d.iloc[-1]) / float(d.iloc[-2]) - 1) * 100, 2),
                           "date": d.index[-1].strftime("%Y-%m-%d"), "src": "Yahoo"}
                 continue
-            g = CFG.get("googleIndex", {}).get(k)
-            if not g:
+            alt = CFG.get("altIndex", {}).get(k)
+            if not alt:
                 raise ValueError("ไม่มีข้อมูลจากทุกสัญลักษณ์")
-            price, prev = google_quote(g)
+            got, why = None, []
+            for name, fn in (("CNBC", lambda: cnbc_quote(alt["cnbc"])), ("SET", set_quote), ("Google Finance", lambda: google_quote(alt["google"]))):
+                try:
+                    got = (name,) + fn()
+                    break
+                except Exception as e:
+                    why.append(f"{name}: {str(e)[:50]}")
+            if not got:
+                raise ValueError(" / ".join(why))
+            name, price, prev = got
             out[k] = {"v": round(price, 2), "chg": round((price / prev - 1) * 100, 2) if prev else None,
-                      "date": dt.datetime.now(dt.timezone(dt.timedelta(hours=7))).strftime("%Y-%m-%d"), "src": "Google Finance"}
+                      "date": dt.datetime.now(dt.timezone(dt.timedelta(hours=7))).strftime("%Y-%m-%d"), "src": name}
         except Exception as e:
             ERRORS.append(f"index {k}: {str(e)[:80]}")
             if k in old:

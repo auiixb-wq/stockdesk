@@ -25,7 +25,7 @@
   {"s":"LLY","n":"Eli Lilly","m":"US","sec":"health"},
   {"s":"KO","n":"Coca-Cola","m":"US","sec":"consumer"}
  ],
- "googleIndex": {"set":"SET:INDEXBKK"},
+ "altIndex": {"set":{"cnbc":".SETI","google":"SET:INDEXBKK"}},
  "indices": {"set":["^SET.BK","^SETI"],"spx":"^GSPC","ndx":"^IXIC","gold":"GC=F"},
  "macro": [
   {"id":"us10y","y":"^TNX","nd":3},
