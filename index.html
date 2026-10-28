@@ -464,7 +464,8 @@ const FA_BASE={
 const NAV=["home","market","watch","news","factors","method","more","data","accuracy"];
 const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more"};
 const DEF_COST={TH:.17,US:.10}; // % ต่อขา: ค่าคอมออนไลน์ไทย ~0.157% + VAT, สหรัฐฯ เผื่อสเปรดและค่าแปลงสกุลเงิน
-const RULES={sl:1.5,tp:3,hold:20,thr:30,split:.7,warm:60,wk:true};const RULES0={...RULES};
+// ค่าเริ่มต้นเลือกจากการทดสอบราคาจริง 24 หุ้น 5 ปี: ดีกว่าค่าเดิม (คะแนน 30, SL 1.5, TP 3) ทั้งช่วงสร้างระบบและช่วงทดสอบ
+const RULES={sl:2,tp:4,hold:20,thr:40,split:.7,warm:60,wk:true};const RULES0={...RULES};
 
 /* ---------- state ---------- */
 const S={news:[],factors:[],meta:null,px:{},fa:{},watch:[],uid:null,db:null,dbState:"loading",mkt:"ALL",sort:"score",scr:"all",nf:"all",sec:null,cache:new Map(),bars:new Map(),charts:[],marks:true};
