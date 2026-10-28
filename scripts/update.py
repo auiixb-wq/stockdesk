@@ -263,8 +263,8 @@ def fetch_hist(uni):
     ys = [i["y"] for i in uni["items"]]
     for k in range(0, len(ys), 150):
         chunk = ys[k:k + 150]
-        for period in ("5y", "3y"):
-            part = [y for y in chunk if (y in core) == (period == "5y")]
+        for period in ("5y",):  # 5 ปีทุกตัว: ทดสอบย้อนหลังได้ทั้งช่วงขาขึ้นและขาลง
+            part = chunk
             if not part:
                 continue
             try:
