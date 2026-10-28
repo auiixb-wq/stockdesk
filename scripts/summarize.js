@@ -30,6 +30,24 @@ for (const f of fs.existsSync(fdir) ? fs.readdirSync(fdir).filter(f => f.endsWit
   try { S.fin[f.replace(/\.json$/, "")] = JSON.parse(fs.readFileSync(path.join(fdir, f), "utf8")); } catch {}
 }
 
+// เกณฑ์ความแข็งเทียบตลาดรายวัน (ผลตอบแทน 63 วันที่เปอร์เซ็นไทล์ 50–90 ของหุ้นที่มีสภาพคล่องในตลาดเดียวกัน)
+{
+  const by = {};
+  for (const st of allStocks()) {
+    if (!hasBars(st) || !liquid(st)) continue;
+    const B = barsOf(st);
+    for (let i = 63; i < B.length; i++) ((by[st.m] ??= {})[B[i].t] ??= []).push(B[i].c / B[i - 63].c - 1);
+  }
+  const rsq = {};
+  for (const m in by) {
+    const d = Object.keys(by[m]).filter(k => by[m][k].length >= 30).sort(), Q = { d };
+    for (const p of [50, 60, 70, 80, 90]) Q["p" + p] = d.map(k => { const a = by[m][k].sort((x, y) => x - y), x = (a.length - 1) * p / 100, lo = Math.floor(x); return +(a[lo] + (a[Math.min(lo + 1, a.length - 1)] - a[lo]) * (x - lo)).toFixed(4); });
+    rsq[m] = Q;
+  }
+  S.rsq = rsq;
+  fs.writeFileSync(path.join(DATA, "rsq.json"), JSON.stringify(rsq));
+  S.cache.clear();
+}
 const t0 = Date.now(), out = {}, C = calibNew();
 let ok = 0, fail = 0;
 for (const st of allStocks()) {

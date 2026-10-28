@@ -52,8 +52,9 @@ const NAV=["home","market","watch","news","factors","method","more","data","accu
 const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more",compare:"more",signals:"home"};
 const DEF_COST={TH:.17,US:.10}; // % ต่อขา: ค่าคอมออนไลน์ไทย ~0.157% + VAT, สหรัฐฯ เผื่อสเปรดและค่าแปลงสกุลเงิน
 // ค่าเริ่มต้นเลือกจากการทดสอบราคาจริง 24 หุ้น 5 ปี (28 ต.ค. 2569): ชนะ 66% ช่วงสร้าง / 71% ช่วงทดสอบ และกำไรทั้งสองช่วง
-const RULES={sl:3,tp:1.5,hold:20,thr:40,split:.7,warm:60,wk:true};
-const PRESETS={win:{thr:40,sl:3,tp:1.5,hold:20,wk:true},edge:{thr:40,sl:3,tp:4,hold:30,wk:true}};const RULES0={...RULES};
+// rs = ต้องแข็งกว่าหุ้นอื่นในตลาดเดียวกัน (ผลตอบแทน 63 วันอยู่ในกลุ่มบน rs%) · ทดสอบ 5 ปี ~1,400 หุ้น: ชนะ 68–69% กำไร +0.50/+0.54% ต่อไม้
+const RULES={sl:4,tp:1.5,hold:20,thr:40,split:.7,warm:60,wk:true,rs:70};
+const PRESETS={win:{thr:40,sl:4,tp:1.5,hold:20,wk:true,rs:70},edge:{thr:40,sl:3,tp:5,hold:40,wk:true,rs:70}};const RULES0={...RULES};
 
 /* ---------- state ---------- */
 const S={hist:{},fin:{},universe:[],summary:{},news:[],factors:[],meta:null,px:{},fa:{},watch:[],uid:null,db:null,dbState:"loading",mkt:"ALL",sort:"score",scr:"all",nf:"all",sec:null,cache:new Map(),bars:new Map(),charts:[],marks:true};
@@ -266,11 +267,16 @@ function verdict(x){return x>=70?["ซื้อ (แรง)","p-buy2"]:x>=58?["�
 function levels(I,n){const atr=I.atr[n]||I.c[n]*.02,c=I.c[n],pts=[];for(let j=Math.max(3,n-150);j<=n-3;j++){if(I.pl[j])pts.push(I.l[j]);if(I.ph[j])pts.push(I.h[j])}
   pts.sort((a,b)=>a-b);const cl=[];for(const p of pts){const L=cl.at(-1);if(L&&p-L.hi<=.5*atr){L.hi=p;L.sum+=p;L.n++}else cl.push({hi:p,sum:p,n:1})}
   const lv=cl.map(x=>({p:x.sum/x.n,n:x.n}));return{sup:lv.filter(x=>x.p<c).sort((a,b)=>b.p-a.p),res:lv.filter(x=>x.p>c).sort((a,b)=>a.p-b.p)}}
-function makePlan(st,I,score){
+// ความแข็งเทียบตลาดรายวัน: เกณฑ์ผลตอบแทน 63 วันของแต่ละเปอร์เซ็นไทล์ คำนวณจากหุ้นทั้งตลาดใน GitHub Actions (data/rsq.json)
+function rsSeries(st,B,p){const Q=S.rsq?.[st.m],q=Q?.["p"+p];if(!q)return null;S._rsqIdx??={};const idx=S._rsqIdx[st.m]??=new Map(Q.d.map((d,i)=>[d,i])),last=Q.d.at(-1);
+  return B.map((b,i)=>{if(i<63)return false;let k=idx.get(b.t);if(k==null){if(b.t>last)k=q.length-1;else return null}return B[i].c/B[i-63].c-1>=q[k]})}
+const rsPass=(a,i)=>!a||a[i]==null||a[i];
+function makePlan(st,I,score,rsNow=true){
   const n=I.c.length-1,c=I.c[n],atr=I.atr[n]||c*.02,m=st.m,L=levels(I,n);
   const sup=L.sup[0]?.p??Math.min(...I.l.slice(-20)),res=L.res[0]?.p??Math.max(...I.h.slice(-60));
   const up=I.e50[n]!=null&&c>I.e50[n]&&I.wk[n]>=0;let lo,hi,mode,tone;
-  if(score>=20&&up){mode="ทยอยซื้อเมื่อย่อ";tone="buy";hi=c;lo=Math.max(I.e20[n]??c-atr,c-.8*atr);if(lo>hi)lo=hi-.3*atr}
+  if(score>=20&&up&&!rsNow){mode="รอ: ยังไม่แข็งกว่าตลาด";tone="hold";hi=c-.3*atr;lo=Math.max(sup,c-1.3*atr)}
+  else if(score>=20&&up){mode="ทยอยซื้อเมื่อย่อ";tone="buy";hi=c;lo=Math.max(I.e20[n]??c-atr,c-.8*atr);if(lo>hi)lo=hi-.3*atr}
   else if(score>=-10){mode="รอสัญญาณยืนยัน";tone="hold";hi=c-.3*atr;lo=Math.max(sup,c-1.3*atr)}
   else{mode="ยังไม่ควรเข้า";tone="sell";lo=sup;hi=sup+.5*atr}
   if(lo>hi)[lo,hi]=[hi,lo];
@@ -285,7 +291,7 @@ function corr(a,b){const n=a.length;if(n<3)return 0;let ma=0,mb=0;for(let i=0;i<
 const pear=()=>({n:0,sx:0,sy:0,sxx:0,syy:0,sxy:0});
 function padd(p,x,y){p.n++;p.sx+=x;p.sy+=y;p.sxx+=x*x;p.syy+=y*y;p.sxy+=x*y}
 function pval(p){if(p.n<3)return 0;const cv=p.sxy-p.sx*p.sy/p.n,vx=p.sxx-p.sx*p.sx/p.n,vy=p.syy-p.sy*p.sy/p.n;return vx>0&&vy>0?cv/Math.sqrt(vx*vy):0}
-const CALIB_GRID=(()=>{const g=[];for(const thr of [20,30,40,50])for(const sl of [1.5,2,3])for(const tp of [1,1.5,2,3,4])g.push({thr,sl,tp,wk:true});return g})();
+const CALIB_GRID=(()=>{const g=[];for(const thr of [30,40,50])for(const sl of [2,3,4])for(const tp of [1,1.5,2,3,4,5])g.push({thr,sl,tp,wk:true,hold:tp>=4?(tp>=5?40:30):20});return g})();
 const CALIB_BINS=[[-101,-40,"ต่ำมาก (< −40)"],[-40,-10,"ต่ำ (−40 ถึง −10)"],[-10,20,"กลาง (−10 ถึง 20)"],[20,50,"สูง (20 ถึง 50)"],[50,101,"สูงมาก (> 50)"]];
 function calibNew(H=20){const agg=()=>CALIB_BINS.map(b=>({lab:b[2],lo:b[0],hi:b[1],n:0,sum:0,pos:0}));
   return{H,A:{is:agg(),oos:agg()},ic:VOTES.map(()=>({is:pear(),oos:pear()})),loo:VOTES.map(()=>({is:[],oos:[]})),base:{is:[],oos:[]},all:{is:pear(),oos:pear()},grid:CALIB_GRID.map(g=>({g,is:[],oos:[]})),pb:{is:[],oos:[]},stocks:0,real:0,from:null,to:null}}
@@ -293,17 +299,17 @@ function calibAdd(C,R){if(R.sample)return;C.stocks++;C.real++;const H=C.H,c=R.I.
   if(!C.from||B[0].t<C.from)C.from=B[0].t;if(!C.to||B[n-1].t>C.to)C.to=B[n-1].t;
   for(let i=RULES.warm;i<n-H;i++){const f=(c[i+H]/c[i]-1)*100,s=arr[i],k=i<R.split?"is":"oos";const b=C.A[k].find(b=>s>=b.lo&&s<b.hi);if(b){b.n++;b.sum+=f;if(f>0)b.pos++}
     if(i%3===0){padd(C.all[k],s,f);R.V[i].forEach((v,j)=>{if(v!=null)padd(C.ic[j][k],v,f)})}}
-  const tr=t=>({ret:t.ret,R:t.R,i:t.i,x:t.x});
-  for(const G of C.grid){const g=G.g,P={...RULES,...g},a=arr,sig=i=>a[i-1]<g.thr&&a[i]>=g.thr&&(!g.wk||I.wk[i]>=0);
+  const tr=t=>({ret:t.ret,R:t.R,i:t.i,x:t.x}),rsA=RULES.rs!=null?rsSeries(R.st,B,RULES.rs):null;
+  for(const G of C.grid){const g=G.g,P={...RULES,...g},a=arr,sig=i=>a[i-1]<g.thr&&a[i]>=g.thr&&(!g.wk||I.wk[i]>=0)&&rsPass(rsA,i);
     for(const t of simulate(B,I,sig,0,R.split,R.st.m,P))G.is.push(tr(t));for(const t of simulate(B,I,sig,R.split,B.length,R.st.m,P))G.oos.push(tr(t))}
   for(const t of R.pb.trades)(t.i<R.split?C.pb.is:C.pb.oos).push(tr(t));
   // ตัดทีละตัว: ถ้าไม่มีอินดิเคเตอร์ตัวนี้ ระบบตามคะแนนได้กำไรต่อไม้ต่างไปเท่าไร (ใช้ตัดสินว่าจะเก็บตัวไหน)
   const w0=VOTES.map(v=>v.w),score=w=>R.V.map(row=>{if(!row)return 0;let s=0,ws=0;row.forEach((x,k)=>{if(x!=null&&w[k]){s+=w[k]*x;ws+=w[k]*2}});return ws?s/ws*100:0});
-  const run=(a,into)=>{const sig=i=>a[i-1]<RULES.thr&&a[i]>=RULES.thr&&(RULES.wk===false||I.wk[i]>=0);for(const t of simulate(B,I,sig,0,R.split,R.st.m))into.is.push(tr(t));for(const t of simulate(B,I,sig,R.split,B.length,R.st.m))into.oos.push(tr(t))};
+  const run=(a,into)=>{const sig=i=>a[i-1]<RULES.thr&&a[i]>=RULES.thr&&(RULES.wk===false||I.wk[i]>=0)&&rsPass(rsA,i);for(const t of simulate(B,I,sig,0,R.split,R.st.m))into.is.push(tr(t));for(const t of simulate(B,I,sig,R.split,B.length,R.st.m))into.oos.push(tr(t))};
   run(score(w0),C.base);VOTES.forEach((_,j)=>run(score(w0.map((w,k)=>k===j?0:w)),C.loo[j]))}
 function calibDone(C){const strip=s=>s.n?{n:s.n,win:s.win,avg:s.avg,exp:s.exp,pf:s.pf}:{n:0};
   const res=C.grid.map(G=>({g:G.g,is:strip(stats(G.is)),oos:strip(stats(G.oos))}));
-  const cur=res.find(r=>r.g.thr===RULES.thr&&r.g.sl===RULES.sl&&r.g.tp===RULES.tp&&r.g.wk===(RULES.wk!==false));
+  const cur=res.find(r=>r.g.thr===RULES.thr&&r.g.sl===RULES.sl&&r.g.tp===RULES.tp&&r.g.wk===(RULES.wk!==false));res.forEach(r=>r.g.rs=RULES.rs);
   const best=res.filter(r=>r.is.n>=30).sort((a,b)=>b.is.exp-a.is.exp).slice(0,6);
   const hiwin=res.filter(r=>r.is.n>=30&&r.is.win>=65&&r.is.exp>0).sort((a,b)=>b.is.exp-a.is.exp).slice(0,4);
   return{H:C.H,A:C.A,stocks:C.stocks,real:C.real,from:C.from,to:C.to,cur,best,hiwin,pb:{is:strip(stats(C.pb.is)),oos:strip(stats(C.pb.oos))},
@@ -322,7 +328,7 @@ function confidence(R){
 }
 function analyze(st){
   const co=lsGet("cost")||{};
-  const key=[st.s,S.px[st.s]?.at||"s",S.prices?.[st.s]?.t?.length||0,S.quotes?.updated||0,JSON.stringify(RULES),S.fa[st.s]?.at||"s",S.news.length,S.factors.length,S.meta?.updatedAt||"",co.TH,co.US,Object.keys(S.px).length].join("|");
+  const key=[st.s,S.px[st.s]?.at||"s",S.prices?.[st.s]?.t?.length||0,S.quotes?.updated||0,JSON.stringify(RULES),S.fa[st.s]?.at||"s",S.news.length,S.factors.length,S.meta?.updatedAt||"",S.rsq?.TH?.d?.length||0,co.TH,co.US,Object.keys(S.px).length].join("|");
   const hit=S.cache.get(st.s);if(hit&&hit.key===key)return hit;
   const B=barsOf(st),I=indicators(B),n=B.length-1,split=Math.floor(B.length*RULES.split);
   const V=I.c.map((_,i)=>i<1?VOTES.map(()=>null):VOTES.map(v=>{const r=v.f(I,i,false);return r?r.v:null}));
@@ -330,13 +336,14 @@ function analyze(st){
   const wStd=VOTES.map(v=>v.w);
   const wAd=VOTES.map(v=>{const p=per.find(x=>x.id===v.id);return p&&p.is.n>=3?+(v.w*clamp(1+p.is.exp*2,.2,2)).toFixed(2):v.w});
   const sc=w=>V.map(row=>{let s=0,ws=0;row.forEach((x,k)=>{if(x!=null){s+=w[k]*x;ws+=w[k]*2}});return ws?s/ws*100:0});
-  const run=(arr)=>{const sig=i=>arr[i-1]<RULES.thr&&arr[i]>=RULES.thr&&(RULES.wk===false||I.wk[i]>=0);const a=simulate(B,I,sig,0,split,st.m),b=simulate(B,I,sig,split,B.length,st.m);return{is:stats(a),oos:stats(b),trades:a.concat(b),arr}};
+  const rsA=RULES.rs!=null?rsSeries(st,B,RULES.rs):null,rs70=rsSeries(st,B,70);
+  const run=(arr)=>{const sig=i=>arr[i-1]<RULES.thr&&arr[i]>=RULES.thr&&(RULES.wk===false||I.wk[i]>=0)&&rsPass(rsA,i);const a=simulate(B,I,sig,0,split,st.m),b=simulate(B,I,sig,split,B.length,st.m);return{is:stats(a),oos:stats(b),trades:a.concat(b),arr}};
   const std=run(sc(wStd)),ad=run(sc(wAd));
   const useAd=ad.is.n>=3&&(ad.is.exp??-9)>(std.is.exp??-9);
   const model={...(useAd?ad:std),name:useAd?"ปรับน้ำหนักตามหุ้นนี้":"น้ำหนักมาตรฐาน",w:useAd?wAd:wStd,other:useAd?std:ad,adaptive:useAd};
   const rows=VOTES.map((v,k)=>{const r=v.f(I,n,true);return r?{...r,id:v.id,name:v.name,mean:v.mean,w:model.w[k],w0:v.w}:null}).filter(Boolean);
   const tech={score:Math.round(model.arr[n]),rows,agree:rows.filter(r=>r.v>0).length,against:rows.filter(r=>r.v<0).length};
-  const plan=makePlan(st,I,tech.score);
+  const plan=makePlan(st,I,tech.score,rsPass(rsA,n));
   const f=fundOf(st),fund=fundScore(f),ns=newsScore(st),fs=factorScore(st),rs=relStrength(st);
   const rsV=rs.pctl>=70?1:rs.pctl<=30?-1:0;
   const techP=(tech.score+100)/2,ctxP=clamp(50+ns.s*20+fs*8+rsV*10,0,100);
@@ -344,8 +351,9 @@ function analyze(st){
   const overall=Math.round(fund.thin?.7*techP+.3*ctxP:.5*techP+.3*fund.score+.2*ctxP);
   const bh={is:(B[split-1].c/B[RULES.warm].c-1)*100,oos:(B[n].c/B[split].c-1)*100};
   // ระบบซื้อตอนย่อ: ราคาเหนือ SMA200 และ RSI(2) < 5 → ซื้อราคาเปิดวันถัดไป ขายเมื่อปิดเหนือ SMA5 หรือครบ 10 วัน ตัดขาดทุน 3 ATR
-  const r2=rsi(I.c,2),s5=sma(I.c,5),s200=sma(I.c,200),pbSig=i=>s200[i]!=null&&I.c[i]>s200[i]&&r2[i]<5,PB={...RULES,sl:3,tp:null,hold:10,exit:j=>I.c[j]>s5[j]};
-  const pbt=simulate(B,I,pbSig,0,B.length,st.m,PB);const pb={all:stats(pbt),trades:pbt,now:pbSig(n),r2:r2[n],s5:s5[n],s200:s200[n],near:s200[n]!=null&&I.c[n]>s200[n]&&r2[n]<15};
+  // ทดสอบ 5 ปี: เพิ่มเงื่อนไขแข็งกว่าตลาด 70% และขายเมื่อปิดเหนือ SMA10 → ชนะ 66–67% กำไร +0.62/+0.69% ต่อไม้ (เดิม +0.26/+0.22%)
+  const r2=rsi(I.c,2),s10=sma(I.c,10),s200=sma(I.c,200),pbSig=i=>s200[i]!=null&&I.c[i]>s200[i]&&r2[i]<5&&rsPass(rs70,i),PB={...RULES,sl:3,tp:null,hold:15,exit:j=>I.c[j]>s10[j]};
+  const pbt=simulate(B,I,pbSig,0,B.length,st.m,PB);const pb={all:stats(pbt),trades:pbt,now:pbSig(n),r2:r2[n],s5:s10[n],s200:s200[n],rs:rs70?!!rs70[n]:null,near:s200[n]!=null&&I.c[n]>s200[n]&&r2[n]<15&&rsPass(rs70,n)};
   const qq=!S.px[st.s]&&S.quotes?.q?.[st.s];const R={key,st,B,I,V,pb,sStd:std.arr,tech,plan,per,model,bh,split,f,fund,ns,fs,rs,rsV,techP,ctxP,overall,v:verdict(overall),sample:!hasBars(st),last:B[n].c,chg:qq&&qq.chg!=null?qq.chg:(B[n].c/B[n-1].c-1)*100};
   R.conf=confidence(R);R.why=reasons(R);
   S.cache.set(st.s,R);return R;
