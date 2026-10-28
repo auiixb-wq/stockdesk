@@ -16,13 +16,14 @@ concurrency:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - name: Restore previous data
         run: |
           git fetch origin gh-pages --depth=1 || true
           git checkout origin/gh-pages -- data 2>/dev/null || true
+          git fetch origin hist --depth=1 && mkdir -p data/hist && git --work-tree=data/hist checkout origin/hist -- . && git reset -q || true
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

@@ -27,7 +27,7 @@ def sh(cmd):
 
 
 def publish_live():
-    sh("rm -rf _live && mkdir -p _live && cp data/quotes.json _live/ && cp data/meta.json _live/")
+    sh("rm -rf _live && mkdir -p _live && cp data/quotes.json data/meta.json _live/")
     r = sh('cd _live && git init -q -b live && git add -A && git -c user.name=stockdesk-bot '
            '-c user.email=actions@users.noreply.github.com commit -qm live && '
            f'git push -qf "https://x-access-token:{os.environ["GITHUB_TOKEN"]}@github.com/{os.environ["GITHUB_REPOSITORY"]}.git" live')

@@ -7,6 +7,7 @@ import json, math, re, time, datetime as dt, email.utils, html, os, sys
 import urllib.request, urllib.parse, xml.etree.ElementTree as ET
 
 import yfinance as yf
+from yfinance import EquityQuery
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, "data")
@@ -99,8 +100,163 @@ def fetch_quotes(prices):
         if ts and dt.datetime.fromtimestamp(ts, dt.timezone.utc).strftime("%Y-%m-%d") > today_bar:
             prev = p["c"][-1]
         q[s["s"]] = {"p": last, "prev": num(prev), "chg": num((last / prev - 1) * 100, 3) if prev else None, "ts": ts}
+    try:
+        uni = load("universe.json", {"items": []})
+        if uni["items"]:
+            open_m = [m for m in ("TH", "US") if market_open(m)] or ["TH", "US"]
+            old = load("quotes.json", {"q": {}})["q"]
+            allq = {**old, **market_quotes(uni, open_m)}
+            allq.update({k: v for k, v in q.items() if v.get("ts") and (k not in allq or (allq[k].get("ts") or 0) <= v["ts"])})
+            q = allq
+    except Exception as e:
+        ERRORS.append(f"market quotes: {str(e)[:80]}")
     save("quotes.json", {"updated": int(time.time()), "q": q})
     return q
+
+
+def market_open(m):
+    now = dt.datetime.now(dt.timezone.utc)
+    if now.weekday() >= 5:
+        return False
+    x = now.hour * 60 + now.minute
+    return 175 <= x <= 580 if m == "TH" else 805 <= x <= 1210
+
+
+# ---------- universe: หุ้นทั้งตลาดจากตัวคัดกรองของ Yahoo ----------
+YSEC = {"Technology": "tech", "Financial Services": "bank", "Energy": "energy", "Healthcare": "health",
+        "Consumer Cyclical": "consumer", "Consumer Defensive": "consumer", "Industrials": "industrial",
+        "Basic Materials": "materials", "Real Estate": "property", "Utilities": "utility", "Communication Services": "comm"}
+US_EX = ["NMS", "NYQ", "NGM", "NCM", "ASE", "BTS", "PCX"]
+
+
+def base_query(m):
+    if m == "TH":
+        return EquityQuery("eq", ["exchange", "SET"])
+    return EquityQuery("and", [EquityQuery("is-in", ["exchange"] + US_EX),
+                               EquityQuery("gt", ["intradaymarketcap", CFG.get("usMinCap", 5e9)])])
+
+
+def screen(q, limit=3000):
+    rows, off = [], 0
+    while off < limit:
+        r = yf.screen(q, offset=off, size=250, sortField="intradaymarketcap", sortAsc=False)
+        qs = r.get("quotes", [])
+        rows += qs
+        if len(qs) < 250:
+            break
+        off += 250
+        time.sleep(0.3)
+    return rows
+
+
+def keep(x, m):
+    sym = x.get("symbol", "")
+    if x.get("quoteType") != "EQUITY":
+        return False
+    if m == "TH":  # หุ้นสามัญเท่านั้น: ไม่เอา NVDR (-R), หุ้นต่างประเทศ (-F), warrant (-W) และ DR
+        name = (x.get("shortName") or "") + " " + (x.get("longName") or "")
+        return bool(re.fullmatch(r"[A-Z0-9&]+\.BK", sym)) and not re.search(r"_DR|#|\bDR\b", name)
+    return "." not in sym or sym.count("-") == 1
+
+
+def disp(sym, m):
+    return sym[:-3] if m == "TH" and sym.endswith(".BK") else sym
+
+
+def quote_of(x):
+    p, prev = num(x.get("regularMarketPrice")), num(x.get("regularMarketPreviousClose"))
+    return {"p": p, "prev": prev, "chg": num(x.get("regularMarketChangePercent"), 3), "ts": x.get("regularMarketTime"),
+            "v": x.get("regularMarketVolume")}
+
+
+def fetch_universe():
+    """รายชื่อหุ้นทั้งตลาดพร้อมกลุ่มอุตสาหกรรม (วันละครั้ง) แยก query ตาม sector เพื่อได้ sector มาด้วย"""
+    old = load("universe.json", {"items": []})
+    full = os.environ.get("FULL") == "1" or not old["items"]
+    if not full:
+        return old
+    items, seen = [], set()
+    for m in ("TH", "US"):
+        for ysec, sec in YSEC.items():
+            try:
+                for x in screen(EquityQuery("and", [base_query(m), EquityQuery("eq", ["sector", ysec])])):
+                    if not keep(x, m) or x["symbol"] in seen:
+                        continue
+                    seen.add(x["symbol"])
+                    items.append({"s": disp(x["symbol"], m), "y": x["symbol"], "n": x.get("longName") or x.get("shortName"),
+                                  "m": m, "sec": sec, "mc": num(x.get("marketCap"), 0), "pe": num(x.get("trailingPE"), 2),
+                                  "dy": num(x.get("dividendYield"), 2), "pb": num(x.get("priceToBook"), 2), **quote_of(x)})
+            except Exception as e:
+                ERRORS.append(f"universe {m} {ysec}: {str(e)[:80]}")
+    for s in CFG["stocks"]:  # หุ้นในรายการหลักต้องมีเสมอ
+        if not any(i["s"] == s["s"] for i in items):
+            items.append({"s": s["s"], "y": ysym(s), "n": s["n"], "m": s["m"], "sec": s["sec"]})
+    if len(items) < 50 and old["items"]:
+        ERRORS.append(f"universe: ได้แค่ {len(items)} ตัว ใช้รายชื่อเดิม")
+        return old
+    out = {"updated": int(time.time()), "items": items}
+    save("universe.json", out)
+    return out
+
+
+def market_quotes(uni, markets=("TH", "US")):
+    """ราคาล่าสุดทั้งตลาดในไม่กี่คำขอ (ไม่แยก sector)"""
+    want = {i["y"]: i["s"] for i in uni["items"] if i["m"] in markets}
+    got = {}
+    for m in markets:
+        try:
+            for x in screen(base_query(m)):
+                if x.get("symbol") in want:
+                    got[want[x["symbol"]]] = quote_of(x)
+        except Exception as e:
+            ERRORS.append(f"quotes {m}: {str(e)[:80]}")
+    return got
+
+
+def fetch_hist(uni):
+    """ราคาย้อนหลังรายวันของทุกหุ้น เขียนแยกไฟล์ data/hist/<symbol>.json (วันละครั้ง)"""
+    d0 = os.path.join(DATA, "hist")
+    os.makedirs(d0, exist_ok=True)
+    full = os.environ.get("FULL") == "1" or len(os.listdir(d0)) < len(uni["items"]) * .5
+    if not full:
+        return
+    open(os.path.join(DATA, ".hist_new"), "w").close()  # บอก publish.sh ให้อัปเดต branch hist
+    core = {ysym(s) for s in CFG["stocks"]}
+    ys = [i["y"] for i in uni["items"]]
+    for k in range(0, len(ys), 150):
+        chunk = ys[k:k + 150]
+        for period in ("5y", "3y"):
+            part = [y for y in chunk if (y in core) == (period == "5y")]
+            if not part:
+                continue
+            try:
+                df = yf.download(part, period=period, interval="1d", group_by="ticker", auto_adjust=False, threads=True, progress=False)
+            except Exception as e:
+                ERRORS.append(f"hist chunk {k}: {str(e)[:80]}")
+                continue
+            for y in part:
+                try:
+                    d = df[y].dropna(subset=["Open", "High", "Low", "Close"]) if len(part) > 1 else df.dropna(subset=["Open", "High", "Low", "Close"])
+                    if len(d) < 60:
+                        continue
+                    sym = next(i["s"] for i in uni["items"] if i["y"] == y)
+                    with open(os.path.join(d0, sym + ".json"), "w") as f:
+                        json.dump({"t": [i.strftime("%Y-%m-%d") for i in d.index], "o": [num(x, 3) for x in d["Open"]],
+                                   "h": [num(x, 3) for x in d["High"]], "l": [num(x, 3) for x in d["Low"]],
+                                   "c": [num(x, 3) for x in d["Close"]], "v": [int(x) if x == x else 0 for x in d["Volume"]]},
+                                  f, separators=(",", ":"))
+                except Exception:
+                    pass
+        time.sleep(1)
+
+
+def summarize():
+    """คำนวณคะแนนและแผนของทุกหุ้นด้วย core.js ตัวเดียวกับหน้าเว็บ"""
+    import subprocess
+    r = subprocess.run(["node", os.path.join(ROOT, "scripts", "summarize.js")], cwd=ROOT, capture_output=True, text=True, timeout=900)
+    print(r.stdout[-500:])
+    if r.returncode:
+        ERRORS.append("summarize: " + r.stderr[-200:])
 
 
 # ---------- fundamentals ----------
@@ -114,10 +270,15 @@ def fetch_fund():
     full = os.environ.get("FULL") == "1" or not old
     if not full:
         return old
-    out = {}
-    for s in CFG["stocks"]:
+    out = dict(old)
+    uni = load("universe.json", {"items": []})["items"]
+    # รายการหลักทุกวัน + หุ้นอื่นหมุนเวียนวันละ ~250 ตัว เรียงตามมูลค่าตลาด จนครบทุกตัวในราว 1 สัปดาห์
+    stale = sorted([i for i in uni if i["s"] not in out or out[i["s"]].get("at", "") < (NOW - dt.timedelta(days=7)).strftime("%Y-%m-%d")],
+                   key=lambda i: -(i.get("mc") or 0))
+    targets = [{"s": s["s"], "y": ysym(s)} for s in CFG["stocks"]] + [{"s": i["s"], "y": i["y"]} for i in stale[:250]]
+    for s in targets:
         try:
-            info = yf.Ticker(ysym(s)).info or {}
+            info = yf.Ticker(s["y"]).info or {}
             f = {}
             for k, v in FIELDS.items():
                 x = num(info.get(k))
@@ -134,7 +295,7 @@ def fetch_fund():
             f["cur"] = info.get("currency")
             f["at"] = NOW.strftime("%Y-%m-%d")
             out[s["s"]] = f
-            time.sleep(0.4)
+            time.sleep(0.25)
         except Exception as e:
             ERRORS.append(f"fund {s['s']}: {str(e)[:80]}")
             if s["s"] in old:
@@ -400,11 +561,14 @@ def market_strip():
 def main():
     t0 = time.time()
     prices, pstatus = fetch_prices()
+    uni = fetch_universe()
+    fetch_hist(uni)
     quotes = fetch_quotes(prices)
     fund = fetch_fund()
     macro = fetch_macro()
     news = fetch_news()
     idx = market_strip()
+    summarize()
     old_meta = load("meta.json", {})
     meta = {
         "updated": int(time.time()), "full": os.environ.get("FULL") == "1",
