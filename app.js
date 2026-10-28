@@ -189,7 +189,7 @@ function impChips(x){const I=newsImpacts(x,S.watch);if(!I.stocks.length&&!I.secs
   return `<div class="imp"><span class="muted">กระทบ</span>${I.stocks.map(([st,v])=>ch("#s-"+esc(st.s),esc(st.s),v)).join("")}${I.secs.map(([m,sec,v])=>ch("",`กลุ่ม${esc(SECTORS[sec].th)}${m==="US"?" (US)":""}`,v)).join("")}</div>`}
 const TIERN=["","ระดับ 1","ระดับ 2","ระดับ 3"];
 const nTs=x=>x.ts||Date.parse(x.date+"T12:00:00+07:00")/1e3;
-function ago(x){if(x.approx)return thMonth(x.date);const t=x.ts,d=Date.now()/1e3-(t||0);if(!t)return thDate(x.date);
+function nAgo(x){if(x.approx)return thMonth(x.date);const t=x.ts,d=Date.now()/1e3-(t||0);if(!t)return thDate(x.date);
   if(d<3600)return Math.max(1,Math.round(d/60))+" นาทีที่แล้ว";if(d<86400)return Math.round(d/3600)+" ชม.ที่แล้ว";
   return new Date(t*1e3).toLocaleString("th-TH",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}
 function dayLab(x){const t=new Date(nTs(x)*1e3),k=t.toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"}),n=new Date(),y=new Date(n-864e5),f=d=>d.toLocaleDateString("en-CA",{timeZone:"Asia/Bangkok"});
@@ -199,9 +199,9 @@ function nStocks(x){const ts=(x.tickers||[]).map(s=>stockBySym(s)).filter(st=>st
   if(!ts.length){const sec=(x.sectors||[]).map(k=>SECTORS[k]?.th).filter(Boolean);return `<div class="nst"><span class="ntag">${(x.factors||[]).length?"ข่าวเศรษฐกิจ/ปัจจัย":sec.length?"ข่าวกลุ่ม"+esc(sec.slice(0,2).join(", ")):"ข่าวตลาด"}</span></div>`}
   return `<div class="nst">${ts.slice(0,5).map(st=>{const R=info(st);return `<a class="nsk" href="#s-${esc(st.s)}">${logo(st.s)}<b>${esc(st.s)}</b>${R.chg!=null?chgPill(R.chg,st.s):""}</a>`}).join("")}${ts.length>5?`<span class="muted">+${ts.length-5}</span>`:""}</div>`}
 function newsCard(E){const x=E.lead,alts=[...E.items.filter(y=>y!==x).map(y=>({s:y.source,u:y.url,t:y.tier,h:y.titleTh||y.title})),...(x.alt||[])],th=x.titleTh||x.title,sm=x.summaryTh||x.summary,deep=channelsHTML(x)||nfx(x);
-  return `<article class="ni">${nStocks(x)}<a class="t" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">${esc(th)}</a>${x.titleTh&&x.titleTh!==x.title?`<div class="ot">${esc(x.title)}</div>`:""}
+  return `<article class="ni">${nStocks(x)}<a class="t" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener"${x.titleTh&&x.titleTh!==x.title?` title="ต้นฉบับ: ${esc(x.title)}"`:""}>${esc(th)}</a>
   ${sm?`<p class="sm">${esc(sm)}</p>`:""}
-  <div class="meta"><span class="tier t${x.tier||3}" title="${["","สำนักข่าวหลักหรือประกาศทางการ","สื่อธุรกิจและบทวิเคราะห์","เว็บรวบรวมข่าว"][x.tier||3]}">${TIERN[x.tier||3]}</span><b>${esc(x.source)}</b><span>${ago(x)}</span>${sentTag(x.sentiment)}${alts.length?`<span class="muted">· รายงานโดย ${alts.length+1} แหล่ง</span>`:""}</div>
+  <div class="meta"><span class="tier t${x.tier||3}" title="${["","สำนักข่าวหลักหรือประกาศทางการ","สื่อธุรกิจและบทวิเคราะห์","เว็บรวบรวมข่าว"][x.tier||3]}">${TIERN[x.tier||3]}</span><b>${esc(x.source)}</b><span>${nAgo(x)}</span>${x.sentiment?sentTag(x.sentiment):""}${alts.length?`<span class="muted">· รายงานโดย ${alts.length+1} แหล่ง</span>`:""}</div>
   ${impChips(x)}
   ${deep||alts.length?`<details class="evm"><summary>${[deep?"กลไกผลกระทบ":"",alts.length?`แหล่งข่าวอื่น ${alts.length} แหล่ง`:""].filter(Boolean).join(" · ")}</summary>${deep}${alts.length?`<ul>${alts.map(y=>`<li><span class="tier t${y.t||3}">${["","ร.1","ร.2","ร.3"][y.t||3]}</span> <b>${esc(y.s)}</b> · <a href="${esc(safeUrl(y.u))}" target="_blank" rel="noopener">${esc(y.h||"อ่านข่าว")}</a></li>`).join("")}</ul>`:""}</details>`:""}</article>`}
 function newsHTML(list,limit,days){if(!list.length)return `<div class="empty">${S.dbState==="loading"?"กำลังโหลดข่าว…":S.dbState==="off"?"โหลดข่าวไม่สำเร็จ ลองรีเฟรชหน้า":"ยังไม่มีข่าวที่ตรงกับตัวกรอง"}</div>`;

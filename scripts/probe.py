@@ -1,16 +1,20 @@
-import json, os, subprocess, sys, time
-os.makedirs("data", exist_ok=True)
-for f in ("universe.json", "news.json"):
-    subprocess.run(f"git show origin/gh-pages:data/{f} > data/{f}", shell=True)
+import json, os, sys
 sys.path.insert(0, "scripts")
 import update as U
-t = time.time()
-out = U.fetch_news()
-it = out["items"]
-from collections import Counter
-rep = {"seconds": round(time.time() - t, 1), "n": len(it), "market": Counter(x["market"] for x in it),
-       "tagged": sum(1 for x in it if x.get("tickers")), "th_title": sum(1 for x in it if x.get("titleTh")),
-       "alt": sum(len(x.get("alt", [])) for x in it), "src": Counter(x["source"] for x in it).most_common(40),
-       "tick": Counter(t for x in it for t in x.get("tickers", [])).most_common(40), "sources": out["sources"], "errors": U.ERRORS[:40]}
-json.dump(rep, open("probe.json", "w"), ensure_ascii=False, indent=1)
-os.system("cp data/news.json news.json")
+out = {}
+for k, u in [("thunhoon", "https://thunhoon.com/feed/"), ("bkkbiz", "https://www.bangkokbiznews.com/rss/feed.xml"),
+             ("thansett", "https://www.thansettakij.com/rss"), ("nation", "https://www.nationthailand.com/rss/business")]:
+    try:
+        raw = U._get(u).decode("utf-8", "ignore")
+        i = raw.find("<item")
+        out[k] = {"len": len(raw), "head": raw[:600], "item": raw[i:i + 1500] if i >= 0 else raw[600:2600]}
+    except Exception as e:
+        out[k] = str(e)
+for i in range(3):
+    try:
+        out["tr%d" % i] = U.translate_th(["Apple shares rise after earnings beat"])
+    except Exception as e:
+        out["tr%d" % i] = str(e)
+out["err"] = U.ERRORS
+json.dump(out, open("probe.json", "w"), ensure_ascii=False, indent=1)
+open("news.json", "w").write("{}")

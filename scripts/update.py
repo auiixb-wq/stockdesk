@@ -547,6 +547,10 @@ JUNK_SRC = re.compile(r"facebook|youtube|tiktok|instagram|twitter|pantip|blockdi
                       r"benzinga india|newsbreak|msn$|digital journal|openpr|scanx|marketscreener|financial content|"
                       r"timothy sykes|insidermonkey|insider monkey|zerohedge|investorplace|coincentral|the globe and mail", re.I)
 
+# หน้าราคา/หน้ารวมลิงก์ และแบบฟอร์มรายงานอัตโนมัติ ไม่ใช่ข่าว
+JUNK_TITLE = re.compile(r"^Form \w+ |latest stock news and headlines|stock price, news|quote & history|stock price today|"
+                        r"^\w[\w .&-]* \([A-Z.]+\) stock price|price target, news|- Stock Price|market cap & net worth|ticker report", re.I)
+
 
 def norm_src(s):
     s = (s or "").strip()
@@ -974,7 +978,7 @@ def fetch_news():
         if it["ts"] < cutoff or it["ts"] > now_s + 3600:
             continue
         it["source"] = norm_src(it.get("source"))
-        if JUNK_SRC.search(it["source"]):
+        if JUNK_SRC.search(it["source"]) or JUNK_TITLE.search(it["title"]):
             continue
         text = it["title"] + " " + (it.get("summary") or "")[:400]
         thai = bool(re.search(r"[\u0e00-\u0e7f]", it["title"]))
