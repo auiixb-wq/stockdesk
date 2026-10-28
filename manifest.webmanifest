@@ -1,6 +1,6 @@
 {
-  "name": "Stock Desk — วิเคราะห์หุ้นไทยและสหรัฐฯ",
-  "short_name": "Stock Desk",
+  "name": "stockdesk — วิเคราะห์หุ้นไทยและสหรัฐฯ",
+  "short_name": "stockdesk",
   "start_url": "./#home",
   "scope": "./",
   "display": "standalone",
