@@ -171,6 +171,8 @@ def keep(x, m):
     if m == "TH":  # หุ้นสามัญเท่านั้น: ไม่เอา NVDR (-R), หุ้นต่างประเทศ (-F), warrant (-W) และ DR
         name = (x.get("shortName") or "") + " " + (x.get("longName") or "")
         return bool(re.fullmatch(r"[A-Z0-9&]+\.BK", sym)) and not re.search(r"_DR|#|\bDR\b", name)
+    if re.search(r"-P[A-Z]*$", sym):  # หุ้นบุริมสิทธิ์ (เช่น JPM-PC) ไม่ใช่หุ้นสามัญ
+        return False
     return "." not in sym or sym.count("-") == 1
 
 

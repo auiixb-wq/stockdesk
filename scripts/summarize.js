@@ -7,7 +7,7 @@ const load = (f, d) => { try { return JSON.parse(fs.readFileSync(path.join(ROOT,
 const ctx = { console };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, "core.js"), "utf8") +
-  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars,liquid,calibNew,calibAdd,calibDone,barsOf,stockBySym};", ctx);
+  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars,liquid,calibNew,calibAdd,calibDone,barsOf,stockBySym,indicators,VOTES,sma,uniOf};", ctx);
 const { S, analyze, summarize, allStocks, buildFactors, mergeNews, hasBars, liquid, calibNew, calibAdd, calibDone, barsOf, stockBySym } = ctx.__core;
 
 const uni = load("data/universe.json", { items: [] }), fund = load("data/fund.json", {}), macro = load("data/macro.json", {});
@@ -65,6 +65,16 @@ cal.updated = Math.floor(Date.now() / 1000);
 cal.fwd = forward();
 fs.writeFileSync(path.join(DATA, "calib.json"), JSON.stringify(cal));
 console.log(`calib: ${C.stocks} หุ้น`);
+
+// ระบบลงทุนระดับพอร์ต: ผลจำลองย้อนหลัง + สิ่งที่ต้องทำวันนี้ และบันทึกไว้ตรวจผลจริงไปข้างหน้า (paper trading)
+try {
+  const t1 = Date.now(), P = require("./portfolio.js")(ctx.__core), strat = { updated: Math.floor(Date.now() / 1000), TH: P.thai(), US: P.usa() };
+  fs.writeFileSync(path.join(DATA, "strategy.json"), JSON.stringify(strat));
+  const pd = path.join(hdir, "paper"); fs.mkdirSync(pd, { recursive: true });
+  fs.writeFileSync(path.join(pd, new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10) + ".json"),
+    JSON.stringify({ TH: { regime: strat.TH.now.regime, holdings: strat.TH.now.holdings.map(h => [h.s, h.w, h.p]) }, US: { orders: strat.US.now.orders, open: strat.US.now.open } }));
+  console.log(`strategy: TH ${strat.TH.stats.cagr}%/ปี US ${strat.US.stats.cagr}%/ปี (${((Date.now() - t1) / 1000).toFixed(0)} วินาที)`);
+} catch (e) { console.error("strategy:", e.message); }
 
 // ติดตามผลจริงไปข้างหน้า: คะแนนรวม (เทคนิค + งบ + ข่าว + ปัจจัย) ที่บันทึกไว้แต่ละวัน เทียบกับราคาที่เกิดขึ้นจริงหลังจากนั้น
 function forward() {
