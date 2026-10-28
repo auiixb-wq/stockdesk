@@ -393,6 +393,10 @@ details summary{cursor:pointer;font-weight:600}
 .hold-ed{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,200px)) auto;gap:10px;align-items:end;padding:10px 0 4px 50px}
 @media (max-width:700px){.wr{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"a p" "s s" "b b"}.wl-b{grid-area:b;justify-content:flex-end}.hold-ed{grid-template-columns:minmax(0,1fr) minmax(0,1fr);padding-left:0}.hold-ed input{width:100%}.hold-ed .btn{grid-column:1/-1}}
 .mq input{width:100%;padding:11px 16px;border-radius:14px;border:1px solid var(--line);background:var(--surface);font-size:15px;outline:none}.mq input:focus{border-color:var(--ink-2)}
+.fcharts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:14px}
+@media (max-width:640px){.fcharts{grid-template-columns:minmax(0,1fr)}}
+.fcharts h3{font-size:14px;margin-bottom:4px}.fbars{width:100%;height:auto;display:block}
+.fbars .fx{font:500 9.5px var(--f-num);fill:var(--ink-2)}.fbars .fy{font:600 9px var(--f-num)}.fbars .fl{font:600 10px var(--f-num);fill:var(--ink)}
 </style>
 
 </head>
@@ -445,7 +449,49 @@ const mktChip=m=>{const o=mktOpen(m);return `<span class="chip" title="ตาม
 const dataChip=R=>{if(R.sample)return `<span class="chip" style="background:var(--warn-bg);color:var(--warn)">ราคาจำลอง</span>`;if(S.px[R.st.s])return `<span class="chip">ไฟล์ที่นำเข้า · ${thDate(R.B.at(-1).t)}</span>`;const q=S.quotes?.q?.[R.st.s];return `<span class="chip" title="ราคาจาก Yahoo Finance อาจล่าช้า">${q?.ts?"ราคา "+new Date(q.ts*1000).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"})+" · ล่าช้า ~15 นาที":"ราคาปิด "+thDate(R.B.at(-1).t)}</span>`};
 const chgPill=(v,sym)=>`<span class="cp ${v>0?"cp-up":v<0?"cp-dn":""}"${sym?` data-qc="${esc(sym)}"`:""}>${pct(v)}</span>`;
 const confTag=R=>`<div class="conf muted"><span class="dot" style="--c:${R.conf.c}"></span>เชื่อถือ: ${R.conf.t}</div>`;
-function rowHTML(R){const st=R.st,fav=S.watch.includes(st.s);return `<a class="row" href="#s-${esc(st.s)}">${logo(st.s)}<div style="min-width:0"><div class="sym">${esc(st.s)}${fav?`<span class="warn" aria-label="รายการโปรด">★</span>`:""}<span class="pill sm ${R.v[1]}">${R.v[0]}</span></div><div class="nm">${esc(st.n)}${R.sample?"":` · <span class="up">ราคาจริง</span>`}</div></div>${spark(R)}<div class="px"><div class="num pxv" data-q="${esc(st.s)}">${cur(st.m)}${fmt(R.last)}</div>${chgPill(R.chg,st.s)}</div></a>`}
+/* ---------- งบการเงินรายไตรมาส ---------- */
+const qLab=d=>{const y=+d.slice(0,4),m=+d.slice(5,7);return `Q${Math.ceil(m/3)}/${String((y+543)%100).padStart(2,"0")}`};
+const yLab=d=>String(+d.slice(0,4)+543);
+const mn=(v,m)=>v==null?"–":(Math.abs(v)>=1e9?(v/1e9).toLocaleString("en-US",{maximumFractionDigits:2})+(m==="TH"?" พันล้าน":"B"):(v/1e6).toLocaleString("en-US",{maximumFractionDigits:v>=1e8||v<=-1e8?0:1})+(m==="TH"?" ล้าน":"M"));
+const gp=v=>v==null?`<span class="muted">–</span>`:`<span class="${cls(v)}">${pct(v,1)}</span>`;
+function earnTag(R){const y=R.lite?R.fq?.[1]:R.f?.fs?.yoyN;return y==null?"":` · <span class="${cls(y)}">กำไร YoY ${pct(y,0)}</span>`}
+async function loadFin(sym){if(S.fin[sym]!==undefined||S.finLoading?.has(sym))return;(S.finLoading??=new Set()).add(sym);
+  const d=await J(HIST+"fin/"+encodeURIComponent(sym)+".json");S.finLoading.delete(sym);S.fin[sym]=d&&(d.q||d.a)?d:null;S.cache.delete(sym);
+  if(route().sym===sym&&!document.querySelector("input:focus"))render()}
+function barMini(F,key,m,col){const q=F.q,n=q.d.length,i0=Math.max(0,n-8),vals=q[key].slice(i0),labs=q.d.slice(i0);if(!vals.some(v=>v!=null))return `<p class="muted">ไม่มีข้อมูล</p>`;
+  const W=320,H=150,pb=34,pt=18,mx=Math.max(0,...vals.map(v=>v??0)),mn0=Math.min(0,...vals.map(v=>v??0)),rg=(mx-mn0)||1,y=v=>pt+(mx-v)/rg*(H-pt-pb),bw=W/vals.length;
+  return `<svg viewBox="0 0 ${W} ${H}" class="fbars" role="img" aria-label="กราฟรายไตรมาส"><line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="var(--line)"/>${vals.map((v,i)=>{if(v==null)return "";const x=i*bw+bw*.18,w=bw*.64,top=Math.min(y(v),y(0)),h=Math.max(1.5,Math.abs(y(v)-y(0))),last=i===vals.length-1,c=v<0?"var(--down)":col;
+    const yy=gr(v,q[key][i0+i-4]);return `<rect x="${x}" y="${top}" width="${w}" height="${h}" rx="3" fill="${c}" opacity="${last?1:.55}"><title>${qLab(labs[i])}: ${mn(v,m)}${yy!=null?" · YoY "+pct(yy,1):""}</title></rect>${last?`<text x="${x+w/2}" y="${top-5}" text-anchor="middle" class="fl">${mn(v,m).replace(/ (ล้าน|พันล้าน)$/,"")}</text>`:""}<text x="${x+w/2}" y="${H-18}" text-anchor="middle" class="fx">${qLab(labs[i])}</text>${yy!=null?`<text x="${x+w/2}" y="${H-5}" text-anchor="middle" class="fy" fill="${yy>=0?"var(--up)":"var(--down)"}">${yy>=0?"+":""}${Math.round(yy)}%</text>`:""}`}).join("")}</svg>`}
+function finSection(R){const st=R.st,F=S.fin[st.s];
+  if(F===undefined){loadFin(st.s);return `<section class="card empty">กำลังโหลดงบการเงินรายไตรมาส…</section>`}
+  if(!F)return `<section class="card"><h2 style="margin-bottom:6px">ผลประกอบการรายไตรมาส</h2><p class="muted" style="margin:0">ยังไม่มีงบของหุ้นนี้ ระบบดึงงบหมุนเวียนวันละราว 500 บริษัทตามมูลค่าตลาด จะมีภายในไม่กี่วัน</p></section>`;
+  const fs=finStats(F),m=st.m,u=m==="TH"?"บาท":"ดอลลาร์",q=F.q,n=q.d.length,a=F.a,an=a?.d?.length||0;
+  const tile=(k,v,sub)=>`<div><div class="k">${k}</div><div class="v">${v}</div><div class="s">${sub}</div></div>`;
+  const say=[];if(fs.yoyR!=null)say.push(`รายได้ไตรมาสล่าสุด${fs.yoyR>=0?"โต":"ลดลง"} ${pct(Math.abs(fs.yoyR),1).replace("+","")} จากไตรมาสเดียวกันปีก่อน`);if(fs.yoyN!=null)say.push(`กำไรสุทธิ${fs.yoyN>=0?"โต":"ลดลง"} ${pct(Math.abs(fs.yoyN),1).replace("+","")} YoY`);if(fs.qoqN!=null)say.push(`และ${fs.qoqN>=0?"เพิ่มขึ้น":"ลดลง"} ${pct(Math.abs(fs.qoqN),1).replace("+","")} จากไตรมาสก่อน`);
+  const cols=q.d.map((d,i)=>i).slice(-6);
+  const row=(lab,f)=>`<tr><td>${lab}</td>${cols.map(i=>`<td class="r num">${f(i)}</td>`).join("")}</tr>`;
+  const v=(k,i)=>q[k]?.[i]??null;
+  return `<section class="card"><div class="card-h"><div><h2>ผลประกอบการรายไตรมาส</h2><div class="sub-t">งบล่าสุด ${qLab(fs.last)} · หน่วย: ${u} · ข้อมูลจาก Yahoo Finance ดึงเมื่อ ${thDate(F.at)}</div></div></div>
+   ${say.length?`<p style="margin:0 0 12px">${say.join(" ")}</p>`:""}
+   <div class="stat">${tile("รายได้ "+qLab(fs.last),mn(fs.rq,m),`QoQ ${gp(fs.qoqR)} · YoY ${gp(fs.yoyR)}`)}${tile("กำไรสุทธิ "+qLab(fs.last),`<span class="${cls(fs.nq)}">${mn(fs.nq,m)}</span>`,`QoQ ${gp(fs.qoqN)} · YoY ${gp(fs.yoyN)}`)}${tile("อัตรากำไรสุทธิ (4 ไตรมาส)",fs.nm!=null?fs.nm.toFixed(1)+"%":"–",`ROE ${fs.roe!=null?fs.roe.toFixed(1)+"%":"–"}`)}${tile("EPS ไตรมาสล่าสุด",fs.eps!=null?fs.eps.toFixed(2):"–",`4 ไตรมาส ${fs.epsT!=null?fs.epsT.toFixed(2):"–"}`)}</div>
+   ${n?`<div class="fcharts"><div><h3>รายได้</h3>${barMini(F,"rev",m,"var(--c2)")}</div><div><h3>กำไรสุทธิ</h3>${barMini(F,"ni",m,"var(--up)")}</div></div>
+   <div class="tscroll" style="margin-top:12px"><table class="wide"><thead><tr><th>ไตรมาส</th>${cols.map(i=>`<th class="r">${qLab(q.d[i])}</th>`).join("")}</tr></thead><tbody>
+    ${row("รายได้",i=>mn(v("rev",i),m))}${row("· QoQ",i=>gp(gr(v("rev",i),v("rev",i-1))))}${row("· YoY",i=>gp(gr(v("rev",i),v("rev",i-4))))}
+    ${row("กำไรขั้นต้น",i=>mn(v("gp",i),m))}${row("กำไรจากการดำเนินงาน",i=>mn(v("op",i),m))}
+    ${row("<b>กำไรสุทธิ</b>",i=>`<b class="${cls(v("ni",i))}">${mn(v("ni",i),m)}</b>`)}${row("· QoQ",i=>gp(gr(v("ni",i),v("ni",i-1))))}${row("· YoY",i=>gp(gr(v("ni",i),v("ni",i-4))))}
+    ${row("อัตรากำไรสุทธิ",i=>v("rev",i)&&v("ni",i)!=null?(v("ni",i)/v("rev",i)*100).toFixed(1)+"%":"–")}${row("EPS",i=>v("eps",i)!=null?v("eps",i).toFixed(2):"–")}
+    ${row("กระแสเงินสดจากการดำเนินงาน",i=>mn(v("ocf",i),m))}</tbody></table></div>`:""}</section>
+  ${an?`<section class="card"><h2 style="margin-bottom:8px">งบรายปี</h2><div class="tscroll"><table class="wide"><thead><tr><th>ปี</th>${a.d.map(d=>`<th class="r">${yLab(d)}</th>`).join("")}</tr></thead><tbody>
+    <tr><td>รายได้</td>${a.d.map((d,i)=>`<td class="r num">${mn(a.rev?.[i],m)}</td>`).join("")}</tr>
+    <tr><td>· เติบโต</td>${a.d.map((d,i)=>`<td class="r num">${gp(gr(a.rev?.[i],a.rev?.[i-1]))}</td>`).join("")}</tr>
+    <tr><td><b>กำไรสุทธิ</b></td>${a.d.map((d,i)=>`<td class="r num"><b class="${cls(a.ni?.[i])}">${mn(a.ni?.[i],m)}</b></td>`).join("")}</tr>
+    <tr><td>· เติบโต</td>${a.d.map((d,i)=>`<td class="r num">${gp(gr(a.ni?.[i],a.ni?.[i-1]))}</td>`).join("")}</tr>
+    <tr><td>อัตรากำไรสุทธิ</td>${a.d.map((d,i)=>`<td class="r num">${a.rev?.[i]&&a.ni?.[i]!=null?(a.ni[i]/a.rev[i]*100).toFixed(1)+"%":"–"}</td>`).join("")}</tr>
+    <tr><td>ROE</td>${a.d.map((d,i)=>`<td class="r num">${a.eq?.[i]>0&&a.ni?.[i]!=null?(a.ni[i]/a.eq[i]*100).toFixed(1)+"%":"–"}</td>`).join("")}</tr>
+    <tr><td>EPS</td>${a.d.map((d,i)=>`<td class="r num">${a.eps?.[i]!=null?a.eps[i].toFixed(2):"–"}</td>`).join("")}</tr></tbody></table></div></section>`:""}
+  <section class="card"><h2 style="margin-bottom:8px">ฐานะการเงินและกระแสเงินสด</h2><div class="stat">
+   ${tile("เงินสด",mn(fs.cash,m),"ล่าสุด")}${tile("หนี้สินที่มีภาระดอกเบี้ย",mn(fs.debt,m),`D/E ${fs.de!=null?fs.de.toFixed(2)+"×":"–"}`)}${tile("ส่วนของผู้ถือหุ้น",mn(fs.eq,m),`สภาพคล่อง ${fs.cr!=null?fs.cr.toFixed(2)+"×":"–"}`)}${tile("กระแสเงินสดอิสระ (4 ไตรมาส)",`<span class="${cls(fs.fcf)}">${mn(fs.fcf,m)}</span>`,`ดำเนินงาน ${mn(fs.ocf,m)} · ลงทุน ${mn(fs.capex,m)}`)}</div></section>`}
+function rowHTML(R){const st=R.st,fav=S.watch.includes(st.s);return `<a class="row" href="#s-${esc(st.s)}">${logo(st.s)}<div style="min-width:0"><div class="sym">${esc(st.s)}${fav?`<span class="warn" aria-label="รายการโปรด">★</span>`:""}<span class="pill sm ${R.v[1]}">${R.v[0]}</span></div><div class="nm">${esc(st.n)}${earnTag(R)}</div></div>${spark(R)}<div class="px"><div class="num pxv" data-q="${esc(st.s)}">${cur(st.m)}${fmt(R.last)}</div>${chgPill(R.chg,st.s)}</div></a>`}
 function sentTag(s){return s>0?`<span class="sent up">● บวก</span>`:s<0?`<span class="sent down">● ลบ</span>`:`<span class="sent muted">● กลาง</span>`}
 function nfx(x){const L=newsLinks(x).via;if(!L.length)return "";return `<div class="nfx">${L.map(([f,e])=>{const ef=effOf(f,e);return `<span><b>${esc(f.short||f.name)} ${e>0?"▲":"▼"}</b>${ef.help.length?` → หนุน${ef.help.slice(0,4).map(s=>SECTORS[s].th).join(", ")}`:""}${ef.hurt.length?` · กดดัน${ef.hurt.slice(0,4).map(s=>SECTORS[s].th).join(", ")}`:""}</span>`}).join("")}</div>`}
 function newsHTML(list,limit){if(!list.length)return `<div class="empty">${S.dbState==="loading"?"กำลังโหลดข่าว…":S.dbState==="off"?"โหลดข่าวไม่สำเร็จ ลองรีเฟรชหน้า":"ยังไม่มีข่าวที่เกี่ยวข้อง"}</div>`;
@@ -506,10 +552,11 @@ function vHome(){
     <div class="grid g3">${news.map(x=>`<a class="ncard" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener"><div class="meta"><span class="tier t${x.tier||3}">${["","ระดับ 1","ระดับ 2","ระดับ 3"][x.tier||3]}</span><b>${esc(x.source)}</b>${sentTag(x.sentiment)}</div><div class="nt">${esc(x.titleTh||x.title)}</div><div class="nf">${logoStack((x.tickers||[]).filter(t=>stockBySym(t)))}<span class="muted">${x.approx?thMonth(x.date):thDate(x.date)}</span></div></a>`).join("")||`<div class="card empty">${S.dbState==="loading"?"กำลังโหลดข่าว…":"ยังไม่มีข่าว"}</div>`}</div></section>
   <p class="foot">คะแนนรวม = เทคนิค 50% + งบการเงิน 30% + ข่าว ปัจจัย และความแข็งแกร่งเทียบตลาด 20% · ดูรายละเอียดที่หน้า <a href="#method">วิธีคิด</a> · ไม่ใช่คำแนะนำการลงทุน</p>`;
 }
-const SCR=[["all","ทั้งหมด"],["pb","ซื้อตอนย่อวันนี้"],["fav","★ รายการโปรด"],["uptrend","ขาขึ้นแข็งแรง"],["oversold","ขายมากเกินไป"],["nearsup","ใกล้แนวรับ"],["strongfa","งบแข็งแรง"],["reliable","สัญญาณเชื่อถือได้"]];
-function screen(R,k){if(R.lite){const f=R.f||[];switch(k){case "fav":return S.watch.includes(R.st.s);case "uptrend":return !!f[0];case "oversold":return !!f[1];case "nearsup":return !!f[2];case "strongfa":return (R.fundS||0)>=70;case "reliable":return R.conf.lv>=2;case "pb":return !!R.pb.now;default:return true}}
+const SCR=[["all","ทั้งหมด"],["pb","ซื้อตอนย่อวันนี้"],["earn","กำไรโต YoY > 20%"],["fav","★ รายการโปรด"],["uptrend","ขาขึ้นแข็งแรง"],["oversold","ขายมากเกินไป"],["nearsup","ใกล้แนวรับ"],["strongfa","งบแข็งแรง"],["reliable","สัญญาณเชื่อถือได้"]];
+function screen(R,k){if(R.lite){const f=R.f||[];switch(k){case "fav":return S.watch.includes(R.st.s);case "uptrend":return !!f[0];case "oversold":return !!f[1];case "nearsup":return !!f[2];case "strongfa":return (R.fundS||0)>=70;case "reliable":return R.conf.lv>=2;case "pb":return !!R.pb.now;case "earn":return (R.fq?.[1]??-1)>20;default:return true}}
   const I=R.I,n=I.c.length-1;switch(k){
   case "pb":return !!R.pb.now;
+  case "earn":return (R.f.fs?.yoyN??-1)>20;
   case "fav":return S.watch.includes(R.st.s);
   case "uptrend":return I.e200[n]!=null&&I.c[n]>I.e50[n]&&I.e50[n]>I.e200[n]&&(I.adx[n]||0)>20;
   case "oversold":return (I.rsi[n]??50)<35;
@@ -610,6 +657,7 @@ function tally(rows){const b=rows.filter(r=>r.v>0).length,s=rows.filter(r=>r.v<0
 function vStock(sym){
   const st=stockBySym(sym);if(!st)return `<a class="back" href="#market">← กลับไปหน้าตลาด</a><div class="card empty">ไม่พบหุ้น ${esc(sym)}</div>`;
   if(st.uni&&!hasBars(st)){loadHist([st.s]);const L=info(st);return `<a class="back" href="#market">← ตลาด</a><div class="shead">${logo(st.s,true)}<div style="min-width:0;flex:1"><div class="sym" style="font-size:22px">${esc(st.s)} <span class="mk">${st.m}</span></div><div class="nm">${esc(st.n)} · ${esc(SECTORS[st.sec]?.th||st.sec)}</div></div><div style="text-align:right"><div class="big" data-q="${esc(st.s)}">${L.last!=null?cur(st.m)+fmt(L.last):"–"}</div>${chgPill(L.chg,st.s)}</div></div><section class="card empty">${S.histFail?.[st.s]?"โหลดราคาย้อนหลังของหุ้นนี้ไม่สำเร็จ ลองใหม่ภายหลัง":"กำลังโหลดราคาย้อนหลัง 3 ปีและวิเคราะห์…"}</section>`}
+  if(S.fin[st.s]===undefined)loadFin(st.s);
   const R=analyze(st),P=R.plan,m=st.m,c=cur(m),fav=S.watch.includes(st.s),tab=S.tab||"sum";
   const head=`<a class="back" href="#market">← ตลาด</a>
   <div class="shead">${logo(st.s,true)}<div style="min-width:0;flex:1"><div class="sym" style="font-size:22px">${esc(st.s)} <span class="mk">${m}</span><button class="star" id="favBtn" aria-pressed="${fav}" aria-label="${fav?"เอาออกจากรายการโปรด":"เพิ่มในรายการโปรด"}" title="รายการโปรด">${fav?"★":"☆"}</button></div><div class="nm">${esc(st.n)} · ${esc(SECTORS[st.sec]?.th||st.sec)}</div></div>
@@ -637,7 +685,7 @@ function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),W=R.why,c=cur(R.
   </div>
   <div class="q4">
     <button class="qt" data-tab="chart"><span class="k">เทคนิค</span><span class="v num">${Math.round(R.techP)}<small>/100</small></span>${tally(R.tech.rows)}</button>
-    <button class="qt" data-tab="fa"><span class="k">งบการเงิน${R.f.sample?" (ตัวอย่าง)":""}</span><span class="v num">${R.fund.score}<small>/100</small></span><span class="d">ผ่าน ${R.fund.rows.filter(r=>r.ok===1).length} จาก ${R.fund.rows.length} เกณฑ์</span></button>
+    <button class="qt" data-tab="fa"><span class="k">งบการเงิน${R.f.sample?" (ตัวอย่าง)":""}</span><span class="v num">${R.fund.score}<small>/100</small></span><span class="d">${R.f.fs?.yoyN!=null?`กำไร YoY ${gp(R.f.fs.yoyN)} · QoQ ${gp(R.f.fs.qoqN)}`:`ผ่าน ${R.fund.rows.filter(r=>r.ok===1).length} จาก ${R.fund.rows.length} เกณฑ์`}</span></button>
     <button class="qt" data-tab="bt"><span class="k">ทดสอบย้อนหลัง</span><span class="v num">${R.model.oos.n?R.model.oos.win.toFixed(0)+"%":"–"}<small> ชนะ</small></span><span class="d"><span class="dot" style="--c:${R.conf.c}"></span>เชื่อถือ ${R.conf.t} · ${R.model.oos.n||0} ไม้</span></button>
     <button class="qt" data-tab="news"><span class="k">ข่าว & ปัจจัย</span><span class="v num">${N.n}<small> ข่าว</small></span><span class="d ${cls(N.s)}">${N.s>.2?"โดยรวมเป็นบวก":N.s<-.2?"โดยรวมเป็นลบ":"โดยรวมเป็นกลาง"}</span></button>
   </div>`}
@@ -670,7 +718,7 @@ function tBt(R){const M=R.model,m=R.st.m;
         <tr><td class="muted">ระบบรวม · ${M.adaptive?"น้ำหนักมาตรฐาน":"ปรับน้ำหนักตามหุ้นนี้"} (เทียบ)</td>${sRow(M.other.oos)}<td class="r num ${cls(M.other.is.exp)}">${M.other.is.n?rr(M.other.is.exp)+` (${M.other.is.n})`:"–"}</td></tr>
        </tbody></table></div></details>
       <p class="foot" style="margin:10px 0 0">70% แรกของข้อมูลใช้สร้างระบบ 30% หลังใช้ทดสอบเท่านั้น รายละเอียดที่หน้า <a href="#method">วิธีคิด</a>${R.sample?" · ตอนนี้คำนวณจากราคาจำลอง":""}</p></section>`}
-function tFa(R){const st=R.st;return `<section class="card"><div class="card-h"><div><h2>สุขภาพงบการเงิน</h2><div class="sub-t">${R.f.sample?`<span class="warn">ตัวเลขตัวอย่าง แก้เป็นตัวเลขจากงบจริงได้ด้านล่าง</span>`:R.f.src?`จาก ${R.f.src} ${R.f.at?"· "+thDate(R.f.at.slice(0,10)):""}${R.fund.missing.length?` · ไม่มีข้อมูล: ${R.fund.missing.join(", ")}`:""}`:`ตัวเลขที่คุณกรอกเอง ${R.f.at?thDate(R.f.at.slice(0,10)):""}`}</div></div><span class="pill ${R.fund.score>=65?"p-buy":R.fund.score<40?"p-sell":"p-hold"}">${R.fund.score}/100</span></div>
+function tFa(R){const st=R.st;return finSection(R)+`<section class="card"><div class="card-h"><div><h2>สุขภาพงบการเงิน</h2><div class="sub-t">${R.f.sample?`<span class="warn">ตัวเลขตัวอย่าง แก้เป็นตัวเลขจากงบจริงได้ด้านล่าง</span>`:R.f.src?`จาก ${R.f.src} ${R.f.at?"· "+thDate(R.f.at.slice(0,10)):""}${R.fund.missing.length?` · ไม่มีข้อมูล: ${R.fund.missing.join(", ")}`:""}`:`ตัวเลขที่คุณกรอกเอง ${R.f.at?thDate(R.f.at.slice(0,10)):""}`}</div></div><span class="pill ${R.fund.score>=65?"p-buy":R.fund.score<40?"p-sell":"p-hold"}">${R.fund.score}/100</span></div>
   <div class="fgrid">${R.fund.rows.map(r=>`<div class="fi"><span class="light" style="--c:${r.miss?"var(--line)":r.ok===1?"var(--up)":r.ok===0?"var(--down)":"var(--warn)"}"></span><div style="min-width:0"><div class="fn">${r.name}</div><div class="mean">${r.mean}</div></div><div class="r"><div class="num fv">${r.val}</div><div class="vote ${r.miss?"muted":r.ok===1?"up":r.ok===0?"down":"warn"}">${r.miss?"–":r.ok===1?"ผ่าน":r.ok===0?"ไม่ผ่าน":"พอใช้"}</div></div></div>`).join("")}</div>
   <details style="margin-top:14px"><summary>กรอกตัวเลขจากงบจริง</summary><form id="faForm" class="grid g3" style="margin-top:10px">
     ${[["rg","รายได้โต (%)"],["eg","EPS โต (%)"],["nm","กำไรสุทธิ (%)"],["roe","ROE (%)"],...(st.sec==="bank"?[["npl","NPL (%)"]]:[["de","D/E (เท่า)"],["cr","Current ratio"]]),["pe","P/E (เท่า)"],["dy","ปันผล (%)"]].map(([k,l])=>`<label class="field">${l}<input id="fa-${k}" name="${k}" type="number" step="any" value="${R.f[k]??""}" required></label>`).join("")}

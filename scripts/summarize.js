@@ -21,10 +21,14 @@ S.macro = macro;
 S.factors = buildFactors(man, macro).sort((a, b) => (a.order || 0) - (b.order || 0));
 S.news = mergeNews(man.news || [], news.items || []);
 const hdir = path.join(DATA, "hist");
-for (const f of fs.existsSync(hdir) ? fs.readdirSync(hdir) : []) {
+for (const f of fs.existsSync(hdir) ? fs.readdirSync(hdir).filter(f => f.endsWith(".json")) : []) {
   try { S.hist[f.replace(/\.json$/, "")] = JSON.parse(fs.readFileSync(path.join(hdir, f), "utf8")); } catch {}
 }
 S.prices = load("data/prices.json", {});
+const fdir = path.join(hdir, "fin");
+for (const f of fs.existsSync(fdir) ? fs.readdirSync(fdir).filter(f => f.endsWith(".json")) : []) {
+  try { S.fin[f.replace(/\.json$/, "")] = JSON.parse(fs.readFileSync(path.join(fdir, f), "utf8")); } catch {}
+}
 
 const t0 = Date.now(), out = {};
 let ok = 0, fail = 0;

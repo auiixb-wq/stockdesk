@@ -250,6 +250,71 @@ def fetch_hist(uni):
         time.sleep(1)
 
 
+# ---------- financial statements: งบรายไตรมาสและรายปี ----------
+FIN = {
+    "rev": ["Total Revenue", "Operating Revenue"], "gp": ["Gross Profit"], "op": ["Operating Income", "EBIT"],
+    "ni": ["Net Income Common Stockholders", "Net Income", "Net Income From Continuing Operation Net Minority Interest"],
+    "eps": ["Diluted EPS", "Basic EPS"],
+}
+BS = {"ta": ["Total Assets"], "tl": ["Total Liabilities Net Minority Interest", "Total Liabilities"],
+      "eq": ["Stockholders Equity", "Common Stock Equity", "Total Equity Gross Minority Interest"],
+      "cash": ["Cash And Cash Equivalents", "Cash Cash Equivalents And Short Term Investments"],
+      "debt": ["Total Debt"], "ca": ["Current Assets"], "cl": ["Current Liabilities"]}
+CF = {"ocf": ["Operating Cash Flow"], "capex": ["Capital Expenditure"], "fcf": ["Free Cash Flow"]}
+
+
+def stmt(frames, maps, keep):
+    """รวมงบหลายชุดเป็นตาราง {d:[วันสิ้นงวด], key:[ค่า]} เรียงจากเก่าไปใหม่"""
+    dates = sorted({c for f in frames if f is not None and not f.empty for c in f.columns})[-keep:]
+    out = {"d": [d.strftime("%Y-%m-%d") for d in dates]}
+    for f, mp in zip(frames, maps):
+        for k, names in mp.items():
+            row = None
+            if f is not None and not f.empty:
+                for n in names:
+                    if n in f.index:
+                        row = f.loc[n]
+                        break
+            out[k] = [num(row[d], 4) if row is not None and d in row.index else None for d in dates]
+    return out
+
+
+def fetch_fin(uni):
+    d0 = os.path.join(DATA, "hist", "fin")
+    os.makedirs(d0, exist_ok=True)
+    if os.environ.get("FULL") != "1":
+        return
+    limit = int(os.environ.get("FIN_PER_RUN", "500"))
+    week = (NOW - dt.timedelta(days=7)).strftime("%Y-%m-%d")
+
+    def age(sym):
+        try:
+            return json.load(open(os.path.join(d0, sym + ".json"))).get("at", "")
+        except Exception:
+            return ""
+    core = {s["s"] for s in CFG["stocks"]}
+    items = uni["items"]
+    todo = [i for i in items if i["s"] in core] + sorted([i for i in items if i["s"] not in core and age(i["s"]) < week],
+                                                          key=lambda i: -(i.get("mc") or 0))[:limit]
+    ok = 0
+    for i in todo:
+        try:
+            t = yf.Ticker(i["y"])
+            q = stmt([t.quarterly_income_stmt, t.quarterly_balance_sheet, t.quarterly_cashflow], [FIN, BS, CF], 9)
+            a = stmt([t.income_stmt, t.balance_sheet, t.cashflow], [FIN, BS, CF], 5)
+            if not q["d"] and not a["d"]:
+                continue
+            with open(os.path.join(d0, i["s"] + ".json"), "w") as f:
+                json.dump({"at": NOW.strftime("%Y-%m-%d"), "q": q, "a": a}, f, separators=(",", ":"))
+            ok += 1
+            time.sleep(0.15)
+        except Exception as e:
+            if len(ERRORS) < 40:
+                ERRORS.append(f"fin {i['s']}: {str(e)[:60]}")
+    open(os.path.join(DATA, ".hist_new"), "w").close()
+    print("fin statements:", ok, "/", len(todo))
+
+
 def summarize():
     """คำนวณคะแนนและแผนของทุกหุ้นด้วย core.js ตัวเดียวกับหน้าเว็บ"""
     import subprocess
@@ -275,7 +340,7 @@ def fetch_fund():
     # รายการหลักทุกวัน + หุ้นอื่นหมุนเวียนวันละ ~250 ตัว เรียงตามมูลค่าตลาด จนครบทุกตัวในราว 1 สัปดาห์
     stale = sorted([i for i in uni if i["s"] not in out or out[i["s"]].get("at", "") < (NOW - dt.timedelta(days=7)).strftime("%Y-%m-%d")],
                    key=lambda i: -(i.get("mc") or 0))
-    targets = [{"s": s["s"], "y": ysym(s)} for s in CFG["stocks"]] + [{"s": i["s"], "y": i["y"]} for i in stale[:250]]
+    targets = [{"s": s["s"], "y": ysym(s)} for s in CFG["stocks"]] + [{"s": i["s"], "y": i["y"]} for i in stale[:150]]
     for s in targets:
         try:
             info = yf.Ticker(s["y"]).info or {}
@@ -563,6 +628,7 @@ def main():
     prices, pstatus = fetch_prices()
     uni = fetch_universe()
     fetch_hist(uni)
+    fetch_fin(uni)
     quotes = fetch_quotes(prices)
     fund = fetch_fund()
     macro = fetch_macro()

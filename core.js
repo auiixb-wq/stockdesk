@@ -56,7 +56,7 @@ const RULES={sl:3,tp:1.5,hold:20,thr:40,split:.7,warm:60,wk:true};
 const PRESETS={win:{thr:40,sl:3,tp:1.5,wk:true},edge:{thr:40,sl:2,tp:4,wk:true}};const RULES0={...RULES};
 
 /* ---------- state ---------- */
-const S={hist:{},universe:[],summary:{},news:[],factors:[],meta:null,px:{},fa:{},watch:[],uid:null,db:null,dbState:"loading",mkt:"ALL",sort:"score",scr:"all",nf:"all",sec:null,cache:new Map(),bars:new Map(),charts:[],marks:true};
+const S={hist:{},fin:{},universe:[],summary:{},news:[],factors:[],meta:null,px:{},fa:{},watch:[],uid:null,db:null,dbState:"loading",mkt:"ALL",sort:"score",scr:"all",nf:"all",sec:null,cache:new Map(),bars:new Map(),charts:[],marks:true};
 
 /* ---------- utils ---------- */
 const $=s=>document.querySelector(s);
@@ -199,8 +199,28 @@ function stats(tr){const n=tr.length;if(!n)return{n:0};
   return{n,avg:tr.reduce((a,t)=>a+t.ret,0)/n*100,win:p*100,lo:Math.max(0,cc-hw)*100,hi:Math.min(1,cc+hw)*100,pf:gl?gp/gl:gp>0?99:0,exp:sr/n,ret:(eq-1)*100,dd:dd*100,hold:hold/n}}
 
 /* ---------- analysis ---------- */
+// ---------- งบการเงินจริง: ตัวชี้วัดจากงบรายไตรมาส (TTM = รวม 4 ไตรมาสล่าสุด) ----------
+const gr=(a,b)=>a==null||b==null||b===0?null:(a-b)/Math.abs(b)*100;
+function finStats(F){if(!F||!(F.q?.d?.length||F.a?.d?.length))return null;
+  const q=F.q||{d:[]},n=q.d.length,v=(k,i)=>i>=0?q[k]?.[i]??null:null,sum=(k,a,b)=>{if(a<0)return null;let t=0;for(let i=a;i<b;i++){const x=v(k,i);if(x==null)return null;t+=x}return t};
+  const a=F.a||{d:[]},an=a.d.length,av=(k,i)=>i>=0?a[k]?.[i]??null:null,L=n-1;
+  const rq=v("rev",L),nq=v("ni",L),revT=n>=4?sum("rev",n-4,n):null,revP=n>=8?sum("rev",n-8,n-4):null,niT=n>=4?sum("ni",n-4,n):null,niP=n>=8?sum("ni",n-8,n-4):null;
+  const revTT=revT??av("rev",an-1),niTT=niT??av("ni",an-1);
+  const rg=revP!=null?gr(revT,revP):an>=2?gr(av("rev",an-1),av("rev",an-2)):gr(rq,v("rev",L-4));
+  const eg=niP!=null?gr(niT,niP):an>=2?gr(av("ni",an-1),av("ni",an-2)):gr(nq,v("ni",L-4));
+  const eqL=v("eq",L)??av("eq",an-1),eqP=v("eq",L-4)??av("eq",an-2)??eqL;
+  const ocf=(n>=4?sum("ocf",n-4,n):null)??av("ocf",an-1),capex=(n>=4?sum("capex",n-4,n):null)??av("capex",an-1),fcfT=(n>=4?sum("fcf",n-4,n):null)??av("fcf",an-1);
+  const debt=v("debt",L)??av("debt",an-1),ca=v("ca",L)??av("ca",an-1),cl=v("cl",L)??av("cl",an-1);
+  return{last:q.d[L]||a.d[an-1],rq,nq,qoqR:gr(rq,v("rev",L-1)),yoyR:gr(rq,v("rev",L-4)),qoqN:gr(nq,v("ni",L-1)),yoyN:gr(nq,v("ni",L-4)),
+    rg,eg,revT:revTT,niT:niTT,nm:revTT&&niTT!=null?niTT/revTT*100:null,roe:niTT!=null&&eqL&&eqL>0?niTT/((eqL+(eqP||eqL))/2)*100:null,
+    de:debt!=null&&eqL>0?debt/eqL:null,cr:ca&&cl?ca/cl:null,ocf,capex,fcf:fcfT??(ocf!=null&&capex!=null?ocf+capex:null),
+    cash:v("cash",L)??av("cash",an-1),debt,eq:eqL,eps:v("eps",L),epsT:n>=4?sum("eps",n-4,n):av("eps",an-1)}}
+const r1=x=>x==null||!isFinite(x)?null:+x.toFixed(1),r2=x=>x==null||!isFinite(x)?null:+x.toFixed(2);
 function fundOf(st){
-  const own=S.fa[st.s],bank=st.sec==="bank";if(own)return{...own,bank,sample:false};const lv=S.fundLive?.[st.s];if(lv&&["rg","eg","nm","roe","pe"].some(k=>lv[k]!=null))return{...lv,bank,sample:false,src:"Yahoo Finance"};
+  const own=S.fa[st.s],bank=st.sec==="bank";if(own)return{...own,bank,sample:false};const lv=S.fundLive?.[st.s];
+  const fs=finStats(S.fin?.[st.s]);
+  if(fs&&(fs.rg!=null||fs.nm!=null))return{rg:r1(fs.rg),eg:r1(fs.eg),nm:r1(fs.nm),roe:r1(fs.roe),de:bank?null:r2(fs.de),cr:bank?null:r2(fs.cr),fcf:fs.fcf==null?null:fs.fcf>0?1:0,
+    pe:lv?.pe??null,dy:lv?.dy??null,npl:lv?.npl,bank,sample:false,src:"งบการเงินจริง (Yahoo Finance)",at:S.fin[st.s].at,fs};if(lv&&["rg","eg","nm","roe","pe"].some(k=>lv[k]!=null))return{...lv,bank,sample:false,src:"Yahoo Finance"};
   const b=FA_BASE[st.sec]||FA_BASE.consumer,r=rng(hash(st.s+"fa")),j=x=>x*(.6+r()*.8);
   const o={rg:+(b.rg+(r()-.5)*10).toFixed(1),eg:+(b.eg+(r()-.5)*16).toFixed(1),nm:+j(b.nm).toFixed(1),roe:+j(b.roe).toFixed(1),fcf:r()>.2?b.fcf:0,pe:+j(b.pe).toFixed(1),dy:+j(b.dy).toFixed(1),sample:true,bank};
   if(st.sec==="bank")o.npl=+(b.npl*(.8+r()*.4)).toFixed(2);else{o.de=+j(b.de).toFixed(2);o.cr=+j(b.cr).toFixed(2)}return o;
@@ -215,7 +235,7 @@ function fundScore(f){
   if(f.bank)add("หนี้เสีย (NPL)",f.npl,f.npl+"%",f.npl<=3?1:f.npl<=4?.5:0,"ผ่านเมื่อไม่เกิน 3%","คุณภาพสินเชื่อของธนาคาร");
   else{add("หนี้สินต่อทุน (D/E)",f.de,f.de+"×",f.de<=1?1:f.de<=2?.5:0,"ผ่านเมื่อไม่เกิน 1 เท่า","ภาระหนี้เทียบกับส่วนของผู้ถือหุ้น");add("สภาพคล่อง",f.cr,f.cr+"×",f.cr>=1.2?1:f.cr>=.9?.5:0,"ผ่านเมื่อ 1.2 เท่าขึ้นไป","สินทรัพย์หมุนเวียนพอจ่ายหนี้ระยะสั้นไหม")}
   add("กระแสเงินสดอิสระ",f.fcf,f.fcf?"เป็นบวก":"ติดลบ",f.fcf?1:0,"ผ่านเมื่อเป็นบวก","เงินสดเหลือหลังลงทุนแล้ว ไม่ใช่กำไรทางบัญชี");
-  const peg=f.eg>0&&has(f.pe)?f.pe/f.eg:null;add("ความถูกแพง (P/E, PEG)",f.pe,`${f.pe}× · PEG ${peg?peg.toFixed(2):"–"}`,peg!=null&&peg<=1.5?1:f.pe<=15||(peg!=null&&peg<=2.5)?.5:0,"ผ่านเมื่อ PEG ไม่เกิน 1.5","P/E เทียบกับการเติบโตของกำไร");
+  const peg=f.eg>0&&has(f.pe)?f.pe/f.eg:null;add("ความถูกแพง (P/E, PEG)",f.pe,`${(+f.pe).toFixed(1)}× · PEG ${peg?peg.toFixed(2):"–"}`,peg!=null&&peg<=1.5?1:f.pe<=15||(peg!=null&&peg<=2.5)?.5:0,"ผ่านเมื่อ PEG ไม่เกิน 1.5","P/E เทียบกับการเติบโตของกำไร");
   add("เงินปันผล",f.dy,f.dy+"%",f.dy>=3?1:.5,"ผ่านเมื่อ 3% ขึ้นไป (ไม่หักคะแนนหุ้นเติบโต)","ผลตอบแทนเงินปันผลต่อปี");
   const ok=rows.filter(r=>!r.miss);
   return{score:ok.length?Math.round(ok.reduce((a,r)=>a+r.ok,0)/ok.length*100):50,rows,missing:rows.filter(r=>r.miss).map(r=>r.name)};
@@ -334,13 +354,13 @@ function summarize(R){const P=R.plan,I=R.I,n=I.c.length-1,c=I.c.slice(-90),sp=[]
   const up=I.e200[n]!=null&&I.c[n]>I.e50[n]&&I.e50[n]>I.e200[n]&&(I.adx[n]||0)>20,os=(I.rsi[n]??50)<35,ns=!!(P.L.sup[0]&&(I.c[n]-P.L.sup[0].p)/I.c[n]<.03);
   return{o:R.overall,v:R.v,c:[R.conf.t,R.conf.c,R.conf.lv],p:R.last,ch:+R.chg.toFixed(3),pl:[P.lo,P.hi,P.sl,P.tp1,P.tp2,P.tone,P.mode],
     pb:[R.pb.now,R.pb.near,R.pb.r2!=null?+R.pb.r2.toFixed(1):null,R.pb.s5!=null?+R.pb.s5.toFixed(3):null],tp:Math.round(R.techP),fs:R.fund.score,
-    rs:{ret:+R.rs.ret.toFixed(2),pctl:Math.round(R.rs.pctl)},f:[up,os,ns],sp,t:R.B.at(-1).t}}
+    rs:{ret:+R.rs.ret.toFixed(2),pctl:Math.round(R.rs.pctl)},f:[up,os,ns],fq:R.f.fs?[r1(R.f.fs.yoyR),r1(R.f.fs.yoyN),r1(R.f.fs.qoqR),r1(R.f.fs.qoqN),R.f.fs.last]:null,sp,t:R.B.at(-1).t}}
 // ข้อมูลสำหรับรายการหุ้น: ถ้ามีราคาย้อนหลังในเครื่องจะวิเคราะห์เต็ม ถ้าไม่มีใช้ผลที่คำนวณไว้แล้วบน GitHub
 function info(st){if(hasBars(st)||!st.uni&&!S.summary?.[st.s])return analyze(st);
   const m=S.summary?.[st.s],q=S.quotes?.q?.[st.s];
   if(!m)return{st,lite:true,none:true,overall:null,v:["ยังไม่มีข้อมูล","p-hold"],conf:{t:"–",c:"var(--ink-2)",lv:0},last:q?.p??null,chg:q?.chg??0,sp:[],plan:null,pb:{now:false},f:[]};
   const pl=m.pl;return{st,lite:true,overall:m.o,v:m.v,conf:{t:m.c[0],c:m.c[1],lv:m.c[2]},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
-    plan:{lo:pl[0],hi:pl[1],sl:pl[2],tp1:pl[3],tp2:pl[4],tone:pl[5],mode:pl[6],entry:(pl[0]+pl[1])/2},pb:{now:m.pb[0],near:m.pb[1],r2:m.pb[2],s5:m.pb[3]},f:m.f||[]}}
+    plan:{lo:pl[0],hi:pl[1],sl:pl[2],tp1:pl[3],tp2:pl[4],tone:pl[5],mode:pl[6],entry:(pl[0]+pl[1])/2},pb:{now:m.pb[0],near:m.pb[1],r2:m.pb[2],s5:m.pb[3]},f:m.f||[],fq:m.fq}}
 
 const FMTV={us10y:v=>v.toFixed(2)+"%",oil:v=>"$"+v.toFixed(2),usdthb:v=>v.toFixed(2),vix:v=>v.toFixed(2),dxy:v=>v.toFixed(2)};
 function buildFactors(man,macro){return (man?.factors||[]).map(f=>{const x=macro?.[f.id];if(!f.auto||!x)return{...f,stale:f.asOf?ageDays(f.asOf)>45:false};
