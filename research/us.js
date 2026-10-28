@@ -1,0 +1,7 @@
+const P=require("./port.js");const D=P.load("US"),from="2022-10-01",T=P.STRATS;const base={m:"US",from,risk:.01,maxPos:8,maxW:.2,liq:.05,rankBy:"rs"};
+const mix=(rs)=>{let v=1,peak=1,mdd=0;const d=rs[0].eq.map(e=>e[0]);const eq=[];for(let k=1;k<d.length;k++){let a=0;for(const r of rs)a+=r.eq[k][1]/r.eq[k-1][1]-1;v*=1+a/rs.length;eq.push([d[k],v]);peak=Math.max(peak,v);mdd=Math.max(mdd,1-v/peak)}
+ const rets=eq.slice(1).map((e,k)=>e[1]/eq[k][1]-1),mu=rets.reduce((a,b)=>a+b,0)/rets.length,sd=Math.sqrt(rets.reduce((a,b)=>a+(b-mu)**2,0)/rets.length);const byY={};for(const [t,x] of eq){const y=t.slice(0,4);byY[y]??=[x,x];byY[y][1]=x}
+ return `CAGR ${((Math.pow(v,252/eq.length)-1)*100).toFixed(1)}% MDD ${(mdd*100).toFixed(1)}% Sharpe ${(mu/sd*Math.sqrt(252)).toFixed(2)} | `+Object.entries(byY).map(([y,[a,b]],k,arr)=>y+":"+((b/(k?arr[k-1][1][1]:1)-1)*100).toFixed(0)+"%").join(" ")};
+const runs={Alim:P.run(D,{...base,strats:[T.A],limit:.5}),Alim1:P.run(D,{...base,strats:[T.A],limit:1}),Alim25:P.run(D,{...base,strats:[T.A],limit:.25}),Eup:P.run(D,{...base,strats:[T.E],regime:"up100"}),Elim:P.run(D,{...base,strats:[T.E],limit:.5}),Plim:P.run(D,{...base,strats:[T.P],limit:.5})};
+for(const k in runs){const r=runs[k];console.log(k.padEnd(8),`CAGR ${r.cagr.toFixed(1)}% MDD ${r.mdd.toFixed(1)}% Sharpe ${r.sharpe.toFixed(2)} win ${r.win.toFixed(0)}% avg ${r.avg.toFixed(2)}% n ${r.n} | ${r.yr}`)}
+console.log("Alim+Eup  ",mix([runs.Alim,runs.Eup]));console.log("Alim+Elim ",mix([runs.Alim,runs.Elim]));console.log("Alim+Plim ",mix([runs.Alim,runs.Plim]));

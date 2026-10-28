@@ -35,19 +35,6 @@ const STOCKS=[
  {s:"KO",n:"Coca-Cola",m:"US",sec:"consumer",p:70,v:.01}
 ];
 // ค่ากลางงบการเงินของข้อมูลตัวอย่างแต่ละ sector
-const FA_BASE={
- energy:{rg:3,eg:6,nm:7,roe:11,de:.9,cr:1.4,fcf:1,pe:10,dy:5},
- bank:{rg:2,eg:3,nm:32,roe:9,npl:3.2,fcf:1,pe:8,dy:5.5},
- tech:{rg:14,eg:18,nm:22,roe:28,de:.5,cr:1.6,fcf:1,pe:32,dy:.8},
- comm:{rg:9,eg:12,nm:20,roe:24,de:.8,cr:1.1,fcf:1,pe:22,dy:2.5},
- consumer:{rg:7,eg:8,nm:6,roe:17,de:1.3,cr:.9,fcf:1,pe:24,dy:2},
- health:{rg:10,eg:14,nm:16,roe:20,de:.6,cr:1.5,fcf:1,pe:30,dy:1.5},
- transport:{rg:6,eg:9,nm:24,roe:15,de:.8,cr:1.2,fcf:1,pe:35,dy:1},
- utility:{rg:8,eg:7,nm:14,roe:13,de:1.8,cr:1.1,fcf:0,pe:25,dy:2.5},
- industrial:{rg:5,eg:6,nm:8,roe:12,de:1,cr:1.3,fcf:1,pe:18,dy:2.5},
- property:{rg:6,eg:6,nm:18,roe:12,de:1.2,cr:.8,fcf:1,pe:18,dy:3},
- materials:{rg:1,eg:-4,nm:5,roe:6,de:.9,cr:1.6,fcf:1,pe:16,dy:3.5}
-};
 const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare","signals","strategy"];
 const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more",compare:"more",signals:"home",strategy:"strategy"};
 const DEF_COST={TH:.17,US:.10}; // % ต่อขา: ค่าคอมออนไลน์ไทย ~0.157% + VAT, สหรัฐฯ เผื่อสเปรดและค่าแปลงสกุลเงิน
@@ -104,7 +91,8 @@ function barsOf(st){const own=S.px[st.s],lv=S.prices?.[st.s]||S.hist?.[st.s],q=S
 /* ---------- indicators ---------- */
 function smooth(a,p,alpha){const o=Array(a.length).fill(null);const f=a.findIndex(x=>x!=null);if(f<0||a.length-f<p)return o;let s=0;for(let i=f;i<f+p;i++)s+=a[i];let prev=s/p;o[f+p-1]=prev;for(let i=f+p;i<a.length;i++){prev=a[i]*alpha+prev*(1-alpha);o[i]=prev}return o}
 const ema=(a,p)=>smooth(a,p,2/(p+1)), rma=(a,p)=>smooth(a,p,1/p);
-function sma(a,p){const o=Array(a.length).fill(null);for(let i=p-1;i<a.length;i++){let s=0,ok=true;for(let j=i-p+1;j<=i;j++){if(a[j]==null){ok=false;break}s+=a[j]}if(ok)o[i]=s/p}return o}
+function sma(a,p){const o=Array(a.length).fill(null);let s=0,bad=0;// ผลรวมเลื่อน O(n): ค่าว่างในหน้าต่างทำให้ผลเป็นค่าว่าง
+  for(let i=0;i<a.length;i++){const x=a[i];if(x==null)bad++;else s+=x;if(i>=p){const y=a[i-p];if(y==null)bad--;else s-=y}if(i>=p-1&&!bad)o[i]=s/p}return o}
 function rsi(c,p=14){const o=Array(c.length).fill(null);if(c.length<=p)return o;let g=0,l=0;for(let i=1;i<=p;i++){const d=c[i]-c[i-1];d>0?g+=d:l-=d}g/=p;l/=p;o[p]=l===0?100:100-100/(1+g/l);for(let i=p+1;i<c.length;i++){const d=c[i]-c[i-1];g=(g*(p-1)+Math.max(d,0))/p;l=(l*(p-1)+Math.max(-d,0))/p;o[i]=l===0?100:100-100/(1+g/l)}return o}
 function pivots(a,k,low){const o=new Uint8Array(a.length);for(let j=k;j<a.length-k;j++){let ok=true;for(let t=j-k;t<=j+k;t++){if(t!==j&&(low?a[t]<=a[j]:a[t]>=a[j])){ok=false;break}}if(ok)o[j]=1}return o}
 // แนวโน้มรายสัปดาห์ ใช้สถานะของสัปดาห์ที่ปิดไปแล้วเท่านั้น (ไม่แอบดูอนาคต)
@@ -112,28 +100,15 @@ function weekly(B){const wk=[];let key=null;B.forEach((b,i)=>{const d=new Date(b
   const wc=wk.map(w=>w.c),e10=ema(wc,10),e30=ema(wc,30),st=wk.map((w,j)=>e30[j]==null?0:w.c>e10[j]&&e10[j]>e30[j]?1:w.c<e10[j]&&e10[j]<e30[j]?-1:0);
   const out=Array(B.length).fill(0);wk.forEach((w,j)=>{const s=j?wk[j-1].last+1:0;for(let i=s;i<=w.last;i++)out[i]=j?st[j-1]:0});return out}
 function indicators(B){
-  const o=B.map(b=>b.o),c=B.map(b=>b.c),h=B.map(b=>b.h),l=B.map(b=>b.l),v=B.map(b=>b.v),n=B.length;
-  const e12=ema(c,12),e26=ema(c,26),macd=c.map((_,i)=>e12[i]!=null&&e26[i]!=null?e12[i]-e26[i]:null),sig=ema(macd,9),hist=macd.map((x,i)=>x!=null&&sig[i]!=null?x-sig[i]:null);
+  const o=B.map(b=>b.o),c=B.map(b=>b.c),h=B.map(b=>b.h),l=B.map(b=>b.l),v=B.map(b=>b.v);
   const tr=h.map((x,i)=>i?Math.max(x-l[i],Math.abs(x-c[i-1]),Math.abs(l[i]-c[i-1])):x-l[i]),atr=rma(tr,14);
   const pdm=h.map((x,i)=>{if(!i)return 0;const u=x-h[i-1],d=l[i-1]-l[i];return u>d&&u>0?u:0}),mdm=h.map((x,i)=>{if(!i)return 0;const u=x-h[i-1],d=l[i-1]-l[i];return d>u&&d>0?d:0});
   const sp=rma(pdm,14),sm=rma(mdm,14),pdi=sp.map((x,i)=>x!=null&&atr[i]?100*x/atr[i]:null),mdi=sm.map((x,i)=>x!=null&&atr[i]?100*x/atr[i]:null);
   const dx=pdi.map((x,i)=>x!=null&&mdi[i]!=null&&(x+mdi[i])>0?100*Math.abs(x-mdi[i])/(x+mdi[i]):null),adx=rma(dx,14);
-  const raw=c.map((x,i)=>{if(i<13)return null;let hh=-Infinity,ll=Infinity;for(let j=i-13;j<=i;j++){hh=Math.max(hh,h[j]);ll=Math.min(ll,l[j])}return hh===ll?50:100*(x-ll)/(hh-ll)}),k=sma(raw,3),d=sma(k,3);
-  const mid=sma(c,20),up=[],lo=[];for(let i=0;i<n;i++){if(mid[i]==null){up.push(null);lo.push(null);continue}let s=0;for(let j=i-19;j<=i;j++)s+=(c[j]-mid[i])**2;const sd=Math.sqrt(s/20);up.push(mid[i]+2*sd);lo.push(mid[i]-2*sd)}
   let ob=0;const obv=c.map((x,i)=>{if(i)ob+=x>c[i-1]?v[i]:x<c[i-1]?-v[i]:0;return ob}),obvE=ema(obv,20);
-  const hh20=c.map((_,i)=>{if(i<20)return null;let m=-Infinity;for(let j=i-20;j<i;j++)m=Math.max(m,h[j]);return m});
-  return{o,c,h,l,v,e20:ema(c,20),e50:ema(c,50),e200:ema(c,200),rsi:rsi(c),macd,sig,hist,atr,adx,pdi,mdi,k,d,mid,up,lo,obv,obvE,vAvg:sma(v,20),hh20,wk:weekly(B),pl:pivots(l,3,true),ph:pivots(h,3,false)};
+  // เฉพาะตัวที่ระบบใช้จริง (MACD, Stochastic, Bollinger ถูกตัดออกหลังทดสอบ จึงไม่คำนวณแล้ว)
+  return{o,c,h,l,v,e20:ema(c,20),e50:ema(c,50),e200:ema(c,200),rsi:rsi(c),atr,adx,pdi,mdi,obv,obvE,vAvg:sma(v,20),wk:weekly(B),pl:pivots(l,3,true),ph:pivots(h,3,false)};
 }
-function divAt(I,i){const find=a=>{const r=[];for(let j=i-3;j>=Math.max(3,i-60)&&r.length<2;j--)if(a[j])r.push(j);return r};
-  const L=find(I.pl);if(L.length===2){const[a,b]=L;if(i-a<=15&&I.l[a]<I.l[b]&&I.rsi[a]!=null&&I.rsi[b]!=null&&I.rsi[a]>I.rsi[b]+2&&I.rsi[a]<50)return 1}
-  const H=find(I.ph);if(H.length===2){const[a,b]=H;if(i-a<=15&&I.h[a]>I.h[b]&&I.rsi[a]!=null&&I.rsi[b]!=null&&I.rsi[a]<I.rsi[b]-2&&I.rsi[a]>50)return -1}return 0}
-function candleAt(I,i){if(i<1)return null;const o=I.o[i],c=I.c[i],h=I.h[i],l=I.l[i],po=I.o[i-1],pc=I.c[i-1],body=Math.abs(c-o),rg=h-l||1e-9,dn=I.e20[i]!=null&&c<I.e20[i],upT=I.e20[i]!=null&&c>I.e20[i];
-  if(pc<po&&c>o&&c>=po&&o<=pc)return{v:1,n:"กลืนกินขาขึ้น (Bullish engulfing)"};
-  if(pc>po&&c<o&&c<=po&&o>=pc)return{v:-1,n:"กลืนกินขาลง (Bearish engulfing)"};
-  if(dn&&Math.min(o,c)-l>=2*body&&h-Math.max(o,c)<=body*.6&&body/rg>.1)return{v:1,n:"ค้อน (Hammer) หลังราคาย่อ"};
-  if(upT&&h-Math.max(o,c)>=2*body&&Math.min(o,c)-l<=body*.6&&body/rg>.1)return{v:-1,n:"ดาวตก (Shooting star) หลังราคาขึ้น"};
-  return null}
-
 /* ---------- votes: each indicator gives -2..+2 ----------
    คัดด้วยการทดสอบกับหุ้นจริง ~1,600 ตัว ราคา 5 ปี (ตัดทีละตัว แบ่งช่วงที่ เม.ย. 2024):
    ตัด MACD, Stochastic, Bollinger, วอลุ่ม, RSI divergence, แท่งเทียน และ EMA20/50 เพราะเมื่อตัดออก
@@ -392,17 +367,23 @@ const stockBySym=s=>{allStocks();return S._map.get(s)};
 // หุ้นที่ซื้อขายคล่องพอจะใช้จัดอันดับ (กันหุ้นเล็กที่ราคากระโดดแรง)
 const liquid=st=>!st.uni||st.m==="US"||(st.mc||0)>=5e9;
 // สรุปผลวิเคราะห์ให้เล็กพอส่งทั้งตลาดในไฟล์เดียว (ใช้ใน scripts/summarize.js)
-function summarize(R){const P=R.plan,I=R.I,n=I.c.length-1,c=I.c.slice(-90),sp=[];for(let i=0;i<c.length;i+=3)sp.push(+c[i].toFixed(4));sp.push(+c.at(-1).toFixed(4));
+// สรุปสั้นของแต่ละหุ้นสำหรับ data/summary.json (หน้าเว็บใช้แสดงรายการโดยไม่ต้องโหลดราคาย้อนหลัง)
+// sp = เส้นราคา 90 วันแบบย่อ เก็บเป็นส่วนพันของราคาล่าสุด (1000 = ราคาวันนี้) ให้ไฟล์เล็ก · c = ระดับความเชื่อถือ 0–3
+function summarize(R){const P=R.plan,I=R.I,n=I.c.length-1,c=I.c.slice(-90),L=c.at(-1)||1,sp=[];for(let i=0;i<c.length;i+=3)sp.push(Math.round(c[i]/L*1000));sp.push(1000);
   const up=I.e200[n]!=null&&I.c[n]>I.e50[n]&&I.e50[n]>I.e200[n]&&(I.adx[n]||0)>20,os=(I.rsi[n]??50)<35,ns=!!(P.L.sup[0]&&(I.c[n]-P.L.sup[0].p)/I.c[n]<.03);
-  return{o:R.overall,v:R.v,c:[R.conf.t,R.conf.c,R.conf.lv],p:R.last,ch:+R.chg.toFixed(3),pl:[P.lo,P.hi,P.sl,P.tp1,P.tp2,P.tone,P.mode],
+  return{o:R.overall,c:R.conf.lv,p:R.last,ch:+R.chg.toFixed(3),pl:[P.lo,P.hi,P.sl,P.tp1,P.tp2,P.tone,P.mode],
     pb:[R.pb.now,R.pb.near,R.pb.r2!=null?+R.pb.r2.toFixed(1):null,R.pb.s5!=null?+R.pb.s5.toFixed(3):null],tp:Math.round(R.techP),fs:R.fund.thin?null:R.fund.score,
     rs:{ret:+R.rs.ret.toFixed(2),pctl:Math.round(R.rs.pctl)},f:[up,os,ns],fq:R.f.fs?[r1(R.f.fs.yoyR),r1(R.f.fs.yoyN),r1(R.f.fs.qoqR),r1(R.f.fs.qoqN),R.f.fs.last]:null,fv:(()=>{try{const v=valuation(R);return v.fair?[r2(v.fair.bear),r2(v.fair.base),r2(v.fair.bull),v.methods.length]:null}catch{return null}})(),sp,t:R.B.at(-1).t}}
 // ข้อมูลสำหรับรายการหุ้น: ถ้ามีราคาย้อนหลังในเครื่องจะวิเคราะห์เต็ม ถ้าไม่มีใช้ผลที่คำนวณไว้แล้วบน GitHub
-function info(st){if(hasBars(st)||!st.uni&&!S.summary?.[st.s])return analyze(st);
-  const m=S.summary?.[st.s],q=S.quotes?.q?.[st.s];
-  if(!m)return{st,lite:true,none:true,overall:null,v:["ยังไม่มีข้อมูล","p-hold"],conf:{t:"–",c:"var(--ink-2)",lv:0},last:q?.p??null,chg:q?.chg??0,sp:[],plan:null,pb:{now:false},f:[]};
-  const pl=m.pl;return{st,lite:true,overall:m.o,v:m.v,conf:{t:m.c[0],c:m.c[1],lv:m.c[2]},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
+const CONF_LV=[["ข้อมูลตัวอย่าง","var(--ink-2)"],["ต่ำ","var(--down)"],["ปานกลาง","var(--warn)"],["สูง","var(--up)"]];
+// ข้อมูลสำหรับรายการหุ้น: ถ้ามีราคาย้อนหลังในเครื่องจะวิเคราะห์เต็ม ไม่งั้นใช้ผลที่คำนวณไว้แล้วบน GitHub (จำผลไว้จนกว่าข้อมูลจะเปลี่ยน)
+function info(st){if(hasBars(st))return analyze(st);
+  const m=S.summary?.[st.s],q=S.quotes?.q?.[st.s],key=(m?1:0)+"|"+(q?.ts??"")+"|"+(q?.p??"");S._info??=new Map();const hit=S._info.get(st.s);if(hit&&hit.k===key&&hit.m===m)return hit.R;
+  let R;
+  if(!m)R={st,lite:true,none:true,overall:null,v:["ยังไม่มีข้อมูล","p-hold"],conf:{t:"–",c:"var(--ink-2)",lv:0},last:q?.p??null,chg:q?.chg??0,sp:[],plan:null,pb:{now:false},f:[]};
+  else{const pl=m.pl,lv=Array.isArray(m.c)?m.c[2]:m.c;R={st,lite:true,overall:m.o,v:m.v||verdict(m.o),conf:{t:CONF_LV[lv][0],c:CONF_LV[lv][1],lv},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
     plan:{lo:pl[0],hi:pl[1],sl:pl[2],tp1:pl[3],tp2:pl[4],tone:pl[5],mode:pl[6],entry:(pl[0]+pl[1])/2},pb:{now:m.pb[0],near:m.pb[1],r2:m.pb[2],s5:m.pb[3]},f:m.f||[],fq:m.fq,fv:m.fv}}
+  S._info.set(st.s,{k:key,m,R});return R}
 
 const FMTV={us10y:v=>v.toFixed(2)+"%",oil:v=>"$"+v.toFixed(2),usdthb:v=>v.toFixed(2),vix:v=>v.toFixed(2),dxy:v=>v.toFixed(2)};
 function buildFactors(man,macro){return (man?.factors||[]).map(f=>{const x=macro?.[f.id];if(!f.auto||!x)return{...f,stale:f.asOf?ageDays(f.asOf)>45:false};

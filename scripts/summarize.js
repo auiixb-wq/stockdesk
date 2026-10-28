@@ -14,6 +14,11 @@ const uni = load("data/universe.json", { items: [] }), fund = load("data/fund.js
 const news = load("data/news.json", { items: [] }), man = load("manual.json", {}), quotes = load("data/quotes.json", null);
 S.inNode = true;
 S.universe = uni.items;
+// รายชื่อหุ้นแบบย่อสำหรับหน้าเว็บ: ตัดฟิลด์ราคาที่ซ้ำกับ quotes.json ออก ให้โหลดเร็วขึ้น
+{
+  const K = ["s", "y", "n", "m", "sec", "mc", "pe", "dy", "pb", "sh", "bv", "eps", "ed"], R2 = v => typeof v === "number" ? (Math.abs(v) >= 1000 ? Math.round(v) : +v.toFixed(3)) : v;
+  fs.writeFileSync(path.join(DATA, "uni.json"), JSON.stringify({ updated: uni.updated, items: uni.items.map(i => Object.fromEntries(K.filter(k => i[k] != null).map(k => [k, R2(i[k])]))) }));
+}
 S.quotes = quotes;
 // งบจาก .info (ละเอียด) ก่อน ถ้าไม่มีใช้ P/E และปันผลจากตัวคัดกรอง
 S.fundLive = { ...Object.fromEntries(uni.items.filter(i => i.pe != null || i.dy != null).map(i => [i.s, { pe: i.pe, dy: i.dy }])), ...fund };
