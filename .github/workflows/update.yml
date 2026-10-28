@@ -1,0 +1,44 @@
+name: update-data
+on:
+  schedule:
+    # ตลาดไทย 10:00-16:30 น. (03:00-09:30 UTC) และตลาดสหรัฐฯ 13:30-20:00 UTC วันจันทร์-ศุกร์ ทุก 10 นาที
+    - cron: "*/10 3-9 * * 1-5"
+    - cron: "*/10 13-20 * * 1-5"
+    # รอบใหญ่ (ดึงงบการเงินใหม่) วันละครั้งหลังตลาดสหรัฐฯ ปิด
+    - cron: "37 21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "ดึงงบการเงินใหม่ด้วย (1 = ใช่)"
+        default: "1"
+permissions:
+  contents: write
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore previous data
+        run: |
+          git fetch origin gh-pages --depth=1 || true
+          git checkout origin/gh-pages -- data 2>/dev/null || true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Fetch market data
+        env:
+          FULL: ${{ github.event.inputs.full || (github.event.schedule == '37 21 * * 1-5' && '1') || '0' }}
+        run: python scripts/update.py
+      - name: Publish site with data
+        run: |
+          mkdir -p _site && cp -r index.html manifest.webmanifest sw.js icon.svg symbols.json manual.json data _site/
+          touch _site/.nojekyll
+          cd _site && git init -q -b gh-pages && git add -A
+          git -c user.name="stockdesk-bot" -c user.email="actions@users.noreply.github.com" commit -qm "data $(date -u +%FT%TZ)"
+          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
