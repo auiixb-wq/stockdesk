@@ -318,7 +318,23 @@ def fetch_news():
     return out
 
 
+def google_quote(sym):
+    """สำรองจาก Google Finance เช่น SET:INDEXBKK (ใช้เมื่อ Yahoo ไม่มีข้อมูล)"""
+    req = urllib.request.Request("https://www.google.com/finance/quote/" + sym + "?hl=en",
+                                 headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
+                                          "Accept-Language": "en-US,en;q=0.9"})
+    h = urllib.request.urlopen(req, timeout=20).read().decode("utf-8", "ignore")
+    m = re.search(r'data-last-price="([\d.]+)"', h)
+    if not m:
+        raise ValueError("ไม่พบราคาใน Google Finance")
+    price = float(m.group(1))
+    pm = re.search(r"Previous close</div>.{0,200}?>([\d,]+\.\d+)<", h, re.S)
+    prev = float(pm.group(1).replace(",", "")) if pm else None
+    return price, prev
+
+
 def market_strip():
+    old = load("meta.json", {}).get("indices", {})
     out = {}
     for k, ys in CFG["indices"].items():
         try:
@@ -330,12 +346,20 @@ def market_strip():
                         break
                 except Exception:
                     d = None
-            if d is None or len(d) < 2:
+            if d is not None and len(d) >= 2:
+                out[k] = {"v": round(float(d.iloc[-1]), 2), "chg": round((float(d.iloc[-1]) / float(d.iloc[-2]) - 1) * 100, 2),
+                          "date": d.index[-1].strftime("%Y-%m-%d"), "src": "Yahoo"}
+                continue
+            g = CFG.get("googleIndex", {}).get(k)
+            if not g:
                 raise ValueError("ไม่มีข้อมูลจากทุกสัญลักษณ์")
-            out[k] = {"v": round(float(d.iloc[-1]), 2), "chg": round((float(d.iloc[-1]) / float(d.iloc[-2]) - 1) * 100, 2),
-                      "date": d.index[-1].strftime("%Y-%m-%d")}
+            price, prev = google_quote(g)
+            out[k] = {"v": round(price, 2), "chg": round((price / prev - 1) * 100, 2) if prev else None,
+                      "date": dt.datetime.now(dt.timezone(dt.timedelta(hours=7))).strftime("%Y-%m-%d"), "src": "Google Finance"}
         except Exception as e:
             ERRORS.append(f"index {k}: {str(e)[:80]}")
+            if k in old:
+                out[k] = old[k]
     return out
 
 
@@ -351,7 +375,7 @@ def main():
     meta = {
         "updated": int(time.time()), "full": os.environ.get("FULL") == "1",
         "fundUpdated": NOW.strftime("%Y-%m-%d") if os.environ.get("FULL") == "1" else old_meta.get("fundUpdated"),
-        "newsUpdated": news.get("updated"), "indices": idx or old_meta.get("indices", {}),
+        "newsUpdated": news.get("updated"), "indices": idx,
         "prices": pstatus, "errors": ERRORS[:50], "seconds": round(time.time() - t0, 1),
     }
     save("meta.json", meta)

@@ -1,10 +1,7 @@
 name: update-data
 on:
   schedule:
-    # ตลาดไทย 10:00-16:30 น. (03:00-09:30 UTC) และตลาดสหรัฐฯ 13:30-20:00 UTC วันจันทร์-ศุกร์ ทุก 10 นาที
-    - cron: "*/10 3-9 * * 1-5"
-    - cron: "*/10 13-20 * * 1-5"
-    # รอบใหญ่ (ดึงงบการเงินใหม่) วันละครั้งหลังตลาดสหรัฐฯ ปิด
+    # รอบใหญ่ดึงงบการเงินใหม่ วันละครั้งหลังตลาดสหรัฐฯ ปิด (ช่วงตลาดเปิดใช้งาน live.yml)
     - cron: "37 21 * * 1-5"
   workflow_dispatch:
     inputs:
@@ -36,9 +33,6 @@ jobs:
           FULL: ${{ github.event.inputs.full || (github.event.schedule == '37 21 * * 1-5' && '1') || '0' }}
         run: python scripts/update.py
       - name: Publish site with data
-        run: |
-          mkdir -p _site && cp -r index.html manifest.webmanifest sw.js icon.svg symbols.json manual.json data _site/
-          touch _site/.nojekyll
-          cd _site && git init -q -b gh-pages && git add -A
-          git -c user.name="stockdesk-bot" -c user.email="actions@users.noreply.github.com" commit -qm "data $(date -u +%FT%TZ)"
-          git push -qf "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/publish.sh

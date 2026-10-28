@@ -1,0 +1,33 @@
+name: live-quotes
+on:
+  schedule:
+    # เริ่มก่อนตลาดเปิด และตั้งสำรองไว้หลายรอบเผื่อ GitHub เลื่อนเวลา (ถ้ามีงานรันอยู่แล้ว รอบใหม่จะรอคิว แล้วจบทันทีถ้าตลาดปิด)
+    - cron: "50 2 * * 1-5"
+    - cron: "20 4,6,8 * * 1-5"
+    - cron: "20 13 * * 1-5"
+    - cron: "20 15,17,19 * * 1-5"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: live
+  cancel-in-progress: false
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - name: Restore previous data
+        run: |
+          git fetch origin gh-pages --depth=1 || true
+          git checkout origin/gh-pages -- data 2>/dev/null || true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Stream quotes while markets are open
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python -u scripts/live.py
