@@ -1054,8 +1054,12 @@ const J=u=>fetch(u+"?t="+Math.floor(Date.now()/30000),{cache:"no-store"}).then(r
 // ราคาล่าสุดมาจาก branch "live" ซึ่งอัปเดตทุก ~2 นาทีช่วงตลาดเปิด (อ่านผ่าน raw.githubusercontent.com)
 const RAW=(()=>{const h=location.hostname;if(!h.endsWith("github.io"))return null;const repo=location.pathname.split("/").filter(Boolean)[0];return repo?`https://raw.githubusercontent.com/${h.split(".")[0]}/${repo}/live/`:null})();
 const newest=(...xs)=>xs.filter(Boolean).sort((a,b)=>(b.updated||0)-(a.updated||0))[0]||null;
-async function getLive(){const [q1,m1,q2,m2]=await Promise.all([J("data/quotes.json"),J("data/meta.json"),RAW?J(RAW+"quotes.json"):null,RAW?J(RAW+"meta.json"):null]);
-  const m=[m1,m2].filter(Boolean).sort((a,b)=>(b.quotesUpdated||b.updated||0)-(a.quotesUpdated||a.updated||0))[0]||null;return{q:newest(q1,q2),meta:m}}
+// raw.githubusercontent.com เก็บแคชไว้ ~5 นาที จึงอ่านราคาผ่าน GitHub API (แคช 1 นาที) ทุก ~2 นาทีด้วย ถ้าเกินโควตา (60 ครั้ง/ชม.) จะพัก 15 นาที
+const API=RAW&&RAW.replace("https://raw.githubusercontent.com/","https://api.github.com/repos/").replace(/\/live\/$/,"/contents/");let apiNext=0;
+async function apiJ(f){if(!API||document.hidden||Date.now()<apiNext)return null;apiNext=Date.now()+110000;
+  try{const r=await fetch(API+f+"?ref=live",{headers:{Accept:"application/vnd.github.raw+json"},cache:"no-store"});if(r.status===403||r.status===429){apiNext=Date.now()+15*60000;return null}return r.ok?await r.json():null}catch{return null}}
+async function getLive(){const [q1,m1,q2,m2,q3]=await Promise.all([J("data/quotes.json"),J("data/meta.json"),RAW?J(RAW+"quotes.json"):null,RAW?J(RAW+"meta.json"):null,apiJ("quotes.json")]);
+  const m=[m1,m2].filter(Boolean).sort((a,b)=>(b.quotesUpdated||b.updated||0)-(a.quotesUpdated||a.updated||0))[0]||null;return{q:newest(q1,q2,q3),meta:m}}
 const HIST=RAW?RAW.replace(/live\/$/,"hist/"):"data/hist/";
 // ราคาย้อนหลังของหุ้นนอกรายการหลัก โหลดเมื่อเปิดดูหรืออยู่ในรายการโปรด
 async function loadHist(syms){const need=syms.filter(s=>{const st=stockBySym(s);return st&&st.uni&&!hasBars(st)&&!S.histLoading?.has(s)&&!S.histFail?.[s]});if(!need.length)return;
