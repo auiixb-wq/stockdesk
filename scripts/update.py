@@ -332,8 +332,14 @@ def fetch_fin(uni):
             return ""
     core = {s["s"] for s in CFG["stocks"]}
     items = uni["items"]
-    todo = [i for i in items if i["s"] in core] + sorted([i for i in items if i["s"] not in core and age(i["s"]) < week],
-                                                          key=lambda i: -(i.get("mc") or 0))[:limit]
+    now_ts = NOW.timestamp()
+
+    def just_reported(i):
+        """ประกาศงบแล้วไม่เกิน 10 วัน: ดึงซ้ำทุกวันจนกว่า Yahoo จะลงงบไตรมาสใหม่ (มักช้ากว่าวันประกาศหลายวัน)"""
+        ed = i.get("ed")
+        return bool(ed) and now_ts - 10 * 86400 <= ed <= now_ts
+    rest = [i for i in items if i["s"] not in core and (just_reported(i) or age(i["s"]) < week)]
+    todo = [i for i in items if i["s"] in core] + sorted(rest, key=lambda i: (not just_reported(i), -(i.get("mc") or 0)))[:limit]
     ok = 0
     for i in todo:
         try:
