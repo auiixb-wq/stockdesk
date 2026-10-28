@@ -182,7 +182,7 @@ td.r,th.r{text-align:right}
 .mean{color:var(--ink-2);font-size:12px;font-weight:400;margin-top:2px;max-width:34ch}
 .wide{min-width:620px}
 @media (max-width:560px){.wide .mean{display:none}}
-.calc{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.calc{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}.calc input,.field input{min-width:0;width:100%;box-sizing:border-box}
 .field{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--ink-2)}
 .field input,.field select{padding:8px 10px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--surface);color:var(--ink);font-size:14px;min-width:0}
 details summary{cursor:pointer;font-weight:600}
@@ -446,6 +446,16 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .sgm,.sgp{display:flex;flex-direction:column;align-items:flex-end;font-size:13px;gap:2px}
 .sgn summary{cursor:pointer;list-style:none;padding:4px 0}.sgn[open] summary{margin-bottom:6px}
 @media (max-width:560px){.sgr{grid-template-columns:36px minmax(0,1fr) auto}.sgm{display:none}.sgk{gap:16px}.sgk .btn{margin-left:0}}
+.imp{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;font-size:12.5px}
+.ichip{display:inline-flex;gap:4px;align-items:center;padding:3px 9px;border-radius:99px;font-weight:600;text-decoration:none;font-size:12.5px}
+.ichip.up{background:var(--up-bg);color:var(--up)}.ichip.down{background:var(--down-bg);color:var(--down)}
+.pex{margin-bottom:14px}.pex h3{font-size:14px;margin:0 0 8px}
+.pexr{display:grid;grid-template-columns:120px 140px minmax(0,1fr);gap:10px;align-items:center;font-size:13px;padding:4px 0}
+@media (max-width:560px){.pexr{grid-template-columns:96px minmax(0,1fr)}.pexr>span:last-child{grid-column:1/-1}}
+.adv{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}.advr{min-width:0}.advr .chk li>span:last-child{min-width:0;overflow-wrap:anywhere}.advr{border:1px solid var(--line);border-radius:var(--r-md);padding:10px 12px}
+.advr summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;flex-wrap:wrap}.advr summary::-webkit-details-marker{display:none}
+.advr summary .logo{width:30px;height:30px;font-size:10px}.adv-s{flex-basis:100%;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.advr[open] summary{margin-bottom:8px}
 </style>
 
 </head>
@@ -644,8 +654,11 @@ function finSection(R){const st=R.st,F=S.fin[st.s];
 function rowHTML(R){const st=R.st,fav=S.watch.includes(st.s);return `<a class="row" href="#s-${esc(st.s)}">${logo(st.s)}<div style="min-width:0"><div class="sym">${esc(st.s)}${fav?`<span class="warn" aria-label="รายการโปรด">★</span>`:""}<span class="pill sm ${R.v[1]}">${R.v[0]}</span></div><div class="nm">${esc(st.n)}${earnTag(R)}</div></div>${spark(R)}<div class="px"><div class="num pxv" data-q="${esc(st.s)}">${cur(st.m)}${fmt(R.last)}</div>${chgPill(R.chg,st.s)}</div></a>`}
 function sentTag(s){return s>0?`<span class="sent up">● บวก</span>`:s<0?`<span class="sent down">● ลบ</span>`:`<span class="sent muted">● กลาง</span>`}
 function nfx(x){const L=newsLinks(x).via;if(!L.length)return "";return `<div class="nfx">${L.map(([f,e])=>{const ef=effOf(f,e);return `<span><b>${esc(f.short||f.name)} ${e>0?"▲":"▼"}</b>${ef.help.length?` → หนุน${ef.help.slice(0,4).map(s=>SECTORS[s].th).join(", ")}`:""}${ef.hurt.length?` · กดดัน${ef.hurt.slice(0,4).map(s=>SECTORS[s].th).join(", ")}`:""}</span>`}).join("")}</div>`}
+function impChips(x){const I=newsImpacts(x,S.watch);if(!I.stocks.length&&!I.secs.length)return "";
+  const ch=(href,l,v)=>`<${href?`a href="${href}"`:"span"} class="ichip ${v>0?"up":"down"}" title="ขนาดผลกระทบ ${v>0?"+":""}${v.toFixed(2)} (ถ่วงด้วยความน่าเชื่อถือของแหล่งข่าว)">${l} ${v>0?"▲":"▼"} ${MAGL(v)}</${href?"a":"span"}>`;
+  return `<div class="imp"><span class="muted">กระทบ</span>${I.stocks.map(([st,v])=>ch("#s-"+esc(st.s),esc(st.s),v)).join("")}${I.secs.map(([m,sec,v])=>ch("",`กลุ่ม${esc(SECTORS[sec].th)}${m==="US"?" (US)":""}`,v)).join("")}</div>`}
 function newsHTML(list,limit){if(!list.length)return `<div class="empty">${S.dbState==="loading"?"กำลังโหลดข่าว…":S.dbState==="off"?"โหลดข่าวไม่สำเร็จ ลองรีเฟรชหน้า":"ยังไม่มีข่าวที่เกี่ยวข้อง"}</div>`;
-  const ev=events(list);return `<div class="news">${ev.slice(0,limit||999).map(E=>{const x=E.lead,more=E.items.filter(y=>y!==x);return `<article class="ni"><div class="meta"><span class="tier t${x.tier||3}">${["","ระดับ 1","ระดับ 2","ระดับ 3"][x.tier||3]}</span><b style="color:var(--ink)">${esc(x.source)}</b><span>${x.approx?thMonth(x.date):thDate(x.date)}</span>${sentTag(x.sentiment)}</div><a class="t" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">${esc(x.titleTh||x.title)}</a>${x.summary?`<p>${esc(x.summary)}</p>`:""}${channelsHTML(x)||nfx(x)}<div class="chips">${[...new Set(E.items.flatMap(y=>y.tickers||[]))].map(t=>`<a class="chip" href="#s-${esc(t)}">${esc(t)}</a>`).join("")}${(x.sectors||[]).map(s=>`<span class="chip">${esc(SECTORS[s]?.th||s)}</span>`).join("")}${x.seen?`<span class="chip" title="เวลาที่ระบบพบข่าวนี้">ระบบพบ ${new Date(x.seen*1000).toLocaleString("th-TH",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>`:""}</div>
+  const ev=events(list);return `<div class="news">${ev.slice(0,limit||999).map(E=>{const x=E.lead,more=E.items.filter(y=>y!==x);return `<article class="ni"><div class="meta"><span class="tier t${x.tier||3}">${["","ระดับ 1","ระดับ 2","ระดับ 3"][x.tier||3]}</span><b style="color:var(--ink)">${esc(x.source)}</b><span>${x.approx?thMonth(x.date):thDate(x.date)}</span>${sentTag(x.sentiment)}</div><a class="t" href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">${esc(x.titleTh||x.title)}</a>${x.summary?`<p>${esc(x.summary)}</p>`:""}${channelsHTML(x)||nfx(x)}${impChips(x)}<div class="chips">${x.seen?`<span class="chip" title="เวลาที่ระบบพบข่าวนี้">ระบบพบ ${new Date(x.seen*1000).toLocaleString("th-TH",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</span>`:""}</div>
   ${more.length?`<details class="evm"><summary>อีก ${more.length} แหล่งข่าวรายงานเรื่องเดียวกัน</summary><ul>${more.map(y=>`<li><span class="tier t${y.tier||3}">${["","ร.1","ร.2","ร.3"][y.tier||3]}</span> <b>${esc(y.source)}</b> · <a href="${esc(safeUrl(y.url))}" target="_blank" rel="noopener">${esc(y.titleTh||y.title)}</a></li>`).join("")}</ul></details>`:""}</article>`}).join("")}</div>`}
 const sortedNews=()=>[...S.news].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
 function sampleNotice(){if(S.live)return `<div class="notice ok" role="note"><b>ราคาจริง</b><span>ระบบดึงราคาใหม่ทุก ~2 นาทีช่วงตลาดเปิด · หุ้นไทยจาก CNBC ล่าช้าราว 15 นาที (สำรองด้วย Yahoo) · หุ้นสหรัฐฯ จาก Yahoo · ไม่ใช่ราคาเรียลไทม์ ไม่ใช้ส่งคำสั่งซื้อขาย</span></div>`;return `<div class="notice" role="note"><b>ข้อมูลจำลอง</b><span>ยังโหลดราคาจริงไม่ได้ ตัวเลขในหน้านี้เป็นข้อมูลจำลอง</span></div>`}
@@ -669,7 +682,7 @@ function vHome(){
   const avg=all.reduce((a,r)=>a+r.overall,0)/all.length;
   const cnt=k=>all.filter(r=>r.v[1]===k).length,buy=cnt("p-buy2")+cnt("p-buy"),hold=cnt("p-hold"),avoid=cnt("p-sell")+cnt("p-sell2");
   const mood=avg>=58?["คึกคัก","หุ้นส่วนใหญ่ให้สัญญาณบวก"]:avg>=50?["ทรงตัว","มีทั้งหุ้นแข็งและอ่อน ต้องเลือกตัว"]:avg>=45?["ระมัดระวัง","สัญญาณซื้อยังน้อย รอจังหวะ"]:["อ่อนแอ","หุ้นส่วนใหญ่ยังเป็นขาลง"];
-  const top=[...all].sort((a,b)=>b.overall-a.overall).slice(0,8);
+  const top=[...all].filter(R=>(R.conf?.lv||0)>=2).sort((a,b)=>b.overall-a.overall).slice(0,8);
   const byChg=[...all].sort((a,b)=>b.chg-a.chg),gain=byChg.slice(0,4),lose=byChg.slice(-4).reverse();
   const fav=all.filter(R=>S.watch.includes(R.st.s));
   const idx=(k,label)=>{const x=m[k];return `<div class="itile"><div class="il">${label}</div>${x?`<div class="iv num">${fmt(x.v)}</div><div class="ic"><span class="${x.chg>=0?"c-up":"c-dn"}">${x.chg>=0?"▲":"▼"} ${Math.abs(x.chg).toFixed(2)}%</span><span>ปิด ${thDate(x.date)}</span></div>`:`<div class="iv">–</div><div class="ic">รอข้อมูล</div>`}</div>`};
@@ -692,7 +705,7 @@ function vHome(){
   <section class="card pbx"><div class="card-h"><div><h2>ซื้อตอนย่อวันนี้ <span class="pill sm ${pbNow.length?"p-buy2":""}">${pbNow.length} ตัว</span></h2><div class="sub-t">ชนะราว 67% ในการทดสอบย้อนหลัง · แสดงคะแนนรวมสูงสุด ${Math.min(6,pbNow.length)} ตัว</div></div><a class="btn ghost sm" href="#signals">ดูทั้งหมด →</a></div>
    ${pbNow.length?`<div class="pbr">${[...pbNow].sort((a,b)=>b.overall-a.overall).slice(0,6).map(R=>`<a class="pbc" href="#s-${esc(R.st.s)}">${logo(R.st.s)}<span class="ms"><b>${esc(R.st.s)}</b><span class="muted num">RSI2 ${R.pb.r2.toFixed(0)} · ${R.overall}</span></span></a>`).join("")}</div>`
    :`<p class="muted" style="margin:0">วันนี้ยังไม่มีหุ้นเข้าเงื่อนไข${pbNear.length?` · ใกล้เข้าเงื่อนไข ${pbNear.length} ตัว`:""}</p>`}</section>
-  <section><div class="sh"><div><h2>สัญญาณเด่นวันนี้</h2><p class="muted">คะแนนรวมสูงสุด เลื่อนดูได้ แตะการ์ดเพื่อดูแผนเต็ม</p></div><a class="btn ghost sm" href="#market">ดูทั้งตลาด →</a></div><div class="rail">${top.map(card).join("")}</div></section>
+  <section><div class="sh"><div><h2>สัญญาณเด่นวันนี้</h2><p class="muted">คะแนนรวมสูงสุดเฉพาะหุ้นที่ระบบเชื่อถือสูง/ปานกลาง เลื่อนดูได้ แตะการ์ดเพื่อดูแผนเต็ม</p></div><a class="btn ghost sm" href="#market">ดูทั้งตลาด →</a></div><div class="rail">${top.map(card).join("")}</div></section>
   <div class="grid g2 hgrid">
     <section class="card"><div class="card-h"><div class="seg">${[["up","ขึ้นแรงสุด"],["dn","ลงแรงสุด"]].map(([k,l])=>`<button class="chip" data-mover="${k}" aria-pressed="${(S.mover||"up")===k}">${l}</button>`).join("")}</div></div>${((S.mover||"up")==="up"?gain:lose).map(mini).join("")}</section>
     <section class="card fcard-mini"><div class="card-h"><h2>ปัจจัยที่ต้องจับตา</h2><a class="btn ghost sm" href="#factors">ทั้งหมด</a></div>${S.factors.length?[...S.factors].sort((a,b)=>Math.abs(fx(b))-Math.abs(fx(a))).slice(0,5).map(f=>{const e=factorEffects(f);return `<a class="fm" href="#factors">${arrowTile(sgn(fx(f)))}<span class="ms"><b>${esc(f.short||f.name)}</b><span class="muted">${e.help.length?`หนุน${e.help.slice(0,2).map(s=>SECTORS[s].th).join(", ")}`:""}${e.help.length&&e.hurt.length?" · ":""}${e.hurt.length?`กดดัน${e.hurt.slice(0,2).map(s=>SECTORS[s].th).join(", ")}`:""}</span></span></a>`}).join(""):`<div class="empty">กำลังโหลด…</div>`}</section>
@@ -712,7 +725,7 @@ function screen(R,k){if(R.lite){const f=R.f||[];switch(k){case "fav":return S.wa
   case "uptrend":return I.e200[n]!=null&&I.c[n]>I.e50[n]&&I.e50[n]>I.e200[n]&&(I.adx[n]||0)>20;
   case "oversold":return (I.rsi[n]??50)<35;
   case "nearsup":return R.plan.L.sup[0]&&(I.c[n]-R.plan.L.sup[0].p)/I.c[n]<.03;
-  case "strongfa":return R.fund.score>=70;
+  case "strongfa":return !R.fund.thin&&R.fund.score>=70;
   case "reliable":return R.conf.lv>=2;
   default:return true}}
 function marketList(){const q=(S.mq||"").trim().toUpperCase();
@@ -739,7 +752,7 @@ function vNews(){
   const b=(v,l)=>`<button class="chip" data-nf="${v}" aria-pressed="${f===v}">${l}</button>`;
   return `<div><h1>ฟีดข่าว</h1><p class="muted" style="margin:4px 0 0">ข่าวจากแหล่งที่ตรวจสอบได้ ผูกกับหุ้นรายตัวและ sector · ระดับ 1 = สำนักข่าวหลักหรือประกาศทางการ, ระดับ 2 = สื่อธุรกิจและบทวิเคราะห์โบรกเกอร์, ระดับ 3 = เว็บรวบรวมข้อมูล · ข่าวระดับสูงมีน้ำหนักในคะแนนมากกว่า</p></div>
   <div class="chips">${b("all","ทั้งหมด")}${b("TH","ไทย")}${b("US","สหรัฐฯ")}${b("macro","มหภาค")}${b("fac","กระทบปัจจัย")}${secs.map(s=>b(s,SECTORS[s]?.th||s)).join("")}</div>
-  <section class="card">${newsHTML(list)}</section>`;
+  <section class="card">${newsHTML(list,S.nlim||15)}${events(list).length>(S.nlim||15)?`<div style="text-align:center;padding:12px 0 2px"><button class="btn ghost sm" data-nmore>ดูข่าวเพิ่ม (เหลืออีก ${events(list).length-(S.nlim||15)} เรื่อง)</button></div>`:""}</section>`;
 }
 const CATS=[["rates","ดอกเบี้ยและพันธบัตร"],["energy","พลังงานและสินค้าโภคภัณฑ์"],["fx","ค่าเงิน"],["macro","เศรษฐกิจและเงินเฟ้อ"],["flow","ตลาดและกระแสเงินทุน"],["theme","ธีมและนโยบาย"]];
 function fbar(v){const w=Math.abs(v)*50;return `<span class="fbar" title="แรงปัจจุบัน ${v>0?"+":""}${v}"><span class="dv-c"></span>${v?`<i class="${v>0?"pos":"neg"}" style="width:${w}%"></i>`:""}</span>`}
@@ -752,7 +765,7 @@ function vFactors(){
     <div class="fc-top"><h3>${esc(f.name)}</h3>${f.value?`<div class="fval"><b class="num">${esc(f.value)}</b><span class="${!f.live&&f.asOf&&ageDays(f.asOf)>35?"warn":"muted"}">${f.asOf?"ณ "+thDate(f.asOf):""}${!f.live&&f.asOf&&ageDays(f.asOf)>35?" · รอตัวเลขใหม่":""}</span></div>`:""}</div>
     <div class="fc-m"><span class="chip">${f.scope==="ALL"?"ทุกตลาด":f.scope==="TH"?"ตลาดไทย":"ตลาดสหรัฐฯ"}</span><span class="${sgn(v)>0?"up":sgn(v)<0?"down":"muted"}" style="font-weight:600">${dirWord(sgn(v))}</span>${fbar(v)}<span class="muted num">แรง ${v>0?"+":""}${v.toFixed(2)}</span></div>
     <p>${esc(f.note)}</p>
-    <div class="fc-e">${e.help.map(s=>`<span class="eff pos">หนุน ${esc(SECTORS[s].th)}</span>`).join("")}${e.hurt.map(s=>`<span class="eff neg">กดดัน ${esc(SECTORS[s].th)}</span>`).join("")}${!e.help.length&&!e.hurt.length?`<span class="muted" style="font-size:13px">ตอนนี้ยังไม่มีทิศทางชัด จึงไม่กระทบคะแนนหุ้น</span>`:""}</div>
+    <div class="fc-e">${e.help.map(s=>`<span class="eff pos">หนุน ${esc(SECTORS[s].th)} · ${MAGL(v*f.impacts[s])}</span>`).join("")}${e.hurt.map(s=>`<span class="eff neg">กดดัน ${esc(SECTORS[s].th)} · ${MAGL(v*f.impacts[s])}</span>`).join("")}${Object.entries(f.stocks||{}).filter(([,k])=>Math.abs(v*k)>=.1).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,6).map(([sym,k])=>`<a class="ichip ${v*k>0?"up":"down"}" href="#s-${esc(sym)}">${esc(sym)} ${v*k>0?"▲":"▼"} ${MAGL(v*k)}</a>`).join("")}${!e.help.length&&!e.hurt.length?`<span class="muted" style="font-size:13px">ตอนนี้ยังไม่มีทิศทางชัด จึงไม่กระทบคะแนนหุ้น</span>`:""}</div>
     ${nl.length?`<div class="fnews"><div class="fnh">ข่าวที่ส่งผลต่อปัจจัยนี้ (${nl.length})</div>${nl.slice(0,3).map(x=>{const l=x.factors.find(l=>l.id===f.id);return `<a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener"><span class="${l.eff>0?"up":"down"}">${l.eff>0?"▲":"▼"}</span><span>${esc(x.titleTh||x.title)}</span><span class="tier t${x.tier||3}">${["","ร.1","ร.2","ร.3"][x.tier||3]}</span></a>`}).join("")}</div>`:""}
     ${f.channels?.length?`<details class="fch"><summary>ส่งผลต่อธุรกิจอย่างไร (${f.channels.length} ช่องทาง)</summary><ul>${f.channels.map(c=>{const e=c.e*sgn(v);return `<li><span class="${e>0?"up":e<0?"down":"muted"}">${e>0?"บวก":e<0?"ลบ":"กลาง"}</span> <b>${esc(c.who)}</b> <span class="muted">ผ่าน${esc(c.via)} · ${esc(c.h)}</span>${c.why?`<br><span class="muted" style="font-size:12.5px">${esc(c.why)}</span>`:""}</li>`}).join("")}</ul><p class="foot" style="margin:6px 0 0">เป็นเหตุผลทางธุรกิจ ไม่ใช่ความสัมพันธ์ทางสถิติ ทิศทางคิดจากสถานะปัจจัยตอนนี้</p></details>`:""}
     ${f.url?`<a class="muted src" href="${esc(safeUrl(f.url))}" target="_blank" rel="noopener">ข้อมูลอ้างอิง: ${esc(f.src||"ลิงก์")} ↗</a>`:""}</div></article>`};
@@ -838,7 +851,7 @@ function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),W=R.why,c=cur(R.
   </div>
   <div class="q4">
     <button class="qt" data-tab="chart"><span class="k">เทคนิค</span><span class="v num">${Math.round(R.techP)}<small>/100</small></span>${tally(R.tech.rows)}</button>
-    <button class="qt" data-tab="fa"><span class="k">งบการเงิน${R.f.sample?" (ตัวอย่าง)":""}</span><span class="v num">${R.fund.score}<small>/100</small></span><span class="d">${R.f.fs?.yoyN!=null?`กำไร YoY ${gp(R.f.fs.yoyN)} · QoQ ${gp(R.f.fs.qoqN)}`:`ผ่าน ${R.fund.rows.filter(r=>r.ok===1).length} จาก ${R.fund.rows.length} เกณฑ์`}</span></button>
+    <button class="qt" data-tab="fa"><span class="k">งบการเงิน</span><span class="v num">${R.fund.thin?"–":R.fund.score+"<small>/100</small>"}</span><span class="d">${R.f.fs?.yoyN!=null?`กำไร YoY ${gp(R.f.fs.yoyN)} · QoQ ${gp(R.f.fs.qoqN)}`:`ผ่าน ${R.fund.rows.filter(r=>r.ok===1).length} จาก ${R.fund.rows.length} เกณฑ์`}</span></button>
     ${(()=>{const V=valuation(R);return `<button class="qt" data-tab="val"><span class="k">มูลค่าเหมาะสม</span><span class="v num">${V.fair?pct(V.mos,0):"–"}<small> ${V.fair?(V.mos>=0?"ต่ำกว่ามูลค่า":"สูงกว่ามูลค่า"):""}</small></span><span class="d">${V.fair?`กรณีฐาน ${fmt(V.fair.base)} · ${V.methods.length} วิธี`:"ข้อมูลไม่พอประเมิน"}</span></button>`})()}
     ${(()=>{const pr=priceRisk(R.B),bad=finChecks(R).filter(c=>c.lv==="bad").length;return `<button class="qt" data-tab="risk"><span class="k">ความเสี่ยง</span><span class="v num">${pr.vol.toFixed(0)}%<small> ผันผวน/ปี</small></span><span class="d">ลงหนักสุด −${pr.dd.toFixed(0)}%${bad?` · <span class="down">พบจุดเสี่ยง ${bad} ข้อ</span>`:""}</span></button>`})()}
   </div>`}
@@ -876,7 +889,7 @@ function qualBridge(R){const st=R.st,F=S.fin[st.s];if(!F)return "";const ck=finC
    <p class="foot" style="margin:10px 0 0">แหล่งข้อมูลมีเฉพาะงบรวม (ไม่มีงบเฉพาะกิจการ) ย้อนหลังราว 5 ไตรมาสและ 4–5 ปี ตรวจตัวเลขสำคัญกับงบต้นฉบับใน SET หรือ SEC ก่อนตัดสินใจ</p></section>
   ${b?`<section class="card"><div class="card-h"><div><h2>กำไรเปลี่ยนเพราะอะไร</h2><div class="sub-t">${qLab(b.from)} → ${qLab(b.to)} · แยกจากตัวเลขในงบ ไม่ใช่คำอธิบายของบริษัท</div></div></div>${bridgeSVG(b,st.m)}
    <ul class="chk">${b.steps.map(x=>`<li><span class="${cls(x[1])}">●</span><span><b>${x[0]}</b> ${x[1]>=0?"+":""}${mn(x[1],st.m)} <span class="muted">· ${esc(x[2])}</span></span></li>`).join("")}</ul></section>`:""}`}
-function tFa(R){const st=R.st;return finSection(R)+qualBridge(R)+`<section class="card"><div class="card-h"><div><h2>สุขภาพงบการเงิน</h2><div class="sub-t">${R.f.sample?`<span class="warn">ตัวเลขตัวอย่าง แก้เป็นตัวเลขจากงบจริงได้ด้านล่าง</span>`:R.f.src?`จาก ${R.f.src} ${R.f.at?"· "+thDate(R.f.at.slice(0,10)):""}${R.fund.missing.length?` · ไม่มีข้อมูล: ${R.fund.missing.join(", ")}`:""}`:`ตัวเลขที่คุณกรอกเอง ${R.f.at?thDate(R.f.at.slice(0,10)):""}`}</div></div><span class="pill ${R.fund.score>=65?"p-buy":R.fund.score<40?"p-sell":"p-hold"}">${R.fund.score}/100</span></div>
+function tFa(R){const st=R.st;return finSection(R)+qualBridge(R)+`<section class="card"><div class="card-h"><div><h2>สุขภาพงบการเงิน</h2><div class="sub-t">${R.f.nodata?`<span class="warn">ยังไม่มีงบการเงินของหุ้นนี้ (ระบบดึงงบหมุนเวียนวันละ ~500 บริษัท) คะแนนรวมจึงไม่นับส่วนงบ · กรอกงบเองได้ด้านล่าง</span>`:R.f.src?`จาก ${R.f.src} ${R.f.at?"· "+thDate(R.f.at.slice(0,10)):""}${R.fund.missing.length?` · ไม่มีข้อมูล: ${R.fund.missing.join(", ")}`:""}`:`ตัวเลขที่คุณกรอกเอง ${R.f.at?thDate(R.f.at.slice(0,10)):""}`}</div></div><span class="pill ${R.fund.score>=65?"p-buy":R.fund.score<40?"p-sell":"p-hold"}">${R.fund.score}/100</span></div>
   <div class="fgrid">${R.fund.rows.map(r=>`<div class="fi"><span class="light" style="--c:${r.miss?"var(--line)":r.ok===1?"var(--up)":r.ok===0?"var(--down)":"var(--warn)"}"></span><div style="min-width:0"><div class="fn">${r.name}</div><div class="mean">${r.mean}</div></div><div class="r"><div class="num fv">${r.val}</div><div class="vote ${r.miss?"muted":r.ok===1?"up":r.ok===0?"down":"warn"}">${r.miss?"–":r.ok===1?"ผ่าน":r.ok===0?"ไม่ผ่าน":"พอใช้"}</div></div></div>`).join("")}</div>
   <details style="margin-top:14px"><summary>กรอกตัวเลขจากงบจริง</summary><form id="faForm" class="grid g3" style="margin-top:10px">
     ${[["rg","รายได้โต (%)"],["eg","EPS โต (%)"],["nm","กำไรสุทธิ (%)"],["roe","ROE (%)"],...(st.sec==="bank"?[["npl","NPL (%)"]]:[["de","D/E (เท่า)"],["cr","Current ratio"]]),["pe","P/E (เท่า)"],["dy","ปันผล (%)"]].map(([k,l])=>`<label class="field">${l}<input id="fa-${k}" name="${k}" type="number" step="any" value="${R.f[k]??""}" required></label>`).join("")}
@@ -986,9 +999,10 @@ document.addEventListener("click",e=>{
   if(t.dataset.mkt){S.mkt=t.dataset.mkt;render()}
   else if(t.dataset.sort){S.sort=t.dataset.sort;render()}
   else if(t.dataset.scr){S.scr=t.dataset.scr;render()}
-  else if(t.dataset.nf){S.nf=t.dataset.nf;render()}
+  else if(t.dataset.nf){S.nf=t.dataset.nf;S.nlim=15;render()}
   else if(t.dataset.clearsec){S.sec=null;render()}
   else if(t.dataset.fm){S.fm=t.dataset.fm;render()}
+  else if(t.dataset.nmore!=null){S.nlim=(S.nlim||15)+15;render()}
   else if(t.dataset.mover){S.mover=t.dataset.mover;render()}
   else if(t.dataset.secall!=null){S.secAll=!S.secAll;render()}
   else if(t.dataset.sgm){S.sgm=t.dataset.sgm;S.sgl=20;render()}
@@ -1068,7 +1082,8 @@ async function loadHist(syms){const need=syms.filter(s=>{const st=stockBySym(s);
   need.forEach((s,i)=>{S.histLoading.delete(s);if(got[i]?.t?.length)S.hist[s]=got[i];else S.histFail[s]=1});S.cache.clear();S.bars.clear();
   if(!document.querySelector("input:focus,details[open]"))render()}
 async function loadAll(){
-  const [[px,fund,macro,news,man,uni,sum],L]=await Promise.all([Promise.all(["data/prices.json","data/fund.json","data/macro.json","data/news.json","manual.json","data/universe.json","data/summary.json"].map(J)),getLive()]);const q=L.q,meta=L.meta;
+  const [[px,fund,macro,news,man,uni,sum,cal],L]=await Promise.all([Promise.all(["data/prices.json","data/fund.json","data/macro.json","data/news.json","manual.json","data/universe.json","data/summary.json","data/calib.json"].map(J)),getLive()]);
+  if(cal&&cal.updated!==S.calibData?.updated){S.calibData=cal;S.calib=null}const q=L.q,meta=L.meta;
   S.universe=uni?.items||[];S.summary=sum?.s||{};S.hist??={};S._allK=null;
   S.prices=px||{};S.quotes=q;S.fundLive=fund||{};S.macro=macro||{};S.metaLive=meta;S.live=!!px&&Object.keys(px).length>0;
   S.factors=buildFactors(man,macro).sort((a,b)=>(a.order||0)-(b.order||0));S.news=mergeNews(man?.news||[],news?.items||[]);
@@ -1128,6 +1143,7 @@ function vWatch(){
   const b=(v,l)=>`<button class="chip" data-wsort="${v}" aria-pressed="${sort===v}">${l}</button>`;
   return `<div class="card-h" style="margin:0"><div><h1>รายการโปรด</h1><p class="muted" style="margin:4px 0 0">${list.length} หุ้น · บันทึกไว้ในเครื่องนี้</p></div><div class="chips">${b("add","ตามที่เพิ่ม")}${b("score","คะแนน")}${b("chg","เปลี่ยนแปลงวันนี้")}</div></div>
   ${list.length?alertsCard(list):""}
+  ${list.length?advisorCard():""}
   ${list.length?portCard():""}
   ${list.length?riskCard(portfolio()):""}
   ${list.length?`<section class="card"><div class="wl">${list.map(R=>{const st=R.st,ps=planState(R),P=R.plan,x=h[st.s],ed=S.editHold===st.s;return `<div class="wr"><a class="wl-a" href="#s-${esc(st.s)}">${logo(st.s)}<span class="ms"><b>${esc(st.s)} <span class="pill sm ${R.v[1]}">${R.v[0]}</span></b><span class="muted">${esc(st.n)}${x?.q>0?` · ถือ ${x.q.toLocaleString()} หุ้น`:""}</span></span></a>
@@ -1187,6 +1203,33 @@ function vCompare(){const list=(lsGet("cmp")||[]).map(stockBySym).filter(Boolean
    ${row("ผันผวนต่อปี",(R,i)=>PR[i]?PR[i].vol.toFixed(0)+"%":"–")}${row("ลงหนักสุด 3 ปี",(R,i)=>PR[i]?"−"+PR[i].dd.toFixed(0)+"%":"–")}${row("ซื้อตอนย่อวันนี้",R=>R.pb?.now?`<span class="up">ใช่</span>`:"–")}
    </tbody></table></div>${svg?`<h3 style="margin:14px 0 4px">ผลตอบแทน 1 ปี (เริ่มที่ 100)</h3>${svg}`:""}</section>`}
 
+/* ---------- นักวิเคราะห์พอร์ต: คำแนะนำรายตัวจากข่าว ปัจจัย มูลค่า และกราฟ พร้อมเหตุผลและเงื่อนไขที่ทำให้มุมมองผิด ---------- */
+function advise(st,wt){const full=hasBars(st),R=full?analyze(st):info(st);if(R.overall==null)return null;const P=R.plan,p=R.last,why=[];
+  const news=newsFor(st).filter(x=>ageDays(x.date)<=14).map(x=>({x,v:impactOn(x,st).v})).filter(z=>Math.abs(z.v)>=.1).sort((a,b)=>Math.abs(b.v)-Math.abs(a.v));
+  const nNet=clamp(news.slice(0,5).reduce((a,z)=>a+z.v,0),-1.5,1.5);
+  const facs=factorsFor(st).map(f=>({f,e:fx(f)*impactOf(f,st)})).filter(z=>Math.abs(z.e)>=.15).sort((a,b)=>Math.abs(b.e)-Math.abs(a.e));
+  const fNet=clamp(facs.reduce((a,z)=>a+z.e,0),-1.5,1.5);
+  let mos=null;try{mos=full?valuation(R).mos:R.fv&&p?(R.fv[1]/p-1)*100:null}catch{}
+  const bad=full?alertsFor(R).filter(a=>a[0]==="bad").length:0,belowSL=P&&p!=null&&p<=P.sl;
+  let s=(R.overall-50)/10+nNet*1.5+fNet+(mos==null?0:mos>20?1:mos<-20?-1:0)-bad;
+  const act=belowSL?["ทบทวน / ตัดขาดทุน","p-sell2"]:s>=2.5?["เพิ่มได้เมื่อย่อ","p-buy2"]:s>=.5?["ถือต่อ","p-buy"]:s>-1.5?["ถือ เฝ้าดู","p-hold"]:["พิจารณาลด","p-sell"];
+  why.push(["กราฟ/คะแนน",`คะแนนรวม ${R.overall}/100 (${R.v[0]}) · เชื่อถือ ${R.conf.t}`,(R.overall-50)/10]);
+  news.slice(0,2).forEach(z=>why.push(["ข่าว",`${z.x.titleTh||z.x.title} (${z.x.source})`,z.v]));
+  facs.slice(0,2).forEach(z=>why.push(["ปัจจัย",`${z.f.short||z.f.name} ${dirWord(sgn(fx(z.f)))} ${impactOf(z.f,st)>0?"ซึ่งหุ้นนี้ได้ประโยชน์เมื่อปัจจัยขึ้น":"ซึ่งกดดันหุ้นนี้เมื่อปัจจัยขึ้น"}`,z.e]));
+  if(mos!=null)why.push(["มูลค่า",mos>=0?`ราคาต่ำกว่ามูลค่าเหมาะสมกรณีฐาน ${Math.abs(mos).toFixed(0)}%`:`ราคาสูงกว่ามูลค่าเหมาะสมกรณีฐาน ${Math.abs(mos).toFixed(0)}%`,mos>20?1:mos<-20?-1:0]);
+  if(belowSL)why.push(["ความเสี่ยง",`ราคาต่ำกว่าจุดตัดขาดทุนของระบบ ${fmt(P.sl)}`,-2]);else if(bad)why.push(["ความเสี่ยง",`พบสัญญาณเตือนในงบ/ราคา ${bad} เรื่อง`,-bad]);
+  if(wt>.4)why.push(["สัดส่วน",`คิดเป็น ${(wt*100).toFixed(0)}% ของพอร์ต สูงเกินไป ควรลดให้ต่ำกว่า 30%`,-1]);
+  const top=facs[0]?.f;const wrong=[P?`ราคาปิดต่ำกว่า ${fmt(P.sl)}`:null,top?`${top.short||top.name} กลับทิศ`:null,news[0]?"มีข่าวใหม่ที่หักล้างข่าวข้างต้น":null].filter(Boolean);
+  return{st,R,act,why,wrong,s,zone:P&&act[1]==="p-buy2"?`${fmt(P.lo)}–${fmt(P.hi)}`:null}}
+function advisorCard(){const P=portfolio(),rows=P.rows.length?P.rows.map(r=>[r.st,r.val/P.tot]):S.watch.map(stockBySym).filter(Boolean).map(st=>[st,0]);
+  const A=rows.map(([st,w])=>advise(st,w)).filter(Boolean);if(!A.length)return "";
+  const ex=S.factors.map(f=>{let e=0;for(const [st,w] of rows){if(!(f.scope==="ALL"||f.scope===st.m))continue;e+=(P.rows.length?w:1/rows.length)*impactOf(f,st)}return{f,e,now:fx(f)}}).filter(z=>Math.abs(z.e)>=.05).sort((a,b)=>Math.abs(b.e)-Math.abs(a.e)).slice(0,5);
+  const tag=v=>v>0?"up":v<0?"down":"muted";
+  return `<section class="card"><div class="card-h"><div><h2>นักวิเคราะห์พอร์ต</h2><div class="sub-t">คำแนะนำรายตัวจากกราฟ ข่าว 14 วัน ปัจจัยมหภาค และมูลค่า · แต่ละข้อบอกที่มาและทิศทาง · ไม่ใช่คำแนะนำการลงทุน</div></div></div>
+   ${ex.length?`<div class="pex"><h3>พอร์ตนี้ไวต่อปัจจัยอะไร</h3>${ex.map(z=>`<div class="pexr"><span>${esc(z.f.short||z.f.name)}</span><span class="hb"><i class="${z.e>=0?"pos":"neg"}" style="width:${Math.min(50,Math.abs(z.e)*50)}%"></i></span><span class="muted">${z.e>0?"ได้ประโยชน์เมื่อขึ้น":"เสียเมื่อขึ้น"} · ตอนนี้${dirWord(sgn(z.now))} → <b class="${sgn(z.now)?tag(z.e*z.now):"muted"}">${!sgn(z.now)?"ผลน้อย":z.e*z.now>0?"หนุนพอร์ต":"กดดันพอร์ต"}</b></span></div>`).join("")}</div>`:""}
+   <div class="adv">${A.sort((a,b)=>a.s-b.s).map(a=>`<details class="advr"${a.act[1]==="p-sell2"||a.act[1]==="p-sell"?" open":""}><summary>${logo(a.st.s)}<b>${esc(a.st.s)}</b><span class="pill ${a.act[1]}">${a.act[0]}</span>${a.zone?`<span class="muted num" style="font-size:12.5px">โซน ${a.zone}</span>`:""}<span class="muted adv-s">${esc(a.why.slice(1).sort((x,y)=>Math.abs(y[2])-Math.abs(x[2]))[0]?.[1]||a.why[0][1])}</span></summary>
+     <ul class="chk">${a.why.map(([k,t,v])=>`<li><span class="${tag(v)}">●</span><span><span class="tag">${k}</span>${esc(t)}</span></li>`).join("")}</ul>
+     ${a.wrong.length?`<p class="foot" style="margin:8px 0 0"><b>มุมมองนี้ผิดถ้า:</b> ${a.wrong.map(esc).join(" · ")}</p>`:""}<a class="btn ghost sm" style="margin-top:8px" href="#s-${esc(a.st.s)}">ดูวิเคราะห์เต็ม →</a></details>`).join("")}</div></section>`}
 /* ---------- signals ---------- */
 function vSignals(){const mk=S.sgm||"all",so=S.sgs||"score",lim=S.sgl||20;
   const all=allStocks().filter(liquid).map(info).filter(R=>R.overall!=null&&(mk==="all"||R.st.m===mk));
@@ -1204,15 +1247,15 @@ function vSignals(){const mk=S.sgm||"all",so=S.sgs||"score",lim=S.sgl||20;
 /* ---------- more ---------- */
 function vMore(){const it=(h,t,d)=>`<a class="card morei" href="#${h}"><b>${t}</b><span class="muted">${d}</span></a>`;
   return `<h1>เพิ่มเติม</h1><div class="grid g2">${it("accuracy","ความแม่นยำของ rating","ทดสอบย้อนหลังว่าคะแนนทำนายผลได้จริงไหม และหาค่าที่ดีที่สุด")}${it("data","สถานะข้อมูล","ข้อมูลไหนสด ข้อมูลไหนขาด และมาจากไหน")}${it("method","วิธีคิดคะแนน","สูตรทั้งหมดที่ใช้ในเว็บ")}${it("signals","ซื้อตอนย่อวันนี้","รายชื่อหุ้นที่เข้าเงื่อนไขทั้งหมด เรียงและกรองได้")}${it("compare","เทียบหุ้น","วางหุ้นได้ 4 ตัวเทียบงบ มูลค่า ความเสี่ยง และผลตอบแทน")}${it("factors","ปัจจัยมหภาค","bond yield น้ำมัน ค่าเงิน เงินเฟ้อ และอื่นๆ")}</div>
-  <section class="card"><h2 style="margin-bottom:6px">รูปแบบระบบซื้อขาย</h2><p class="muted" style="margin:0 0 10px;font-size:13.5px">ใช้กับจุดซื้อ / TP / SL และการทดสอบย้อนหลังของทุกหุ้น</p><div class="chips">
-  <button class="chip" data-rules='${JSON.stringify(PRESETS.win)}' aria-pressed="${RULES.tp===1.5&&RULES.sl===3}">เน้นอัตราชนะ (TP 1.5 · SL 3 ATR)</button>
-  <button class="chip" data-rules='${JSON.stringify(PRESETS.edge)}' aria-pressed="${RULES.tp===4&&RULES.sl===2}">เน้นกำไรต่อไม้ (TP 4 · SL 2 ATR)</button></div></section>
+  <section class="card"><h2 style="margin-bottom:6px">รูปแบบระบบซื้อขาย</h2><p class="muted" style="margin:0 0 10px;font-size:13.5px">ใช้กับจุดซื้อ / TP / SL และการทดสอบย้อนหลังของทุกหุ้น · ผลทดสอบกับหุ้นจริง ~1,600 ตัว ช่วง เม.ย. 68 – ต.ค. 69: <b>เน้นอัตราชนะ</b> ชนะ ~66% กำไรเฉลี่ย ~+0.5% ต่อไม้ · <b>เน้นกำไรต่อไม้</b> ชนะ ~52% กำไรเฉลี่ย ~+1.4% ต่อไม้ (แพ้บ่อยกว่า แต่ได้มากกว่าเมื่อชนะ)</p><div class="chips">
+  <button class="chip" data-rules='${JSON.stringify(PRESETS.win)}' aria-pressed="${RULES.tp===1.5&&RULES.sl===3}">เน้นอัตราชนะ (TP 1.5 · SL 3 ATR · ถือ 20 วัน)</button>
+  <button class="chip" data-rules='${JSON.stringify(PRESETS.edge)}' aria-pressed="${RULES.tp===4&&RULES.sl===3}">เน้นกำไรต่อไม้ (TP 4 · SL 3 ATR · ถือ 30 วัน)</button></div></section>
   <section class="card"><h2 style="margin-bottom:10px">ตั้งค่า</h2><div class="chips">${[["system","◐ ตามระบบ"],["light","☀ สว่าง"],["dark","☾ มืด"]].map(([k,l])=>`<button class="chip" data-theme-set="${k}" aria-pressed="${(lsGet("theme")||"system")===k}">${l}</button>`).join("")}</div>
   <p class="foot" style="margin:12px 0 0">ติดตั้งเป็นแอป: บน iPhone กด แชร์ → เพิ่มไปยังหน้าจอโฮม · บน Android/Chrome กด ⋮ → ติดตั้งแอป · รายการโปรด ไฟล์ราคา และงบที่กรอกเองบันทึกในเครื่องนี้เท่านั้น</p></section>`}
 /* ---------- data health ---------- */
 function vData(){
   const M=S.metaLive,st=allStocks().filter(s=>!s.uni||(S.watch.includes(s.s)&&hasBars(s))),rows=st.map(s=>{const R=analyze(s),ps=M?.prices?.[s.s],q=S.quotes?.q?.[s.s],fr=R.fund;const n7=newsFor(s).filter(x=>ageDays(x.date)<=7).length;
-    const miss=[];if(R.sample)miss.push("ราคาจริง");else if(R.B.length<500)miss.push("ประวัติราคาไม่ถึง 2 ปี");if(R.f.sample)miss.push("งบการเงินจริง");else miss.push(...fr.missing);if(!n7)miss.push("ข่าว 7 วัน");return{s,R,ps,q,n7,miss}});
+    const miss=[];if(R.sample)miss.push("ราคาจริง");else if(R.B.length<500)miss.push("ประวัติราคาไม่ถึง 2 ปี");if(R.f.nodata)miss.push("งบการเงินจริง");else miss.push(...fr.missing);if(!n7)miss.push("ข่าว 7 วัน");return{s,R,ps,q,n7,miss}});
   const miss={};rows.forEach(r=>r.miss.forEach(m=>(miss[m]??=[]).push(r.s.s)));
   const staleF=S.factors.filter(f=>!f.live&&f.asOf&&ageDays(f.asOf)>30);
   const ok=v=>`<span class="up">●</span>`,bad=`<span class="down">●</span>`,mid=`<span class="warn">●</span>`;
@@ -1225,26 +1268,17 @@ function vData(){
   ${M?.errors?.length?`<section class="card"><h2 style="margin-bottom:8px">ปัญหาในรอบล่าสุด</h2><ul class="misslist">${M.errors.map(e=>`<li class="muted">${esc(e)}</li>`).join("")}</ul></section>`:""}`;
 }
 /* ---------- accuracy: rating calibration + parameter search ---------- */
-function corr(a,b){const n=a.length;if(n<3)return 0;let ma=0,mb=0;for(let i=0;i<n;i++){ma+=a[i];mb+=b[i]}ma/=n;mb/=n;let sab=0,sa=0,sb=0;for(let i=0;i<n;i++){const x=a[i]-ma,y=b[i]-mb;sab+=x*y;sa+=x*x;sb+=y*y}return sa&&sb?sab/Math.sqrt(sa*sb):0}
-function calib(){
-  const H=20,bins=[[-101,-40,"ต่ำมาก (< −40)"],[-40,-10,"ต่ำ (−40 ถึง −10)"],[-10,20,"กลาง (−10 ถึง 20)"],[20,50,"สูง (20 ถึง 50)"],[50,101,"สูงมาก (> 50)"]];
-  const agg=w=>bins.map(b=>({lab:b[2],lo:b[0],hi:b[1],n:0,sum:0,pos:0}));const A={is:agg(),oos:agg()},sc={is:[],oos:[]},fr={is:[],oos:[]},ic=VOTES.map(()=>({x:[],y:[]}));let stocks=0,real=0;
-  const per=[];
-  for(const st of allStocks().filter(s=>!s.uni||hasBars(s))){const R=analyze(st);stocks++;if(!R.sample)real++;const c=R.I.c,arr=R.sStd,n=c.length;
-    for(let i=RULES.warm;i<n-H;i++){const f=(c[i+H]/c[i]-1)*100,s=arr[i],k=i<R.split?"is":"oos";const b=A[k].find(b=>s>=b.lo&&s<b.hi);if(b){b.n++;b.sum+=f;if(f>0)b.pos++}
-      if(i%3===0){sc[k].push(s);fr[k].push(f);if(k==="is")R.V[i].forEach((v,j)=>{if(v!=null){ic[j].x.push(v);ic[j].y.push(f)}})}}}
-  // ค้นหาค่าที่ดีที่สุด: ใช้ช่วงสร้างระบบเลือก แล้ววัดผลจริงในช่วงทดสอบ
-  const grid=[];for(const thr of [20,30,40,50])for(const sl of [1.5,2,3])for(const tp of [1,1.5,2,3,4])grid.push({thr,sl,tp,wk:true});
-  const all=allStocks().filter(s=>!s.uni||hasBars(s)).map(analyze);
-  const res=grid.map(g=>{const P={...RULES,...g};let is=[],oos=[];for(const R of all){const a=R.sStd,I=R.I,sig=i=>a[i-1]<g.thr&&a[i]>=g.thr&&(!g.wk||I.wk[i]>=0);is=is.concat(simulate(R.B,I,sig,0,R.split,R.st.m,P));oos=oos.concat(simulate(R.B,I,sig,R.split,R.B.length,R.st.m,P))}return{g,is:stats(is),oos:stats(oos)}});
-  const cur=res.find(r=>r.g.thr===RULES.thr&&r.g.sl===RULES.sl&&r.g.tp===RULES.tp&&r.g.wk===(RULES.wk!==false));
-  const best=res.filter(r=>r.is.n>=30).sort((a,b)=>b.is.exp-a.is.exp);
-  const hiwin=res.filter(r=>r.is.n>=30&&r.is.win>=65&&r.is.exp>0).sort((a,b)=>b.is.exp-a.is.exp);
-  const pbs={is:[],oos:[]};for(const R of all){for(const t of R.pb.trades)(t.i<R.split?pbs.is:pbs.oos).push(t)}
-  return{hiwin:hiwin.slice(0,4),pb:{is:stats(pbs.is),oos:stats(pbs.oos)},A,ic:VOTES.map((v,j)=>({name:v.name,ic:corr(ic[j].x,ic[j].y),n:ic[j].x.length})).sort((a,b)=>b.ic-a.ic),icAll:{is:corr(sc.is,fr.is),oos:corr(sc.oos,fr.oos)},best:best.slice(0,6),cur,stocks,real,H};
-}
+// ใช้ผลที่คำนวณจากหุ้นทั้งตลาดใน GitHub Actions (data/calib.json) ถ้าไม่มีจึงคำนวณจากหุ้นหลักในเครื่อง
+function calib(){if(S.calibData&&!lsGet("rules"))return S.calibData;const C=calibNew();for(const st of allStocks().filter(s=>!s.uni&&hasBars(s)))calibAdd(C,analyze(st));return calibDone(C)}
+function fwdCard(C){const F=C.fwd;if(!F)return "";const h5=F.H?.[5]||[],h20=F.H?.[20]||[],n5=h5.reduce((a,b)=>a+b.n,0);
+  const row=(b,b2)=>`<tr><td>${b.lab}</td><td class="r num">${b.n?b.n.toLocaleString():"–"}</td><td class="r num ${cls(b.n?b.ex/b.n:0)}">${b.n?pct(b.ex/b.n,2):"–"}</td><td class="r num">${b.n?(b.pos/b.n*100).toFixed(0)+"%":"–"}</td><td class="r num ${cls(b2?.n?b2.ex/b2.n:0)}">${b2?.n?pct(b2.ex/b2.n,2):"รอข้อมูล"}</td></tr>`;
+  return `<section class="card"><div class="card-h"><div><h2>ผลจริงหลังให้คะแนน (ติดตามไปข้างหน้า)</h2><div class="sub-t">วัดคะแนนรวมทั้งหมด (เทคนิค + งบ + ข่าว + ปัจจัย) ที่บันทึกไว้ ${F.days} วัน ตั้งแต่ ${F.first?thDate(F.first):"–"} · ไม่แก้ย้อนหลัง</div></div></div>
+   ${n5?`<div class="tscroll"><table class="wide"><thead><tr><th>คะแนนรวมวันนั้น</th><th class="r">ครั้ง</th><th class="r">ชนะตลาด 5 วัน</th><th class="r">ราคาขึ้น</th><th class="r">ชนะตลาด 20 วัน</th></tr></thead><tbody>${h5.map((b,i)=>row(b,h20[i])).join("")}</tbody></table></div>
+   <p class="foot" style="margin:8px 0 0">“ชนะตลาด” = ผลตอบแทนหลังหักค่าเฉลี่ยของหุ้นทุกตัวในตลาดเดียวกันช่วงเดียวกัน ถ้าคะแนนสูงชนะตลาดได้มากกว่าคะแนนต่ำอย่างสม่ำเสมอ แปลว่าคะแนนรวมใช้ได้จริง</p>`
+   :`<p class="muted" style="margin:0">เริ่มบันทึกแล้ว ผลแรกจะขึ้นหลังผ่านไป 5 วันทำการ</p>`}</section>`}
 function vAccuracy(){
-  if(!S.calib){setTimeout(()=>{S.calib=calib();if(route().v==="accuracy")render()},30);return `<h1>ความแม่นยำของ rating</h1><div class="card empty">กำลังทดสอบย้อนหลังกับหุ้นทุกตัว…</div>`}
+  if(!S.live)return `<h1>ความแม่นยำของ rating</h1><div class="card empty">กำลังโหลดราคาจริง…</div>`;
+  if(!S.calib){setTimeout(()=>{S.calib=calib();if(route().v==="accuracy")render()},30);return `<h1>ความแม่นยำของ rating</h1><div class="card empty">กำลังโหลดผลทดสอบย้อนหลัง…</div>`}
   const C=S.calib,bar=(v,mx)=>`<span class="hb"><i class="${v>=0?"pos":"neg"}" style="width:${Math.min(50,Math.abs(v)/mx*50)}%"></i></span>`;
   const mx=Math.max(.5,...["is","oos"].flatMap(k=>C.A[k].map(b=>b.n?Math.abs(b.sum/b.n):0)));
   const tbl=k=>C.A[k].map(b=>{const a=b.n?b.sum/b.n:0;return `<tr><td>${b.lab}</td><td class="r num ${cls(a)}">${b.n?pct(a,2):"–"}</td><td>${bar(a,mx)}</td><td class="r num">${b.n?(b.pos/b.n*100).toFixed(0)+"%":"–"}</td><td class="r num muted">${b.n.toLocaleString()}</td></tr>`}).join("");
@@ -1252,8 +1286,7 @@ function vAccuracy(){
   const verdictTxt=C.icAll.oos>.05&&mono("oos")>=.75?["ใช้ได้","up","คะแนนสูงตามมาด้วยผลตอบแทนที่ดีกว่าจริงในช่วงทดสอบ"]:C.icAll.oos>0?["พอใช้ แต่ยังอ่อน","warn","มีความสัมพันธ์เป็นบวกแต่น้อย ใช้ประกอบกับปัจจัยอื่น อย่าใช้ตัดสินใจเดี่ยวๆ"]:["ยังไม่น่าเชื่อถือ","down","คะแนนสูงไม่ได้ตามมาด้วยผลตอบแทนที่ดีกว่าในช่วงทดสอบ"];
   const B=C.best[0],fmtG=g=>`เข้าเมื่อคะแนน ≥ ${g.thr} · SL ${g.sl} ATR · TP ${g.tp} ATR · ${g.wk?"กรองด้วยกราฟสัปดาห์":"ไม่กรองสัปดาห์"}`;
   const sRow=(s)=>s.n?`<td class="r num">${s.n}</td><td class="r num ${s.win>=65?"up":""}">${s.win.toFixed(0)}%</td><td class="r num ${cls(s.avg)}">${pct(s.avg,2)}</td>`:`<td class="r">0</td><td class="r">–</td><td class="r">–</td>`;
-  return `<div><h1>ความแม่นยำของ rating</h1><p class="muted" style="margin:4px 0 0">ทดสอบกับหุ้น ${C.stocks} ตัว (ราคาจริง ${C.real} ตัว) ทุกวันย้อนหลัง: ถ้าซื้อวันนั้นแล้วถือ ${C.H} วันทำการ ผลตอบแทนเป็นอย่างไรตามระดับคะแนนเทคนิค</p></div>
-  ${C.real?"":`<div class="notice"><b>ข้อมูลจำลอง</b><span>ผลในหน้านี้จะมีความหมายเมื่อเว็บได้ราคาจริงแล้วเท่านั้น</span></div>`}
+  return `<div><h1>ความแม่นยำของ rating</h1><p class="muted" style="margin:4px 0 0">ทดสอบกับหุ้นราคาจริง ${C.stocks.toLocaleString()} ตัว${C.from?` ช่วง ${thDate(C.from)} – ${thDate(C.to)}`:""}${S.calib===S.calibData?" · คำนวณใหม่อัตโนมัติทุกวัน":" · คำนวณในเครื่องจากหุ้นหลัก"} ทุกวันย้อนหลัง: ถ้าซื้อวันนั้นแล้วถือ ${C.H} วันทำการ ผลตอบแทนเป็นอย่างไรตามระดับคะแนนเทคนิค</p></div>
   <section class="vh" style="grid-template-columns:minmax(0,1fr)"><div><div class="eyebrow" style="color:var(--deep-2)">ข้อสรุป</div><div class="vword" style="font-size:32px">rating ${verdictTxt[0]}</div><p class="vline">${verdictTxt[2]} · ค่าสหสัมพันธ์ระหว่างคะแนนกับผลตอบแทน ${C.H} วัน: ช่วงสร้างระบบ <b class="num">${C.icAll.is.toFixed(3)}</b> · ช่วงทดสอบ <b class="num">${C.icAll.oos.toFixed(3)}</b></p><p class="foot" style="color:var(--deep-2);margin:0">ในการลงทุนจริง ค่าสหสัมพันธ์ 0.03–0.08 ที่คงที่ก็ถือว่ามีประโยชน์แล้ว ค่าที่สูงเกิน 0.2 มักเป็นสัญญาณของการปรับจนพอดีกับอดีต</p></div></section>
   <div class="grid g2"><section class="card"><h2 style="margin-bottom:8px">ช่วงสร้างระบบ (70% แรก)</h2><div class="tscroll"><table><thead><tr><th>ระดับคะแนน</th><th class="r">ผลตอบแทนเฉลี่ย</th><th></th><th class="r">บวก</th><th class="r">ครั้ง</th></tr></thead><tbody>${tbl("is")}</tbody></table></div></section>
   <section class="card"><h2 style="margin-bottom:8px">ช่วงทดสอบ (30% หลัง)</h2><div class="tscroll"><table><thead><tr><th>ระดับคะแนน</th><th class="r">ผลตอบแทนเฉลี่ย</th><th></th><th class="r">บวก</th><th class="r">ครั้ง</th></tr></thead><tbody>${tbl("oos")}</tbody></table></div></section></div>
@@ -1270,13 +1303,14 @@ function vAccuracy(){
     <tr><td><b>ซื้อตอนย่อ (RSI 2)</b><div class="mean">ราคาเหนือ SMA200 และ RSI(2) &lt; 5 · ขายเมื่อปิดเหนือ SMA5 หรือ 10 วัน · SL 3 ATR</div></td>${sRow(C.pb.is)}${sRow(C.pb.oos)}<td class="muted" style="font-size:12px">แสดงในหน้าหุ้นทุกตัว</td></tr>
     ${C.hiwin.map(r=>`<tr><td><b>ตามคะแนนเทคนิค</b><div class="mean">${fmtG(r.g)}</div></td>${sRow(r.is)}${sRow(r.oos)}<td><button class="btn sm" data-rules='${JSON.stringify(r.g)}'>ใช้ค่านี้</button></td></tr>`).join("")}</tbody></table></div>
    <p class="foot" style="margin:10px 0 0">ระบบที่ชนะบ่อยจะได้กำไรต่อไม้น้อย และเวลาแพ้จะเสียมากกว่าตอนชนะ (SL ไกลกว่า TP) ห้ามเลื่อน SL ออกไปอีก และควรเสี่ยงไม่เกิน 1–2% ของเงินต่อไม้ เพราะแพ้ติดกัน 3–4 ไม้ยังเกิดขึ้นได้</p></section>
-  <section class="card method"><h2>แนวทางทำให้ rating แม่นยำขึ้น</h2><ul>
-   <li><b>ใช้ราคาจริงอย่างน้อย 5 ปี</b> ยิ่งข้อมูลยาว จำนวนไม้ทดสอบยิ่งมาก ผลยิ่งเชื่อถือได้</li>
-   <li><b>เพิ่มจำนวนหุ้น</b> ในไฟล์ symbols.json ผลรวมจากหุ้นหลายสิบตัวเชื่อถือได้กว่าหุ้นตัวเดียว</li>
-   <li><b>ดูเฉพาะคะแนนที่ “เชื่อถือ: สูง/ปานกลาง”</b> ซึ่งผ่านการทดสอบช่วงทดสอบของหุ้นตัวนั้นแล้ว</li>
-   <li><b>ลดน้ำหนักอินดิเคเตอร์ที่ให้ผลกลับทาง</b> ตามตารางด้านบน (ระบบปรับตามหุ้นให้อัตโนมัติ)</li>
-   <li><b>กลับมาดูหน้านี้ทุกเดือน</b> สภาพตลาดเปลี่ยน ค่าที่ดีที่สุดก็เปลี่ยนตาม</li>
-   <li>ส่วนงบการเงินและข่าวยังทดสอบย้อนหลังไม่ได้ เพราะแหล่งข้อมูลฟรีไม่มีประวัติย้อนหลัง จึงให้น้ำหนักรวมแค่ 50%</li></ul></section>`;
+  ${fwdCard(C)}
+  <section class="card method"><h2>ระบบทำให้ rating แม่นยำขึ้นอย่างไร (อัตโนมัติ)</h2><ul>
+   <li><b>ราคาจริงย้อนหลัง 5 ปีทุกตัว</b> ครอบคลุมทั้งช่วงขาขึ้นและขาลง จำนวนไม้ทดสอบหลายหมื่นไม้</li>
+   <li><b>ทดสอบกับหุ้นทั้งตลาด</b> ${C.stocks.toLocaleString()} ตัวที่มีสภาพคล่อง ไม่ใช่แค่หุ้นไม่กี่ตัว</li>
+   <li><b>ทดสอบใหม่ทุกวัน</b> หลังตลาดสหรัฐฯ ปิด ตารางในหน้านี้จึงเป็นผลล่าสุดเสมอ ไม่ต้องกลับมาตั้งค่าเอง</li>
+   <li><b>คัดอินดิเคเตอร์ด้วยข้อมูลจริง</b> ตัวที่ไม่ช่วยหรือให้ผลกลับทางในหุ้นทั้งตลาดถูกตัดออก และหุ้นแต่ละตัวยังปรับน้ำหนักตามผลทดสอบของตัวเอง</li>
+   <li><b>หน้าตลาดและหน้าแรกเน้นหุ้นที่ “เชื่อถือ: สูง/ปานกลาง”</b> ซึ่งได้กำไรทั้งช่วงสร้างระบบและช่วงทดสอบของหุ้นตัวนั้น</li>
+   <li><b>งบการเงินและข่าวทดสอบย้อนหลังไม่ได้</b> เพราะแหล่งข้อมูลฟรีไม่มีประวัติ ระบบจึงบันทึกคะแนนรวมทุกวันแล้ววัดผลจริงไปข้างหน้า (ตารางด้านบน) ผลจะเชื่อถือได้มากขึ้นทุกสัปดาห์</li></ul></section>`;
 }
 
 /* ---------- boot ---------- */

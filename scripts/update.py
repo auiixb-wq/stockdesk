@@ -677,22 +677,29 @@ def market_strip():
 
 def main():
     t0 = time.time()
-    prices, pstatus = fetch_prices()
-    uni = fetch_universe()
-    fetch_hist(uni)
-    fetch_fin(uni)
-    quotes = fetch_quotes(prices)
-    fund = fetch_fund()
-    macro = fetch_macro()
-    news = fetch_news()
-    idx = market_strip()
-    summarize()
+    tm = {}
+
+    def step(name, fn, *a):
+        t = time.time()
+        r = fn(*a)
+        tm[name] = round(time.time() - t, 1)
+        return r
+    prices, pstatus = step("prices", fetch_prices)
+    uni = step("universe", fetch_universe)
+    step("hist", fetch_hist, uni)
+    step("fin", fetch_fin, uni)
+    quotes = step("quotes", fetch_quotes, prices)
+    fund = step("fund", fetch_fund)
+    macro = step("macro", fetch_macro)
+    news = step("news", fetch_news)
+    idx = step("strip", market_strip)
+    step("summarize", summarize)
     old_meta = load("meta.json", {})
     meta = {
         "updated": int(time.time()), "full": os.environ.get("FULL") == "1",
         "fundUpdated": NOW.strftime("%Y-%m-%d") if os.environ.get("FULL") == "1" else old_meta.get("fundUpdated"),
         "newsUpdated": news.get("updated"), "indices": idx,
-        "prices": pstatus, "errors": ERRORS[:50], "seconds": round(time.time() - t0, 1),
+        "prices": pstatus, "errors": ERRORS[:50], "seconds": round(time.time() - t0, 1), "timing": tm,
     }
     save("meta.json", meta)
     print(json.dumps({k: v for k, v in meta.items() if k != "prices"}, ensure_ascii=False)[:2000])

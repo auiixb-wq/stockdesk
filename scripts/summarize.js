@@ -7,8 +7,8 @@ const load = (f, d) => { try { return JSON.parse(fs.readFileSync(path.join(ROOT,
 const ctx = { console };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, "core.js"), "utf8") +
-  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars};", ctx);
-const { S, analyze, summarize, allStocks, buildFactors, mergeNews, hasBars } = ctx.__core;
+  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars,liquid,calibNew,calibAdd,calibDone,barsOf,stockBySym};", ctx);
+const { S, analyze, summarize, allStocks, buildFactors, mergeNews, hasBars, liquid, calibNew, calibAdd, calibDone, barsOf, stockBySym } = ctx.__core;
 
 const uni = load("data/universe.json", { items: [] }), fund = load("data/fund.json", {}), macro = load("data/macro.json", {});
 const news = load("data/news.json", { items: [] }), man = load("manual.json", {}), quotes = load("data/quotes.json", null);
@@ -30,12 +30,46 @@ for (const f of fs.existsSync(fdir) ? fs.readdirSync(fdir).filter(f => f.endsWit
   try { S.fin[f.replace(/\.json$/, "")] = JSON.parse(fs.readFileSync(path.join(fdir, f), "utf8")); } catch {}
 }
 
-const t0 = Date.now(), out = {};
+const t0 = Date.now(), out = {}, C = calibNew();
 let ok = 0, fail = 0;
 for (const st of allStocks()) {
   if (!hasBars(st)) continue;
-  try { out[st.s] = summarize(analyze(st)); ok++; } catch (e) { fail++; if (fail < 5) console.error(st.s, e.message); }
+  try {
+    const R = analyze(st);
+    out[st.s] = summarize(R); ok++;
+    // ทดสอบความแม่นยำเฉพาะหุ้นที่มีสภาพคล่องและประวัติราคาอย่างน้อย 2 ปี
+    if (liquid(st) && R.B.length >= 500) calibAdd(C, R);
+  } catch (e) { fail++; if (fail < 5) console.error(st.s, e.message); }
   S.cache.delete(st.s);
+}
+const cal = calibDone(C);
+cal.updated = Math.floor(Date.now() / 1000);
+cal.fwd = forward();
+fs.writeFileSync(path.join(DATA, "calib.json"), JSON.stringify(cal));
+console.log(`calib: ${C.stocks} หุ้น`);
+
+// ติดตามผลจริงไปข้างหน้า: คะแนนรวม (เทคนิค + งบ + ข่าว + ปัจจัย) ที่บันทึกไว้แต่ละวัน เทียบกับราคาที่เกิดขึ้นจริงหลังจากนั้น
+function forward() {
+  const sd = path.join(hdir, "snap"), H = [5, 20], bins = [[70, 101, "ซื้อ (แรง) ≥ 70"], [58, 70, "น่าซื้อ 58–69"], [45, 58, "ถือ/รอ 45–57"], [35, 45, "ระวัง 35–44"], [0, 35, "หลีกเลี่ยง < 35"]];
+  const res = Object.fromEntries(H.map(h => [h, bins.map(b => ({ lab: b[2], n: 0, sum: 0, pos: 0, ex: 0 }))]));
+  const days = fs.existsSync(sd) ? fs.readdirSync(sd).filter(f => f.endsWith(".json")).map(f => f.slice(0, 10)).sort() : [];
+  const idx = {};
+  for (const d of days) {
+    let snap; try { snap = JSON.parse(fs.readFileSync(path.join(sd, d + ".json"), "utf8")); } catch { continue; }
+    for (const h of H) {
+      const rows = [];
+      for (const [sym, v] of Object.entries(snap)) {
+        const st = stockBySym(sym); if (!st) continue;
+        const B = idx[sym] ??= barsOf(st); const i = B.findIndex(b => b.t > d); // วันแรกหลังวันที่ให้คะแนน
+        if (i < 0 || i + h > B.length - 1) continue;
+        rows.push([v[0], B[i + h].c / B[i].o - 1, st.m]);
+      }
+      const mk = {}; for (const r of rows) { (mk[r[2]] ??= []).push(r[1]); }
+      const avg = Object.fromEntries(Object.entries(mk).map(([m, a]) => [m, a.reduce((x, y) => x + y, 0) / a.length]));
+      for (const [o, r, m] of rows) { const b = bins.findIndex(b => o >= b[0] && o < b[1]); if (b < 0) continue; const x = res[h][b]; x.n++; x.sum += r * 100; x.ex += (r - avg[m]) * 100; if (r > 0) x.pos++; }
+    }
+  }
+  return { days: days.length, first: days[0] || null, H: res };
 }
 // บันทึกสัญญาณและแผนของวันนี้ไว้ตรวจความแม่นยำภายหลัง (ไม่แก้ย้อนหลัง)
 const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10), sdir = path.join(hdir, "snap");
