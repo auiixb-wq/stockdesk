@@ -290,7 +290,7 @@ function pval(p){if(p.n<3)return 0;const cv=p.sxy-p.sx*p.sy/p.n,vx=p.sxx-p.sx*p.
 const CALIB_GRID=(()=>{const g=[];for(const thr of [20,30,40,50])for(const sl of [1.5,2,3])for(const tp of [1,1.5,2,3,4])g.push({thr,sl,tp,wk:true});return g})();
 const CALIB_BINS=[[-101,-40,"ต่ำมาก (< −40)"],[-40,-10,"ต่ำ (−40 ถึง −10)"],[-10,20,"กลาง (−10 ถึง 20)"],[20,50,"สูง (20 ถึง 50)"],[50,101,"สูงมาก (> 50)"]];
 function calibNew(H=20){const agg=()=>CALIB_BINS.map(b=>({lab:b[2],lo:b[0],hi:b[1],n:0,sum:0,pos:0}));
-  return{H,A:{is:agg(),oos:agg()},ic:VOTES.map(()=>({is:pear(),oos:pear()})),all:{is:pear(),oos:pear()},grid:CALIB_GRID.map(g=>({g,is:[],oos:[]})),pb:{is:[],oos:[]},stocks:0,real:0,from:null,to:null}}
+  return{H,A:{is:agg(),oos:agg()},ic:VOTES.map(()=>({is:pear(),oos:pear()})),loo:VOTES.map(()=>({is:[],oos:[]})),base:{is:[],oos:[]},all:{is:pear(),oos:pear()},grid:CALIB_GRID.map(g=>({g,is:[],oos:[]})),pb:{is:[],oos:[]},stocks:0,real:0,from:null,to:null}}
 function calibAdd(C,R){if(R.sample)return;C.stocks++;C.real++;const H=C.H,c=R.I.c,B=R.B,arr=R.sStd,n=c.length,I=R.I;
   if(!C.from||B[0].t<C.from)C.from=B[0].t;if(!C.to||B[n-1].t>C.to)C.to=B[n-1].t;
   for(let i=RULES.warm;i<n-H;i++){const f=(c[i+H]/c[i]-1)*100,s=arr[i],k=i<R.split?"is":"oos";const b=C.A[k].find(b=>s>=b.lo&&s<b.hi);if(b){b.n++;b.sum+=f;if(f>0)b.pos++}
@@ -298,7 +298,11 @@ function calibAdd(C,R){if(R.sample)return;C.stocks++;C.real++;const H=C.H,c=R.I.
   const tr=t=>({ret:t.ret,R:t.R,i:t.i,x:t.x});
   for(const G of C.grid){const g=G.g,P={...RULES,...g},a=arr,sig=i=>a[i-1]<g.thr&&a[i]>=g.thr&&(!g.wk||I.wk[i]>=0);
     for(const t of simulate(B,I,sig,0,R.split,R.st.m,P))G.is.push(tr(t));for(const t of simulate(B,I,sig,R.split,B.length,R.st.m,P))G.oos.push(tr(t))}
-  for(const t of R.pb.trades)(t.i<R.split?C.pb.is:C.pb.oos).push(tr(t))}
+  for(const t of R.pb.trades)(t.i<R.split?C.pb.is:C.pb.oos).push(tr(t));
+  // ตัดทีละตัว: ถ้าไม่มีอินดิเคเตอร์ตัวนี้ ระบบตามคะแนนได้กำไรต่อไม้ต่างไปเท่าไร (ใช้ตัดสินว่าจะเก็บตัวไหน)
+  const w0=VOTES.map(v=>v.w),score=w=>R.V.map(row=>{if(!row)return 0;let s=0,ws=0;row.forEach((x,k)=>{if(x!=null&&w[k]){s+=w[k]*x;ws+=w[k]*2}});return ws?s/ws*100:0});
+  const run=(a,into)=>{const sig=i=>a[i-1]<RULES.thr&&a[i]>=RULES.thr&&(RULES.wk===false||I.wk[i]>=0);for(const t of simulate(B,I,sig,0,R.split,R.st.m))into.is.push(tr(t));for(const t of simulate(B,I,sig,R.split,B.length,R.st.m))into.oos.push(tr(t))};
+  run(score(w0),C.base);VOTES.forEach((_,j)=>run(score(w0.map((w,k)=>k===j?0:w)),C.loo[j]))}
 function calibDone(C){const strip=s=>s.n?{n:s.n,win:s.win,avg:s.avg,exp:s.exp,pf:s.pf}:{n:0};
   const res=C.grid.map(G=>({g:G.g,is:strip(stats(G.is)),oos:strip(stats(G.oos))}));
   const cur=res.find(r=>r.g.thr===RULES.thr&&r.g.sl===RULES.sl&&r.g.tp===RULES.tp&&r.g.wk===(RULES.wk!==false));
@@ -306,6 +310,9 @@ function calibDone(C){const strip=s=>s.n?{n:s.n,win:s.win,avg:s.avg,exp:s.exp,pf
   const hiwin=res.filter(r=>r.is.n>=30&&r.is.win>=65&&r.is.exp>0).sort((a,b)=>b.is.exp-a.is.exp).slice(0,4);
   return{H:C.H,A:C.A,stocks:C.stocks,real:C.real,from:C.from,to:C.to,cur,best,hiwin,pb:{is:strip(stats(C.pb.is)),oos:strip(stats(C.pb.oos))},
     ic:VOTES.map((v,j)=>({name:v.name,id:v.id,ic:pval(C.ic[j].is),icO:pval(C.ic[j].oos),n:C.ic[j].is.n})).sort((a,b)=>b.ic-a.ic),
+    base:{is:strip(stats(C.base.is)),oos:strip(stats(C.base.oos))},
+    loo:VOTES.map((v,j)=>{const a=strip(stats(C.loo[j].is)),b=strip(stats(C.loo[j].oos)),bi=stats(C.base.is),bo=stats(C.base.oos);
+      return{name:v.name,id:v.id,is:a,oos:b,dIs:bi.n&&a.n?bi.avg-a.avg:null,dOos:bo.n&&b.n?bo.avg-b.avg:null}}).sort((x,y)=>((y.dIs||0)+(y.dOos||0))-((x.dIs||0)+(x.dOos||0))),
     icAll:{is:pval(C.all.is),oos:pval(C.all.oos)},rules:{...RULES,exit:undefined}}}
 function confidence(R){
   if(R.sample)return{lv:0,t:"ข้อมูลตัวอย่าง",c:"var(--ink-2)",why:"ยังไม่มีราคาจริง ผลทดสอบไม่มีความหมาย"};
