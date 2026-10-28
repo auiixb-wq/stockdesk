@@ -194,13 +194,15 @@ def cnbc_th_quotes(uni):
         url = ("https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols="
                + urllib.parse.quote("|".join(s + "-TH" for s in part))
                + "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json")
-        try:
-            d = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=15).read())
-            rows = d["FormattedQuoteResult"]["FormattedQuote"]
-            return rows if isinstance(rows, list) else [rows]
-        except Exception as e:
-            ERRORS.append(f"cnbc TH {k}: {str(e)[:80]}")
-            return []
+        for attempt in (1, 2):  # ลองใหม่อีกครั้งถ้าชุดไหนหมดเวลา
+            try:
+                d = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=12).read())
+                rows = d["FormattedQuoteResult"]["FormattedQuote"]
+                return rows if isinstance(rows, list) else [rows]
+            except Exception as e:
+                if attempt == 2:
+                    ERRORS.append(f"cnbc TH {k}: {str(e)[:80]}")
+        return []
     from concurrent.futures import ThreadPoolExecutor
     with ThreadPoolExecutor(8) as ex:  # ขอพร้อมกัน 8 ชุด ให้ทั้งตลาดเสร็จในไม่กี่วินาที
         batches = list(ex.map(one, range(0, len(syms), 40)))
