@@ -11,6 +11,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>stockdesk</title>
+<script>try{if(JSON.parse(localStorage.getItem("mkt")||"null")==="US")document.documentElement.dataset.mkt="US"}catch(e){}</script>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Prompt:wght@500;600;700&display=swap">
@@ -36,6 +37,16 @@
   --accent:#C4EF3A; --accent-ink:#0F1712; --deep:#16301F; --deep-ink:#E9F5E4; --deep-2:#93B09C;
   --up:#2DC97C; --down:#FF6B70; --warn:#E3A92B; --up-bg:#123323; --down-bg:#3A1A1C; --warn-bg:#352A10;
   --c1:#F2B825; --c2:#6B9BFF; --c3:#B88BFF; color-scheme:dark}
+/* โหมดหุ้นสหรัฐฯ: เปลี่ยนโทนเป็นน้ำเงิน ให้รู้ทันทีว่ากำลังดูตลาดไหน (สีขึ้น/ลงคงเดิม) */
+:root[data-mkt="US"]{
+  --bg:#EEF2F8; --surface-2:#E5EBF4; --ink:#0E1626; --ink-2:#55607A; --line:#D9E0EC;
+  --accent:#7FB6FF; --accent-ink:#0B1730; --deep:#0F1E3D; --deep-ink:#E6EEFB; --deep-2:#9DB1D6}
+@media (prefers-color-scheme: dark){:root[data-mkt="US"]:not([data-theme="light"]){
+  --bg:#090C13; --surface:#121826; --surface-2:#192132; --ink:#ECF1FA; --ink-2:#97A3BB; --line:#243049;
+  --accent:#7FB6FF; --accent-ink:#0B1730; --deep:#132650; --deep-ink:#E6EEFB; --deep-2:#93A9D2}}
+:root[data-mkt="US"][data-theme="dark"]{
+  --bg:#090C13; --surface:#121826; --surface-2:#192132; --ink:#ECF1FA; --ink-2:#97A3BB; --line:#243049;
+  --accent:#7FB6FF; --accent-ink:#0B1730; --deep:#132650; --deep-ink:#E6EEFB; --deep-2:#93A9D2}
 *{box-sizing:border-box}
 html,body{margin:0}[hidden]{display:none!important}img{max-width:100%}
 html{-webkit-text-size-adjust:100%}
@@ -458,11 +469,13 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .advr[open] summary{margin-bottom:8px}
 .mswitch{display:inline-flex;padding:3px;border-radius:99px;background:var(--surface-2);gap:2px;flex:none}
 .mswitch button,.mbig button{border:0;background:transparent;color:var(--ink-2);font:600 13px var(--f-body);padding:6px 12px;border-radius:99px;cursor:pointer;white-space:nowrap}
-.mswitch button[aria-pressed="true"]{background:var(--ink);color:var(--surface)}
+.mswitch button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .mbig{display:inline-flex;margin-top:16px;padding:4px;border-radius:99px;background:rgba(255,255,255,.12);gap:4px}
 .mbig button{font-size:15px;padding:9px 20px;color:var(--deep-ink)}.mbig button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 @media (max-width:820px){.mswitch button{padding:5px 9px;font-size:12px}}
 @media (max-width:560px){.brand .bt{display:none}}
+@media (min-width:821px){.search{min-width:170px}.top-in{gap:12px}}
+@media (min-width:821px) and (max-width:1399px){.top .live{display:none}}
 </style>
 
 </head>
@@ -995,7 +1008,7 @@ async function toggleFav(sym){const list=S.watch.includes(sym)?S.watch.filter(x=
 function route(){const h=location.hash.slice(1);if(h.startsWith("s-"))return{v:"stock",sym:h.slice(2).toUpperCase()};return{v:NAV.includes(h)?h:"home"}}
 let curRange=126;
 function render(){
-  const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mkt===S.mkt));document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
+  const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mkt===S.mkt));document.documentElement.dataset.mkt=S.mkt;document.querySelector('meta[name="theme-color"]')?.setAttribute("content",S.mkt==="US"?"#0F1E3D":"#11261B");document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
   killCharts();
   $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():vHome()}</div>`;
   if(r.v==="stock"){const st=stockBySym(r.sym);if(st){const R=analyze(st);if($("#cMain"))drawCharts(R,$("#cRsi")?curRange:126);calc(R)}}
