@@ -464,8 +464,9 @@ const FA_BASE={
 const NAV=["home","market","watch","news","factors","method","more","data","accuracy"];
 const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more"};
 const DEF_COST={TH:.17,US:.10}; // % ต่อขา: ค่าคอมออนไลน์ไทย ~0.157% + VAT, สหรัฐฯ เผื่อสเปรดและค่าแปลงสกุลเงิน
-// ค่าเริ่มต้นเลือกจากการทดสอบราคาจริง 24 หุ้น 5 ปี: ดีกว่าค่าเดิม (คะแนน 30, SL 1.5, TP 3) ทั้งช่วงสร้างระบบและช่วงทดสอบ
-const RULES={sl:2,tp:4,hold:20,thr:40,split:.7,warm:60,wk:true};const RULES0={...RULES};
+// ค่าเริ่มต้นเลือกจากการทดสอบราคาจริง 24 หุ้น 5 ปี (28 ต.ค. 2569): ชนะ 66% ช่วงสร้าง / 71% ช่วงทดสอบ และกำไรทั้งสองช่วง
+const RULES={sl:3,tp:1.5,hold:20,thr:40,split:.7,warm:60,wk:true};
+const PRESETS={win:{thr:40,sl:3,tp:1.5,wk:true},edge:{thr:40,sl:2,tp:4,wk:true}};const RULES0={...RULES};
 
 /* ---------- state ---------- */
 const S={news:[],factors:[],meta:null,px:{},fa:{},watch:[],uid:null,db:null,dbState:"loading",mkt:"ALL",sort:"score",scr:"all",nf:"all",sec:null,cache:new Map(),bars:new Map(),charts:[],marks:true};
@@ -587,18 +588,19 @@ const STRATS=[
 ];
 
 /* ---------- backtest engine ---------- */
-// เข้าซื้อราคาเปิดวันถัดจากสัญญาณ, SL 1.5 ATR, TP 3 ATR (2R), ถือไม่เกิน 20 วัน, หักค่าธรรมเนียมทั้งขาซื้อขาย
+// เข้าซื้อราคาเปิดวันถัดจากสัญญาณ, SL/TP เป็นเท่าของ ATR ตาม RULES, ถือไม่เกิน 20 วัน, หักค่าธรรมเนียมทั้งขาซื้อขาย
 // ถ้าแท่งเดียวกันแตะทั้ง SL และ TP นับเป็นขาดทุน, ถ้าเปิดกระโดดผ่าน SL ใช้ราคาเปิดจริง
 function simulate(B,I,sig,from,to,m,P=RULES){
   const cost=costOf(m),out=[];
   for(let i=Math.max(from,P.warm);i<to-1;i++){
     if(!sig(i))continue;const atr=I.atr[i];if(!atr)continue;
-    const e=i+1,en=B[e].o,sl=en-P.sl*atr,tp=en+P.tp*atr,lim=Math.min(to,e+P.hold);let xp=null,xi=null;
+    const e=i+1,en=B[e].o,sl=en-P.sl*atr,tp=P.tp?en+P.tp*atr:Infinity,lim=Math.min(to,e+P.hold);let xp=null,xi=null;
     for(let j=e;j<lim;j++){const b=B[j];
       if(j>e&&b.o<=sl){xp=b.o;xi=j;break}
       if(b.l<=sl){xp=sl;xi=j;break}
       if(j>e&&b.o>=tp){xp=b.o;xi=j;break}
-      if(b.h>=tp){xp=tp;xi=j;break}}
+      if(b.h>=tp){xp=tp;xi=j;break}
+      if(P.exit&&P.exit(j)){xp=b.c;xi=j;break}}
     if(xp==null){if(e+P.hold<=to){xi=e+P.hold-1;xp=B[xi].c}else if(to>=B.length){break}else{xi=to-1;xp=B[xi].c}}
     const ret=xp*(1-cost)/(en*(1+cost))-1;out.push({i:e,x:xi,en,xp,ret,R:ret*en/(en-sl)});i=xi;
   }
@@ -607,7 +609,7 @@ function simulate(B,I,sig,from,to,m,P=RULES){
 function stats(tr){const n=tr.length;if(!n)return{n:0};
   const w=tr.filter(t=>t.ret>0).length,p=w/n,z=1.96,den=1+z*z/n,cc=(p+z*z/(2*n))/den,hw=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/den;
   let gp=0,gl=0,eq=1,pk=1,dd=0,sr=0,hold=0;for(const t of tr){t.ret>0?gp+=t.ret:gl-=t.ret;eq*=1+t.ret;pk=Math.max(pk,eq);dd=Math.max(dd,1-eq/pk);sr+=t.R;hold+=t.x-t.i+1}
-  return{n,win:p*100,lo:Math.max(0,cc-hw)*100,hi:Math.min(1,cc+hw)*100,pf:gl?gp/gl:gp>0?99:0,exp:sr/n,ret:(eq-1)*100,dd:dd*100,hold:hold/n}}
+  return{n,avg:tr.reduce((a,t)=>a+t.ret,0)/n*100,win:p*100,lo:Math.max(0,cc-hw)*100,hi:Math.min(1,cc+hw)*100,pf:gl?gp/gl:gp>0?99:0,exp:sr/n,ret:(eq-1)*100,dd:dd*100,hold:hold/n}}
 
 /* ---------- analysis ---------- */
 function fundOf(st){
@@ -660,9 +662,10 @@ function makePlan(st,I,score){
   else if(score>=-10){mode="รอสัญญาณยืนยัน";tone="hold";hi=c-.3*atr;lo=Math.max(sup,c-1.3*atr)}
   else{mode="ยังไม่ควรเข้า";tone="sell";lo=sup;hi=sup+.5*atr}
   if(lo>hi)[lo,hi]=[hi,lo];
-  const entry=(lo+hi)/2;let sl=clamp(sup-.3*atr,entry-2.5*atr,entry-atr);
-  const risk=entry-sl,tp1=entry+1.5*risk,r2=L.res.find(x=>x.p>tp1+.2*risk&&x.p<=entry+4*risk);const tp2=r2?r2.p:entry+3*risk;
-  const P={mode,tone,lo:rt(lo,m),hi:rt(hi,m),entry:rt(entry,m),sl:rt(sl,m,"floor"),tp1:rt(tp1,m,"floor"),tp2:rt(tp2,m,"floor"),atr,sup,res,L,tp2Src:r2?"แนวต้านถัดไป":"3 เท่าของความเสี่ยง"};
+  // SL และ TP1 ใช้ระยะเดียวกับระบบที่ผ่านการทดสอบย้อนหลัง (RULES) TP2 คือแนวต้านถัดไปสำหรับคนที่อยากถือต่อ
+  const entry=(lo+hi)/2,sl=entry-RULES.sl*atr,risk=entry-sl,tp1=entry+RULES.tp*atr;
+  const r2=L.res.find(x=>x.p>tp1+.2*atr&&x.p<=entry+3*RULES.tp*atr);const tp2=r2?r2.p:entry+2*RULES.tp*atr;
+  const P={mode,tone,lo:rt(lo,m),hi:rt(hi,m),entry:rt(entry,m),sl:rt(sl,m,"floor"),tp1:rt(tp1,m,"floor"),tp2:rt(tp2,m,"floor"),atr,sup,res,L,tp2Src:r2?"แนวต้านถัดไป":"2 เท่าของ TP1"};
   P.rr1=(P.tp1-P.entry)/(P.entry-P.sl);P.rr2=(P.tp2-P.entry)/(P.entry-P.sl);return P;
 }
 function confidence(R){
@@ -695,7 +698,10 @@ function analyze(st){
   const techP=(tech.score+100)/2,ctxP=clamp(50+ns.s*20+fs*8+rsV*10,0,100);
   const overall=Math.round(.5*techP+.3*fund.score+.2*ctxP);
   const bh={is:(B[split-1].c/B[RULES.warm].c-1)*100,oos:(B[n].c/B[split].c-1)*100};
-  const qq=!S.px[st.s]&&S.quotes?.q?.[st.s];const R={key,st,B,I,V,sStd:std.arr,tech,plan,per,model,bh,split,f,fund,ns,fs,rs,rsV,techP,ctxP,overall,v:verdict(overall),sample:!S.px[st.s]&&!S.prices?.[st.s],last:B[n].c,chg:qq&&qq.chg!=null?qq.chg:(B[n].c/B[n-1].c-1)*100};
+  // ระบบซื้อตอนย่อ: ราคาเหนือ SMA200 และ RSI(2) < 5 → ซื้อราคาเปิดวันถัดไป ขายเมื่อปิดเหนือ SMA5 หรือครบ 10 วัน ตัดขาดทุน 3 ATR
+  const r2=rsi(I.c,2),s5=sma(I.c,5),s200=sma(I.c,200),pbSig=i=>s200[i]!=null&&I.c[i]>s200[i]&&r2[i]<5,PB={...RULES,sl:3,tp:null,hold:10,exit:j=>I.c[j]>s5[j]};
+  const pbt=simulate(B,I,pbSig,0,B.length,st.m,PB);const pb={all:stats(pbt),trades:pbt,now:pbSig(n),r2:r2[n],s5:s5[n],s200:s200[n],near:s200[n]!=null&&I.c[n]>s200[n]&&r2[n]<15};
+  const qq=!S.px[st.s]&&S.quotes?.q?.[st.s];const R={key,st,B,I,V,pb,sStd:std.arr,tech,plan,per,model,bh,split,f,fund,ns,fs,rs,rsV,techP,ctxP,overall,v:verdict(overall),sample:!S.px[st.s]&&!S.prices?.[st.s],last:B[n].c,chg:qq&&qq.chg!=null?qq.chg:(B[n].c/B[n-1].c-1)*100};
   R.conf=confidence(R);R.why=reasons(R);
   S.cache.set(st.s,R);return R;
 }
@@ -774,6 +780,7 @@ function vHome(){
     <div class="sc-n"><span><i>ซื้อ</i><b class="num">${fmt(P.entry)}</b></span><span><i>เป้า</i><b class="num up">${fmt(P.tp2)}</b></span><span><i>ตัดขาดทุน</i><b class="num down">${fmt(P.sl)}</b></span></div></a>`};
   const secs=["TH","US"].flatMap(mk=>{const g={};all.filter(R=>R.st.m===mk).forEach(R=>(g[R.st.sec]??=[]).push(R));return Object.entries(g).map(([sec,arr])=>{const a=arr.reduce((x,r)=>x+r.overall,0)/arr.length;return{mk,sec,a,fs:factorScore(arr[0].st),syms:arr.map(r=>r.st.s)}})}).sort((x,y)=>y.a-x.a);
   const news=sortedNews().slice(0,3);
+  const pbNow=all.filter(R=>R.pb.now),pbNear=all.filter(R=>!R.pb.now&&R.pb.near).sort((a,b)=>a.pb.r2-b.pb.r2).slice(0,4);
   return `<section class="hx">
     <div class="hx-l"><div class="hx-date">${todayTh()}</div><h1 class="hx-t">${greet()}<br><span>ตลาดวันนี้ <em>${mood[0]}</em></span></h1><p class="hx-s">${mood[1]} · จาก ${all.length} หุ้นที่ติดตาม</p>
       <div class="mood"><div class="mbar"><i style="flex:${buy};background:var(--accent)"></i><i style="flex:${hold};background:var(--deep-2)"></i><i style="flex:${avoid};background:#FF8A8E"></i></div><div class="mlab"><span><b>${buy}</b> น่าซื้อ</span><span><b>${hold}</b> ถือ/รอ</span><span><b>${avoid}</b> ระวัง</span></div></div>
@@ -782,6 +789,8 @@ function vHome(){
   </section>
   ${S.live?"":sampleNotice()}
   ${fav.length?`<section><div class="sh"><h2>รายการโปรด</h2></div><div class="rail">${fav.map(card).join("")}</div></section>`:""}
+  <section class="card"><div class="card-h"><div><h2>สัญญาณซื้อตอนย่อวันนี้</h2><div class="sub-t">ระบบเน้นอัตราชนะ (ทดสอบย้อนหลังชนะราว 67%) · ราคาเหนือ SMA200 และ RSI(2) ต่ำกว่า 5</div></div><a class="btn ghost sm" href="#accuracy">ผลทดสอบ</a></div>
+   ${pbNow.length?`<div class="grid g3">${pbNow.map(R=>`<a class="mini" href="#s-${esc(R.st.s)}">${logo(R.st.s)}<span class="ms"><b>${esc(R.st.s)} <span class="pill sm p-buy2">เข้าเงื่อนไข</span></b><span class="muted">RSI(2) ${R.pb.r2.toFixed(1)} · ขายเมื่อปิดเหนือ ${fmt(R.pb.s5)}</span></span>${chgPill(R.chg,R.st.s)}</a>`).join("")}</div>`:`<p class="muted" style="margin:0">วันนี้ยังไม่มีหุ้นเข้าเงื่อนไข${pbNear.length?` · ใกล้เข้าเงื่อนไข: ${pbNear.map(R=>`<a href="#s-${esc(R.st.s)}">${esc(R.st.s)}</a> (RSI2 ${R.pb.r2.toFixed(0)})`).join(", ")}`:""}</p>`}</section>
   <section><div class="sh"><div><h2>สัญญาณเด่นวันนี้</h2><p class="muted">คะแนนรวมสูงสุด เลื่อนดูได้ แตะการ์ดเพื่อดูแผนเต็ม</p></div><a class="btn ghost sm" href="#market">ดูทั้งตลาด →</a></div><div class="rail">${top.map(card).join("")}</div></section>
   <div class="grid g3 hgrid">
     <section class="card"><div class="card-h"><h2>ขึ้นแรงสุด</h2></div>${gain.map(mini).join("")}</section>
@@ -907,6 +916,7 @@ function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),W=R.why,c=cur(R.
     <div class="vh-r">${tile(P.tone==="buy"?"ซื้อที่":"รอซื้อที่",`${fmt(P.lo)}–${fmt(P.hi)}`,dist(P.entry),"kt-en")}${tile("ขายทำกำไร",`${fmt(P.tp1)} / ${fmt(P.tp2)}`,`${dist(P.tp1)} / ${dist(P.tp2)}`,"kt-tp")}${tile("ตัดขาดทุน",fmt(P.sl),`${dist(P.sl)} · R:R ${P.rr2.toFixed(1)}`,"kt-sl")}
       <details class="vcalc"><summary>ควรซื้อกี่หุ้น</summary><div class="calc" style="margin-top:8px"><label class="field">เงินลงทุน (${c})<input id="capIn" type="number" min="0" step="1000" value="${lsGet("cap")||100000}"></label><label class="field">ยอมเสี่ยงต่อไม้ (%)<input id="riskIn" type="number" min="0.1" max="10" step="0.1" value="${lsGet("risk")||1}"></label></div><dl id="calcOut" class="kv" style="margin-top:8px"></dl></details></div>
   </section>
+  ${pbCard(R)}
   <div class="sgrid">
     <section class="card"><div class="card-h"><h2>กราฟ 6 เดือน</h2><button class="btn ghost sm" data-tab="chart">ดูอินดิเคเตอร์ทั้งหมด →</button></div><div class="chartbox sm" id="cMain"></div>
       <div class="legend"><span style="--c:var(--c1)">EMA 20</span><span style="--c:var(--c2)">EMA 50</span><span style="--c:var(--accent)">ซื้อ</span><span style="--c:var(--up)">ขายทำกำไร</span><span style="--c:var(--down)">ตัดขาดทุน</span></div></section>
@@ -921,6 +931,10 @@ function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),W=R.why,c=cur(R.
     <button class="qt" data-tab="bt"><span class="k">ทดสอบย้อนหลัง</span><span class="v num">${R.model.oos.n?R.model.oos.win.toFixed(0)+"%":"–"}<small> ชนะ</small></span><span class="d"><span class="dot" style="--c:${R.conf.c}"></span>เชื่อถือ ${R.conf.t} · ${R.model.oos.n||0} ไม้</span></button>
     <button class="qt" data-tab="news"><span class="k">ข่าว & ปัจจัย</span><span class="v num">${N.n}<small> ข่าว</small></span><span class="d ${cls(N.s)}">${N.s>.2?"โดยรวมเป็นบวก":N.s<-.2?"โดยรวมเป็นลบ":"โดยรวมเป็นกลาง"}</span></button>
   </div>`}
+function pbCard(R){const p=R.pb,c=R.last,atr=R.plan.atr,a=p.all,m=R.st.m;
+  return `<section class="card"><div class="card-h"><div><h2>สัญญาณซื้อตอนย่อ <span class="muted" style="font-size:13px;font-weight:500">ระบบเน้นอัตราชนะ</span></h2><div class="sub-t">ซื้อเมื่อราคายังอยู่เหนือ SMA200 แต่ย่อแรงจน RSI(2) ต่ำกว่า 5 · ขายเมื่อราคาปิดเหนือ SMA5 หรือครบ 10 วัน · ตัดขาดทุน 3 ATR</div></div><span class="pill ${p.now?"p-buy2":p.near?"p-buy":"p-hold"}">${p.now?"เข้าเงื่อนไขวันนี้":p.near?"ใกล้เข้าเงื่อนไข":"ยังไม่เข้าเงื่อนไข"}</span></div>
+  <div class="stat">${statBox("RSI(2) ตอนนี้",p.r2!=null?p.r2.toFixed(1):"–","ต้องต่ำกว่า 5",p.r2<5?"up":"")}${statBox("ราคาเทียบ SMA200",p.s200?pct((c/p.s200-1)*100,1):"–",p.s200&&c>p.s200?"อยู่เหนือ (ผ่าน)":"อยู่ใต้ (ไม่ผ่าน)",p.s200&&c>p.s200?"up":"down")}${statBox("ชนะในอดีต (หุ้นนี้)",a.n?a.win.toFixed(0)+"%":"–",`${a.n||0} ไม้ ย้อนหลัง 5 ปี`,a.n&&a.win>=65?"up":"")}${statBox("กำไรเฉลี่ยต่อไม้",a.n?pct(a.avg,2):"–",a.n?`ถือเฉลี่ย ${a.hold.toFixed(1)} วัน`:"",a.n?cls(a.avg):"")}</div>
+  ${p.now?`<p style="margin:12px 0 0"><b>แผน:</b> ซื้อที่ราคาเปิดวันทำการถัดไป · ขายเมื่อราคาปิดเหนือ SMA5 (ตอนนี้ ${cur(m)}${fmt(p.s5)}) · ตัดขาดทุนถ้าต่ำกว่าประมาณ ${cur(m)}${fmt(rt(c-3*atr,m,"floor"))}</p>`:""}</section>`}
 function tChart(R){const M=R.model;return `<section class="card"><div class="card-h"><h2>กราฟราคา</h2><div class="chips" id="rng">${[["3M",63],["6M",126],["1Y",252],["ทั้งหมด",0]].map(([l,v])=>`<button class="chip" data-r="${v}" aria-pressed="false">${l}</button>`).join("")}<button class="chip" id="markBtn" aria-pressed="${S.marks}">จุดซื้อขายย้อนหลัง</button></div></div>
       <div class="chartbox" id="cMain"></div><div class="subc" id="cRsi"><span class="sublabel">RSI 14</span></div><div class="subc" id="cMacd"><span class="sublabel">MACD 12,26,9</span></div>
       <div class="legend"><span style="--c:var(--c1)">EMA 20</span><span style="--c:var(--c2)">EMA 50</span><span style="--c:var(--c3)">EMA 200</span><span style="--c:var(--ink-2)">Bollinger / แนวรับต้าน</span><span style="--c:var(--accent)">จุดเข้า</span><span style="--c:var(--up)">TP</span><span style="--c:var(--down)">SL</span></div></section>
@@ -1140,7 +1154,7 @@ function vWatch(){
   return `<div class="card-h" style="margin:0"><div><h1>รายการโปรด</h1><p class="muted" style="margin:4px 0 0">${list.length} หุ้น · บันทึกไว้ในเครื่องนี้</p></div><div class="chips">${b("add","ตามที่เพิ่ม")}${b("score","คะแนน")}${b("chg","เปลี่ยนแปลงวันนี้")}</div></div>
   ${list.length?`<section class="card"><div class="wl">${list.map(R=>{const st=R.st,ps=planState(R),P=R.plan;return `<div class="wr"><a class="wl-a" href="#s-${esc(st.s)}">${logo(st.s)}<span class="ms"><b>${esc(st.s)} <span class="pill sm ${R.v[1]}">${R.v[0]}</span></b><span class="muted">${esc(st.n)}</span></span></a>
     <span class="wl-p"><span class="num pxv" data-q="${esc(st.s)}">${cur(st.m)}${fmt(R.last)}</span>${chgPill(R.chg,st.s)}</span>
-    <span class="wl-s"><span class="pill ${ps[1]}">${ps[0]}</span><span class="muted num" style="font-size:12px">ซื้อ ${fmt(P.lo)}–${fmt(P.hi)} · TP ${fmt(P.tp2)} · SL ${fmt(P.sl)}</span></span>
+    <span class="wl-s"><span class="chips"><span class="pill ${ps[1]}">${ps[0]}</span>${R.pb.now?`<span class="pill p-buy2">ซื้อตอนย่อ</span>`:""}</span><span class="muted num" style="font-size:12px">ซื้อ ${fmt(P.lo)}–${fmt(P.hi)} · TP ${fmt(P.tp2)} · SL ${fmt(P.sl)}</span></span>
     <button class="icon-btn" data-unfav="${esc(st.s)}" aria-label="เอา ${esc(st.s)} ออกจากรายการโปรด" title="เอาออก">✕</button></div>`}).join("")}</div></section>`
   :`<section class="card empty"><h2 style="margin-bottom:6px">ยังไม่มีหุ้นในรายการโปรด</h2><p style="margin:0 auto">แตะ ☆ ในหน้าหุ้น หรือเพิ่มจากคำแนะนำด้านล่าง</p></section>`}
   <section><div class="sh"><h2>แนะนำให้ติดตาม</h2><p class="muted">คะแนนรวมสูงสุดที่ยังไม่อยู่ในรายการ</p></div><div class="grid g3">${sug.map(R=>`<div class="card sugc">${logo(R.st.s)}<span class="ms"><b>${esc(R.st.s)}</b><span class="muted">${R.v[0]} · ${R.overall}/100</span></span><button class="btn sm primary" data-addfav="${esc(R.st.s)}">+ เพิ่ม</button></div>`).join("")}</div></section>`;
@@ -1148,6 +1162,9 @@ function vWatch(){
 /* ---------- more ---------- */
 function vMore(){const it=(h,t,d)=>`<a class="card morei" href="#${h}"><b>${t}</b><span class="muted">${d}</span></a>`;
   return `<h1>เพิ่มเติม</h1><div class="grid g2">${it("accuracy","ความแม่นยำของ rating","ทดสอบย้อนหลังว่าคะแนนทำนายผลได้จริงไหม และหาค่าที่ดีที่สุด")}${it("data","สถานะข้อมูล","ข้อมูลไหนสด ข้อมูลไหนขาด และมาจากไหน")}${it("method","วิธีคิดคะแนน","สูตรทั้งหมดที่ใช้ในเว็บ")}${it("factors","ปัจจัยมหภาค","bond yield น้ำมัน ค่าเงิน เงินเฟ้อ และอื่นๆ")}</div>
+  <section class="card"><h2 style="margin-bottom:6px">รูปแบบระบบซื้อขาย</h2><p class="muted" style="margin:0 0 10px;font-size:13.5px">ใช้กับจุดซื้อ / TP / SL และการทดสอบย้อนหลังของทุกหุ้น</p><div class="chips">
+  <button class="chip" data-rules='${JSON.stringify(PRESETS.win)}' aria-pressed="${RULES.tp===1.5&&RULES.sl===3}">เน้นอัตราชนะ (TP 1.5 · SL 3 ATR)</button>
+  <button class="chip" data-rules='${JSON.stringify(PRESETS.edge)}' aria-pressed="${RULES.tp===4&&RULES.sl===2}">เน้นกำไรต่อไม้ (TP 4 · SL 2 ATR)</button></div></section>
   <section class="card"><h2 style="margin-bottom:10px">ตั้งค่า</h2><div class="chips">${[["system","◐ ตามระบบ"],["light","☀ สว่าง"],["dark","☾ มืด"]].map(([k,l])=>`<button class="chip" data-theme-set="${k}" aria-pressed="${(lsGet("theme")||"system")===k}">${l}</button>`).join("")}</div>
   <p class="foot" style="margin:12px 0 0">ติดตั้งเป็นแอป: บน iPhone กด แชร์ → เพิ่มไปยังหน้าจอโฮม · บน Android/Chrome กด ⋮ → ติดตั้งแอป · รายการโปรด ไฟล์ราคา และงบที่กรอกเองบันทึกในเครื่องนี้เท่านั้น</p></section>`}
 /* ---------- data health ---------- */
@@ -1175,12 +1192,14 @@ function calib(){
     for(let i=RULES.warm;i<n-H;i++){const f=(c[i+H]/c[i]-1)*100,s=arr[i],k=i<R.split?"is":"oos";const b=A[k].find(b=>s>=b.lo&&s<b.hi);if(b){b.n++;b.sum+=f;if(f>0)b.pos++}
       if(i%3===0){sc[k].push(s);fr[k].push(f);if(k==="is")R.V[i].forEach((v,j)=>{if(v!=null){ic[j].x.push(v);ic[j].y.push(f)}})}}}
   // ค้นหาค่าที่ดีที่สุด: ใช้ช่วงสร้างระบบเลือก แล้ววัดผลจริงในช่วงทดสอบ
-  const grid=[];for(const thr of [10,20,30,40,50])for(const sl of [1,1.5,2])for(const tp of [2,3,4])for(const wk of [true,false])grid.push({thr,sl,tp,wk});
+  const grid=[];for(const thr of [20,30,40,50])for(const sl of [1.5,2,3])for(const tp of [1,1.5,2,3,4])grid.push({thr,sl,tp,wk:true});
   const all=allStocks().map(analyze);
   const res=grid.map(g=>{const P={...RULES,...g};let is=[],oos=[];for(const R of all){const a=R.sStd,I=R.I,sig=i=>a[i-1]<g.thr&&a[i]>=g.thr&&(!g.wk||I.wk[i]>=0);is=is.concat(simulate(R.B,I,sig,0,R.split,R.st.m,P));oos=oos.concat(simulate(R.B,I,sig,R.split,R.B.length,R.st.m,P))}return{g,is:stats(is),oos:stats(oos)}});
   const cur=res.find(r=>r.g.thr===RULES.thr&&r.g.sl===RULES.sl&&r.g.tp===RULES.tp&&r.g.wk===(RULES.wk!==false));
   const best=res.filter(r=>r.is.n>=30).sort((a,b)=>b.is.exp-a.is.exp);
-  return{A,ic:VOTES.map((v,j)=>({name:v.name,ic:corr(ic[j].x,ic[j].y),n:ic[j].x.length})).sort((a,b)=>b.ic-a.ic),icAll:{is:corr(sc.is,fr.is),oos:corr(sc.oos,fr.oos)},best:best.slice(0,6),cur,stocks,real,H};
+  const hiwin=res.filter(r=>r.is.n>=30&&r.is.win>=65&&r.is.exp>0).sort((a,b)=>b.is.exp-a.is.exp);
+  const pbs={is:[],oos:[]};for(const R of all){for(const t of R.pb.trades)(t.i<R.split?pbs.is:pbs.oos).push(t)}
+  return{hiwin:hiwin.slice(0,4),pb:{is:stats(pbs.is),oos:stats(pbs.oos)},A,ic:VOTES.map((v,j)=>({name:v.name,ic:corr(ic[j].x,ic[j].y),n:ic[j].x.length})).sort((a,b)=>b.ic-a.ic),icAll:{is:corr(sc.is,fr.is),oos:corr(sc.oos,fr.oos)},best:best.slice(0,6),cur,stocks,real,H};
 }
 function vAccuracy(){
   if(!S.calib){setTimeout(()=>{S.calib=calib();if(route().v==="accuracy")render()},30);return `<h1>ความแม่นยำของ rating</h1><div class="card empty">กำลังทดสอบย้อนหลังกับหุ้นทุกตัว…</div>`}
@@ -1190,7 +1209,7 @@ function vAccuracy(){
   const mono=k=>{const a=C.A[k].filter(b=>b.n>30).map(b=>b.sum/b.n);let up=0;for(let i=1;i<a.length;i++)if(a[i]>a[i-1])up++;return a.length>1?up/(a.length-1):0};
   const verdictTxt=C.icAll.oos>.05&&mono("oos")>=.75?["ใช้ได้","up","คะแนนสูงตามมาด้วยผลตอบแทนที่ดีกว่าจริงในช่วงทดสอบ"]:C.icAll.oos>0?["พอใช้ แต่ยังอ่อน","warn","มีความสัมพันธ์เป็นบวกแต่น้อย ใช้ประกอบกับปัจจัยอื่น อย่าใช้ตัดสินใจเดี่ยวๆ"]:["ยังไม่น่าเชื่อถือ","down","คะแนนสูงไม่ได้ตามมาด้วยผลตอบแทนที่ดีกว่าในช่วงทดสอบ"];
   const B=C.best[0],fmtG=g=>`เข้าเมื่อคะแนน ≥ ${g.thr} · SL ${g.sl} ATR · TP ${g.tp} ATR · ${g.wk?"กรองด้วยกราฟสัปดาห์":"ไม่กรองสัปดาห์"}`;
-  const sRow=(s)=>s.n?`<td class="r num">${s.n}</td><td class="r num">${s.win.toFixed(0)}%</td><td class="r num ${cls(s.exp)}">${rr(s.exp)}</td>`:`<td class="r">0</td><td class="r">–</td><td class="r">–</td>`;
+  const sRow=(s)=>s.n?`<td class="r num">${s.n}</td><td class="r num ${s.win>=65?"up":""}">${s.win.toFixed(0)}%</td><td class="r num ${cls(s.avg)}">${pct(s.avg,2)}</td>`:`<td class="r">0</td><td class="r">–</td><td class="r">–</td>`;
   return `<div><h1>ความแม่นยำของ rating</h1><p class="muted" style="margin:4px 0 0">ทดสอบกับหุ้น ${C.stocks} ตัว (ราคาจริง ${C.real} ตัว) ทุกวันย้อนหลัง: ถ้าซื้อวันนั้นแล้วถือ ${C.H} วันทำการ ผลตอบแทนเป็นอย่างไรตามระดับคะแนนเทคนิค</p></div>
   ${C.real?"":`<div class="notice"><b>ข้อมูลจำลอง</b><span>ผลในหน้านี้จะมีความหมายเมื่อเว็บได้ราคาจริงแล้วเท่านั้น</span></div>`}
   <section class="vh" style="grid-template-columns:minmax(0,1fr)"><div><div class="eyebrow" style="color:var(--deep-2)">ข้อสรุป</div><div class="vword" style="font-size:32px">rating ${verdictTxt[0]}</div><p class="vline">${verdictTxt[2]} · ค่าสหสัมพันธ์ระหว่างคะแนนกับผลตอบแทน ${C.H} วัน: ช่วงสร้างระบบ <b class="num">${C.icAll.is.toFixed(3)}</b> · ช่วงทดสอบ <b class="num">${C.icAll.oos.toFixed(3)}</b></p><p class="foot" style="color:var(--deep-2);margin:0">ในการลงทุนจริง ค่าสหสัมพันธ์ 0.03–0.08 ที่คงที่ก็ถือว่ามีประโยชน์แล้ว ค่าที่สูงเกิน 0.2 มักเป็นสัญญาณของการปรับจนพอดีกับอดีต</p></div></section>
@@ -1199,11 +1218,16 @@ function vAccuracy(){
   <section class="card"><div class="card-h"><div><h2>อินดิเคเตอร์ตัวไหนทำนายได้จริง</h2><div class="sub-t">ค่าสหสัมพันธ์ระหว่างสัญญาณของแต่ละตัวกับผลตอบแทน ${C.H} วันข้างหน้า (ช่วงสร้างระบบ, ทุกหุ้นรวมกัน)</div></div></div>
    <div class="tscroll"><table><tbody>${C.ic.map(x=>`<tr><td>${x.name}</td><td class="r num ${cls(x.ic)}" style="width:80px">${x.ic.toFixed(3)}</td><td style="width:45%">${bar(x.ic,Math.max(.05,...C.ic.map(y=>Math.abs(y.ic))))}</td><td class="r muted" style="width:120px">${x.ic>.02?"ช่วยได้":x.ic<-.02?"ให้ผลกลับทาง":"แทบไม่ช่วย"}</td></tr>`).join("")}</tbody></table></div>
    <p class="foot" style="margin:10px 0 0">ตัวที่ “ให้ผลกลับทาง” แปลว่าในหุ้นชุดนี้ สัญญาณซื้อของมันมักตามด้วยราคาลง ระบบปรับน้ำหนักตามหุ้นแต่ละตัวจะลดน้ำหนักตัวพวกนี้ให้อัตโนมัติ</p></section>
-  <section class="card"><div class="card-h"><div><h2>ค่าที่ดีที่สุดสำหรับระบบซื้อขาย</h2><div class="sub-t">ลอง ${5*3*3*2} แบบ เลือกจากช่วงสร้างระบบ (ต้องมีอย่างน้อย 30 ไม้) แล้วดูผลจริงในช่วงทดสอบ</div></div></div>
-   ${B?`<div class="tscroll"><table class="wide"><thead><tr><th>ค่าที่ใช้</th><th class="r">ไม้ (สร้าง)</th><th class="r">ชนะ</th><th class="r">ต่อไม้</th><th class="r">ไม้ (ทดสอบ)</th><th class="r">ชนะ</th><th class="r">ต่อไม้</th><th></th></tr></thead><tbody>
+  <section class="card"><div class="card-h"><div><h2>ค่าที่ดีที่สุดสำหรับระบบซื้อขาย</h2><div class="sub-t">ลอง ${4*3*5} แบบ เลือกจากช่วงสร้างระบบ (ต้องมีอย่างน้อย 30 ไม้) แล้วดูผลจริงในช่วงทดสอบ</div></div></div>
+   ${B?`<div class="tscroll"><table class="wide"><thead><tr><th>ค่าที่ใช้</th><th class="r">ไม้ (สร้าง)</th><th class="r">ชนะ</th><th class="r">กำไร/ไม้</th><th class="r">ไม้ (ทดสอบ)</th><th class="r">ชนะ</th><th class="r">กำไร/ไม้</th><th></th></tr></thead><tbody>
     ${C.cur?`<tr style="background:var(--surface-2)"><td><b>ค่าปัจจุบัน</b><div class="mean">${fmtG(C.cur.g)}</div></td>${sRow(C.cur.is)}${sRow(C.cur.oos)}<td></td></tr>`:""}
     ${C.best.map((r,i)=>`<tr><td>${i?"":`<b class="up">ดีที่สุดในช่วงสร้าง</b>`}<div class="mean">${fmtG(r.g)}</div></td>${sRow(r.is)}${sRow(r.oos)}<td><button class="btn sm${i?"":" primary"}" data-rules='${JSON.stringify(r.g)}'>ใช้ค่านี้</button></td></tr>`).join("")}</tbody></table></div>
     <p class="foot" style="margin:10px 0 0">เลือกค่าที่ได้ผลดี <b>ทั้งสองช่วง</b> ถ้าค่าไหนดีแค่ช่วงสร้างแต่แย่ในช่วงทดสอบ แปลว่าปรับจนพอดีกับอดีต ไม่ควรใช้ · ค่าที่เลือกบันทึกในเครื่องนี้และใช้กับทุกหุ้น${lsGet("rules")?` · <button class="linkbtn" data-rules-reset="1">กลับไปใช้ค่าเริ่มต้น</button>`:""}</p>`:`<p class="muted">ข้อมูลยังไม่พอ</p>`}</section>
+  <section class="card"><div class="card-h"><div><h2>ระบบที่ชนะ 65% ขึ้นไป</h2><div class="sub-t">เลือกเฉพาะค่าที่ชนะอย่างน้อย 65% และมีกำไรในช่วงสร้างระบบ แล้วดูว่ายังชนะได้ในช่วงทดสอบไหม</div></div></div>
+   <div class="tscroll"><table class="wide"><thead><tr><th>ระบบ</th><th class="r">ไม้ (สร้าง)</th><th class="r">ชนะ</th><th class="r">กำไร/ไม้</th><th class="r">ไม้ (ทดสอบ)</th><th class="r">ชนะ</th><th class="r">กำไร/ไม้</th><th></th></tr></thead><tbody>
+    <tr><td><b>ซื้อตอนย่อ (RSI 2)</b><div class="mean">ราคาเหนือ SMA200 และ RSI(2) &lt; 5 · ขายเมื่อปิดเหนือ SMA5 หรือ 10 วัน · SL 3 ATR</div></td>${sRow(C.pb.is)}${sRow(C.pb.oos)}<td class="muted" style="font-size:12px">แสดงในหน้าหุ้นทุกตัว</td></tr>
+    ${C.hiwin.map(r=>`<tr><td><b>ตามคะแนนเทคนิค</b><div class="mean">${fmtG(r.g)}</div></td>${sRow(r.is)}${sRow(r.oos)}<td><button class="btn sm" data-rules='${JSON.stringify(r.g)}'>ใช้ค่านี้</button></td></tr>`).join("")}</tbody></table></div>
+   <p class="foot" style="margin:10px 0 0">ระบบที่ชนะบ่อยจะได้กำไรต่อไม้น้อย และเวลาแพ้จะเสียมากกว่าตอนชนะ (SL ไกลกว่า TP) ห้ามเลื่อน SL ออกไปอีก และควรเสี่ยงไม่เกิน 1–2% ของเงินต่อไม้ เพราะแพ้ติดกัน 3–4 ไม้ยังเกิดขึ้นได้</p></section>
   <section class="card method"><h2>แนวทางทำให้ rating แม่นยำขึ้น</h2><ul>
    <li><b>ใช้ราคาจริงอย่างน้อย 5 ปี</b> ยิ่งข้อมูลยาว จำนวนไม้ทดสอบยิ่งมาก ผลยิ่งเชื่อถือได้</li>
    <li><b>เพิ่มจำนวนหุ้น</b> ในไฟล์ symbols.json ผลรวมจากหุ้นหลายสิบตัวเชื่อถือได้กว่าหุ้นตัวเดียว</li>
