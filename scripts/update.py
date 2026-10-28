@@ -577,14 +577,10 @@ FEEDS = [
     ("Business Wire", "US", "https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEFtRWA=="),
     ("PR Newswire", "US", "https://www.prnewswire.com/rss/financial-services-latest-news/financial-services-latest-news-list.rss"),
     ("ข่าวหุ้น", "TH", "https://www.kaohoon.com/feed"),
-    ("ทันหุ้น", "TH", "https://thunhoon.com/feed/"),
     ("อินโฟเควสท์", "TH", "https://www.infoquest.co.th/feed"),
     ("ประชาชาติธุรกิจ", "TH", "https://www.prachachat.net/finance/feed"),
     ("ประชาชาติธุรกิจ", "TH", "https://www.prachachat.net/feed"),
-    ("กรุงเทพธุรกิจ", "TH", "https://www.bangkokbiznews.com/rss/feed.xml"),
-    ("ฐานเศรษฐกิจ", "TH", "https://www.thansettakij.com/rss"),
     ("Bangkok Post", "TH", "https://www.bangkokpost.com/rss/data/business.xml"),
-    ("Nation Thailand", "TH", "https://www.nationthailand.com/rss/business"),
 ]
 # สำนักข่าวที่ไม่มีฟีดตรงหรือบล็อกเซิร์ฟเวอร์ ดึงผ่าน Google News แบบจำกัดเว็บไซต์
 SITE_Q = [
@@ -594,7 +590,8 @@ SITE_Q = [
     ("site:hoonsmart.com หุ้น", "th", "TH"), ("site:efinancethai.com หุ้น", "th", "TH"), ("site:mitihoon.com หุ้น", "th", "TH"),
     ("site:thunhoon.com หุ้น", "th", "TH"), ("site:kaohoon.com หุ้น", "th", "TH"), ("site:infoquest.co.th หุ้น", "th", "TH"),
     ("site:thestandard.co หุ้น", "th", "TH"), ("site:moneychannel.co.th หุ้น", "th", "TH"), ("site:set.or.th", "th", "TH"),
-    ("site:bangkokpost.com SET stocks", "en", "TH"), ("site:stock2morrow.com หุ้น", "th", "TH"),
+    ("site:bangkokpost.com SET stocks", "en", "TH"), ("site:bangkokbiznews.com หุ้น", "th", "TH"),
+    ("site:thansettakij.com หุ้น", "th", "TH"), ("site:prachachat.net หุ้น", "th", "TH"), ("site:nationthailand.com SET stocks", "en", "TH"), ("site:stock2morrow.com หุ้น", "th", "TH"),
 ]
 REL = re.compile(r"stock|share|equit|market|earning|revenue|profit|guidance|analyst|investor|dividend|ipo|merger|acquisi|deal|"
                  r"fed\b|rate|yield|inflation|oil|dollar|tariff|nasdaq|s&p|dow\b|wall street|"
@@ -821,11 +818,11 @@ def translate_th(texts):
         if size + len(t) > 1500 and batch:
             try:
                 run(batch)
-            except Exception as e:
-                ERRORS.append(f"translate: {str(e)[:60]}")
+            except Exception as e:  # ถูกจำกัดอัตรา: หยุดรอบนี้ ข่าวที่เหลือแปลในรอบถัดไป
+                ERRORS.append(f"translate after {len(out)}: {str(e)[:60]}")
                 return out
             batch, size = [], 0
-            time.sleep(0.3)
+            time.sleep(1)
         batch.append(t)
         size += len(t) + 1
     if batch:
@@ -1034,14 +1031,14 @@ def fetch_news():
     groups = kept
     # แปลหัวข่าวและคำโปรยภาษาอังกฤษเป็นไทย (เก็บแคชไว้ แปลเฉพาะข่าวใหม่)
     need, prot = [], {}
-    for G in groups:
-        if not re.search(r"[\u0e00-\u0e7f]", G["title"]):
-            for k in ("title", "summary"):
-                v = G.get(k)
-                if v and v not in tr_cache and len(need) < 900:
-                    pv, ph = TG.protect(v[:260], G["market"] if G["market"] in ("TH", "US") else "US")
-                    prot[pv] = (v, ph)
-                    need.append(pv)
+    eng = [G for G in groups if not re.search(r"[\u0e00-\u0e7f]", G["title"])]
+    for k in ("title", "summary"):  # หัวข่าวใหม่สุดก่อน แล้วค่อยคำโปรย
+        for G in eng:
+            v = G.get(k)
+            if v and v not in tr_cache and len(need) < 350:
+                pv, ph = TG.protect(v[:260], G["market"] if G["market"] in ("TH", "US") else "US")
+                prot[pv] = (v, ph)
+                need.append(pv)
     for pv, th in translate_th(list(dict.fromkeys(need))).items():
         v, ph = prot[pv]
         if all(k in th for k in ph):  # ถ้ารหัสชื่อบริษัทหายระหว่างแปล ใช้ต้นฉบับแทน
