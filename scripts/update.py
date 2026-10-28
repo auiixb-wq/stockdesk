@@ -854,11 +854,14 @@ def cluster(items):
             for gi in index.get(g, ()):
                 cnt[gi] = cnt.get(gi, 0) + 1
         hit = None
-        for gi, k in sorted(cnt.items(), key=lambda kv: -kv[1])[:5]:
+        for gi, k in sorted(cnt.items(), key=lambda kv: -kv[1])[:8]:
             G = groups[gi]
             if abs(G["ts"] - x["ts"]) > 2.5 * 86400:
                 continue
-            if k / ((len(t) + len(G["_t"]) - k) or 1) > .45:
+            j = k / ((len(t) + len(G["_t"]) - k) or 1)
+            # หัวข่าวเขียนต่างกันแต่พูดถึงหุ้นชุดเดียวกันในวันเดียวกัน ก็นับเป็นเรื่องเดียว
+            same = x["tickers"] and set(x["tickers"]) == set(G["tickers"]) and abs(G["ts"] - x["ts"]) < 86400
+            if j > .45 or (same and j > .22):
                 hit = G
                 break
         if hit:
@@ -1013,7 +1016,8 @@ def fetch_news():
             continue
         if not x.get("ts"):
             continue
-        x = {k: v for k, v in x.items() if k not in ("titleTh", "summaryTh")}
+        x = {"summary": "", "factors": [], "sectors": [], "tickers": [], "tier": 3, "market": "ALL", "seen": now_s,
+             **{k: v for k, v in x.items() if k not in ("titleTh", "summaryTh")}}
         for a in x.pop("alt", None) or []:
             if a["u"] not in by_url:
                 items.append({**x, "title": a.get("h") or x["title"], "summary": "", "source": a["s"], "url": a["u"], "tier": a["t"], "alt": []})

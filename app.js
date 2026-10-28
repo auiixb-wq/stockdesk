@@ -134,7 +134,7 @@ function tPeers(R){const st=R.st,list=[{x:st,u:uniOf(st.s)||{}},...peersOf(st,12
    <p class="foot" style="margin:10px 0 0">“ห่างมูลค่า” = มูลค่าเหมาะสมกรณีฐานเทียบราคา (บวก = ราคาต่ำกว่ามูลค่า) · ตัวเลข YoY มาจากงบไตรมาสล่าสุดที่มีในระบบของแต่ละบริษัท อาจคนละงวด</p></section>`}
 /* ---------- ข่าว: รวมข่าวซ้ำเป็นเหตุการณ์ + ช่องทางผลกระทบ ---------- */
 function tri(s){s=(s||"").toLowerCase().replace(/[^\p{L}\p{N}]+/gu," ");const g=new Set();for(let i=0;i<s.length-2;i++)g.add(s.slice(i,i+3));return g}
-function events(list){const out=[];for(const x of list){const t=tri(x.titleTh||x.title);let hit=null;for(const e of out){if(Math.abs(ageDays(e.date)-ageDays(x.date))>2)continue;let k=0;for(const a of t)if(e.tri.has(a))k++;if(k/((t.size+e.tri.size-k)||1)>.42){hit=e;break}}
+function events(list){const out=[];for(const x of list){const t=tri(x.titleTh||x.title);let hit=null;for(const e of out){if(Math.abs(ageDays(e.date)-ageDays(x.date))>2)continue;let k=0;for(const a of t)if(e.tri.has(a))k++;const j=k/((t.size+e.tri.size-k)||1),tk=String(x.tickers||[]);if(j>.42||(tk&&tk===String(e.lead.tickers||[])&&j>.22)){hit=e;break}}
   if(hit){hit.items.push(x);if(nDetail(x)>nDetail(hit.lead))hit.lead=x}else out.push({lead:x,items:[x],tri:t,date:x.date})}return out}
 const nDetail=x=>(x.summaryTh||x.summary||"").length+.3*(x.title||"").length+(3-(x.tier||3))*40;
 function channelsHTML(x){const F=FBY(),L=(x.factors||[]).filter(l=>l.eff&&F[l.id]?.channels);if(!L.length)return "";
