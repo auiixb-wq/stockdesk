@@ -107,8 +107,10 @@ function forward() {
 function forwardSys() {
   const sd = path.join(hdir, "snap"), seen = new Set(), res = {}, per = {};
   const days = fs.existsSync(sd) ? fs.readdirSync(sd).filter(f => f.endsWith(".json")).sort() : [];
-  for (const f of days) {
-    let snap; try { snap = JSON.parse(fs.readFileSync(path.join(sd, f), "utf8")); } catch { continue; }
+  // ไฟล์บันทึกรายวัน + สัญญาณของรอบนี้ (ยังไม่ได้เขียนลงไฟล์) เพื่อให้เห็นสัญญาณวันนี้ทันที
+  const snaps = days.map(f => { try { return JSON.parse(fs.readFileSync(path.join(sd, f), "utf8")) } catch { return null } }).filter(Boolean);
+  snaps.push(Object.fromEntries(Object.entries(out).filter(([, v]) => v.sy).map(([k, v]) => [k, [0, 0, 0, 0, 0, 0, 0, 0, v.sy]])));
+  for (const snap of snaps) {
     for (const [sym, v] of Object.entries(snap)) {
       const y = v[8]; if (!Array.isArray(y)) continue;
       const [lp, tp, sl, , d] = y, key = sym + d; if (seen.has(key)) continue; seen.add(key);
