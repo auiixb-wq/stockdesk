@@ -65,8 +65,15 @@ for (const st of allStocks()) {
   } catch (e) { fail++; if (fail < 5) console.error(st.s, e.message); }
   S.cache.delete(st.s);
 }
-const cal = calibDone(C);
+// รอบที่ข้อมูลราคาย้อนหลังโหลดไม่ครบ (เช่นดึง branch hist ไม่สำเร็จ) ห้ามเอาผลที่ว่างหรือน้อยผิดปกติไปทับผลทดสอบเดิม
+const oldCal = load("data/calib.json", {}), oldSum = load("data/summary.json", { s: {} });
+const thin = (n, prev) => n < 100 || (prev > 0 && n < prev * 0.6);
+let cal = calibDone(C);
 cal.updated = Math.floor(Date.now() / 1000);
+if (thin(C.stocks, oldCal.stocks || 0)) {
+  console.error(`calib: ได้แค่ ${C.stocks} หุ้น (เดิม ${oldCal.stocks}) ใช้ผลเดิม`);
+  cal = { ...oldCal, staleFrom: oldCal.updated, checked: cal.updated };
+}
 cal.fwd = forward();
 fs.writeFileSync(path.join(DATA, "calib.json"), JSON.stringify(cal));
 console.log(`calib: ${C.stocks} หุ้น`);
@@ -98,6 +105,8 @@ function forward() {
 // บันทึกสัญญาณและแผนของวันนี้ไว้ตรวจความแม่นยำภายหลัง (ไม่แก้ย้อนหลัง)
 const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10), sdir = path.join(hdir, "snap");
 fs.mkdirSync(sdir, { recursive: true });
-fs.writeFileSync(path.join(sdir, day + ".json"), JSON.stringify(Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [v.o, v.p, ...v.pl.slice(0, 5), v.pb[0] ? 1 : 0]]))));
-fs.writeFileSync(path.join(DATA, "summary.json"), JSON.stringify({ updated: Math.floor(Date.now() / 1000), s: out }));
+if (!thin(Object.keys(out).length, Object.keys(oldSum.s || {}).length)) fs.writeFileSync(path.join(sdir, day + ".json"), JSON.stringify(Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [v.o, v.p, ...v.pl.slice(0, 5), v.pb[0] ? 1 : 0]]))));
+const nOld = Object.keys(oldSum.s || {}).length, nNew = Object.keys(out).length;
+if (thin(nNew, nOld)) console.error(`summary: ได้แค่ ${nNew} หุ้น (เดิม ${nOld}) ใช้ผลเดิม`);
+else fs.writeFileSync(path.join(DATA, "summary.json"), JSON.stringify({ updated: Math.floor(Date.now() / 1000), s: out }));
 console.log(`summary: ${ok} หุ้น, ล้มเหลว ${fail}, ${((Date.now() - t0) / 1000).toFixed(1)} วินาที`);

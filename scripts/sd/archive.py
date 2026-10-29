@@ -2,6 +2,7 @@
 - quotes/YYYY/MM/DD/HHMMSS.json.gz  ราคาทุกหุ้นในตลาดที่เปิดอยู่ ทุก ~15 นาที {รหัส: [ราคา, % เปลี่ยน, ปริมาณ, เวลาของราคา]}
 - news/YYYY/MM/DD/HHMMSS.json.gz    ข่าวที่ระบบเพิ่งเห็นครั้งแรกในรอบนั้น (พร้อมหุ้นที่ผูก อารมณ์ข่าว ปัจจัย และแหล่งอื่น)
 - macro/YYYY/MM/DD/HHMMSS.json.gz   ค่าปัจจัยมหภาค ณ เวลานั้น
+- calib/YYYY/YYYY-MM-DD.json.gz     ผลทดสอบย้อนหลังของระบบ (หน้า "ความแม่นยำ") วันละชุด ไว้ดูพัฒนาการของกลยุทธ์
 ใช้วิจัยต่อ เช่น ข่าวแบบไหนทำให้ราคาเปลี่ยนเท่าไร ราคาระหว่างวันลงถึงจุดตั้งซื้อบ่อยแค่ไหน
 ไฟล์รอส่งอยู่ใน data/archive แล้วถูกลบเมื่อส่งสำเร็จ สถานะล่าสุดเก็บใน data/archive_state.json (เผยแพร่ไปกับข้อมูลหน้าเว็บ)"""
 import datetime as dt, gzip, json, os, subprocess, time
@@ -49,6 +50,11 @@ def snap_news(items, macro=None):
     new = [x for x in items if (x.get("seen") or 0) > upto]
     if new:
         _write(_rel("news", now), {"t": now, "items": new})
+    cal = load("calib.json", {})
+    d = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d")
+    if cal.get("stocks") and not cal.get("staleFrom") and st.get("calib") != d:  # ผลทดสอบระบบวันละชุด เก็บถาวรไว้เทียบพัฒนาการ
+        _write(f"calib/{d[:4]}/{d}.json.gz", cal)
+        st["calib"] = d
     if macro:
         _write(_rel("macro", now), {"t": now, "macro": {k: {f: v.get(f) for f in ("value", "chg1", "chg20", "z", "dir", "asOf") if f in v}
                                                            for k, v in macro.items() if isinstance(v, dict)}})

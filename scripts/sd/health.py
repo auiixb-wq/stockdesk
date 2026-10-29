@@ -70,6 +70,11 @@ def report():
         nfin = len([f for f in os.listdir(fin_dir) if f.endswith(".json")])
         add("fin", "งบการเงิน", nfin >= len(uni) * .5, f"มีงบ {nfin} จาก {len(uni)} หุ้น", warn=True)
 
+    cal = load("calib.json", {})
+    stale = cal.get("staleFrom")
+    add("calib", "ผลทดสอบย้อนหลังของระบบ (หน้าความแม่นยำ)", bool(cal.get("stocks")) and not stale,
+        f"{cal.get('stocks', 0)} หุ้น" + (" · รอบล่าสุดข้อมูลไม่ครบ ใช้ผลเดิมไว้" if stale else ""), warn=bool(cal.get("stocks")))
+
     nd = load("news.json", {})
     it = nd.get("items", [])
     na = (now - nd.get("updated", 0)) / 3600
