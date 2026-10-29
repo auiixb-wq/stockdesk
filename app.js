@@ -769,20 +769,23 @@ const holds=()=>lsGet("hold")||{};
 const lum=h=>{const m=/^#([0-9a-f]{6})$/i.exec(h||"");if(!m)return 1;const n=parseInt(m[1],16);return(.299*(n>>16)+.587*(n>>8&255)+.114*(n&255))/255};
 const thbPerUsd=()=>S.macro?.usdthb?.value||null;
 // ตรวจราคาก่อนนำไปคิดมูลค่าพอร์ต: เทียบกับราคาที่คำนวณจากมูลค่าตลาด/จำนวนหุ้น และกับต้นทุนที่ผู้ใช้ใส่ ถ้าห่างผิดปกติถือว่าข้อมูลน่าสงสัย
-function priceIssue(st,p,cost){if(!(p>0))return "ไม่มีราคา";const u=uniOf(st.s);
-  const imp=u?.mc>0&&u?.sh>0?u.mc/u.sh:null;if(imp&&(p/imp>3||imp/p>3))return `ราคา ${fmt(p)} ไม่สอดคล้องกับมูลค่าตลาด (ราว ${fmt(imp)})`;
+function implied(st){if(S._umK!==S.universe){S._umK=S.universe;S._umM=new Map((S.universe||[]).map(x=>[x.s+"|"+x.m,x]))}const u=S._umM.get(st.s+"|"+st.m);return u?.mc>0&&u?.sh>0?rt(u.mc/u.sh,st.m):null}
+function priceIssue(st,p,cost){if(!(p>0))return "ไม่มีราคา";
+  const imp=implied(st);if(imp&&(p/imp>3||imp/p>3))return `ราคา ${fmt(p)} ไม่สอดคล้องกับมูลค่าตลาด (ราว ${fmt(imp)})`;
   if(cost>0&&(p/cost>8||cost/p>8))return `ราคา ${fmt(p)} ห่างจากต้นทุน ${fmt(cost)} เกิน 8 เท่า`;return null}
-function portfolio(){const h=holds(),fx=thbPerUsd()||36,rows=[],bad=[];
+function portfolio(){const h=holds(),fx=thbPerUsd()||36,rows=[],bad=[],alt=[];
   for(const s of S.watch){const x=h[s],st=stockBySym(s);if(!st||st.m!==S.mkt||!x||!(x.q>0))continue;const R=info(st),k=st.m==="US"?fx:1;if(R.last==null)continue;
-    const why=priceIssue(st,R.last,x.c);if(why){bad.push([st,why]);continue}
-    rows.push({st,R,q:x.q,c:x.c||null,val:x.q*R.last*k,cost:x.c>0?x.q*x.c*k:null,day:x.q*R.last*k*(R.chg/100)/(1+R.chg/100)})}
+    let last=R.last,chg=R.chg;const why=priceIssue(st,last,x.c);
+    // ราคาจากแหล่งหลักผิด (เช่นได้ราคาหุ้นสหรัฐฯ ชื่อย่อเดียวกัน): ใช้ราคาที่คำนวณจากมูลค่าตลาด/จำนวนหุ้นของบริษัทนี้แทน ถ้าตรงกับต้นทุนพอสมควร
+    if(why){const imp=implied(st);if(imp&&!priceIssue(st,imp,x.c)){last=imp;chg=0;alt.push(st)}else{bad.push([st,why]);continue}}
+    rows.push({st,R,q:x.q,c:x.c||null,val:x.q*last*k,cost:x.c>0?x.q*x.c*k:null,day:x.q*last*k*(chg/100)/(1+chg/100)})}
   const tot=rows.reduce((a,r)=>a+r.val,0),costT=rows.filter(r=>r.cost).reduce((a,r)=>a+r.cost,0),valC=rows.filter(r=>r.cost).reduce((a,r)=>a+r.val,0),day=rows.reduce((a,r)=>a+r.day,0);
-  return{rows,bad,tot,pl:costT?valC-costT:null,plPct:costT?(valC/costT-1)*100:null,day,dayPct:tot?day/(tot-day)*100:0,fx:thbPerUsd()}}
+  return{rows,bad,alt,tot,pl:costT?valC-costT:null,plPct:costT?(valC/costT-1)*100:null,day,dayPct:tot?day/(tot-day)*100:0,fx:thbPerUsd()}}
 function donutSVG(parts,center){const r=70,C=2*Math.PI*r,tot=parts.reduce((a,p)=>a+p.v,0)||1;let off=0;
   const segs=parts.map(p=>{const len=p.v/tot*C,gap=parts.length>1?Math.min(2.5,len*.3):0;const s=`<circle r="${r}" cx="90" cy="90" fill="none" stroke="${p.c}" stroke-width="22" stroke-dasharray="${Math.max(0,len-gap)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)"><title>${esc(p.l)} ${(p.v/tot*100).toFixed(1)}%</title></circle>`;off+=len;return s}).join("");
   return `<svg viewBox="0 0 180 180" class="donut" role="img" aria-label="สัดส่วนพอร์ต"><circle r="${r}" cx="90" cy="90" fill="none" stroke="var(--surface-2)" stroke-width="22"/>${segs}<text x="90" y="84" text-anchor="middle" class="d1">${center[0]}</text><text x="90" y="104" text-anchor="middle" class="d2">${center[1]}</text></svg>`}
 function portCard(){const P=portfolio(),mode=S.pmode||"stock";
-  const badN=P.bad.length?`<p class="foot warn" style="margin:8px 0 0">ไม่นับ ${P.bad.map(([st,w])=>`${esc(dsym(st.s))} (${esc(w)})`).join(", ")} เพราะราคาน่าจะผิด จะนับให้อัตโนมัติเมื่อข้อมูลถูกต้อง</p>`:"";
+  const badN=(P.alt.length?`<p class="foot" style="margin:8px 0 0">${P.alt.map(st=>esc(dsym(st.s))).join(", ")}: ใช้ราคาประมาณจากมูลค่าตลาด เพราะราคาล่าสุดที่ได้มาไม่ถูกต้อง กำลังดึงใหม่</p>`:"")+(P.bad.length?`<p class="foot warn" style="margin:8px 0 0">ไม่นับ ${P.bad.map(([st,w])=>`${esc(dsym(st.s))} (${esc(w)})`).join(", ")} เพราะราคาน่าจะผิด จะนับให้อัตโนมัติเมื่อข้อมูลถูกต้อง</p>`:"");
   if(!P.rows.length)return `<section class="card port"><div class="port-empty"><div class="pe-ring" aria-hidden="true"></div><div><h2 class="ih">${ic("pie")}สัดส่วนพอร์ต</h2><p class="muted" style="margin:6px 0 0">กด <b>✎ พอร์ต</b> ที่หุ้นในรายการด้านล่าง แล้วใส่จำนวนหุ้นที่ถือ (และต้นทุนถ้ามี) แผนภูมิจะแสดงสัดส่วนเงินลงทุนให้ทันที</p>${badN}</div></div></section>`;
   const g={};for(const r of P.rows){const k=mode==="sector"?r.st.sec:mode==="market"?r.st.m:r.st.s;(g[k]??=[]).push(r)}
   const parts=Object.entries(g).map(([k,rs])=>{const v=rs.reduce((a,r)=>a+r.val,0);return{k,v,l:mode==="sector"?SECTORS[k].th:mode==="market"?(k==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"):dsym(k),c:mode==="sector"?SEC_COL[k]:mode==="market"?MKT_COL[k]:(lum(BRAND[dsym(k)]?.[0])<.75?BRAND[dsym(k)][0]:SEC_COL[stockBySym(k).sec])}}).sort((a,b)=>b.v-a.v);
