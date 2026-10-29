@@ -523,3 +523,10 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .nsrc summary{cursor:pointer;font-weight:600;font-size:14px}
 .sysg{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:8px}
 .sysm{display:grid;gap:4px}.sysm .pill{justify-self:start}.sysm .num{font-size:17px}
+/* system planner */
+.plk{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:flex-end}.plk>div{display:grid}.plk>div b{font-size:18px}.plk .field{min-width:200px}
+.pln{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,2fr);gap:10px 16px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.pln:last-child{border-bottom:0}.pln.alt{opacity:.6}
+.pl-a{display:flex;gap:10px;align-items:center;text-decoration:none;color:var(--ink);min-width:0}
+.pl-n{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.pl-n>div{display:grid;font-size:12px}.pl-n b{font-size:15px}
+@media (max-width:640px){.pln{grid-template-columns:minmax(0,1fr)}.pl-n{grid-template-columns:repeat(2,minmax(0,1fr))}}

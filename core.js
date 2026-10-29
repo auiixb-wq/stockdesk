@@ -258,9 +258,9 @@ function relStrength(st){const sm=S.summary?.[st.s];if(sm?.rs&&!S.inNode)return 
     for(const m in by){const a=by[m].map(z=>z[1]).sort((p,q)=>p-q);for(const [s,r] of by[m]){let lo=0,hi=a.length;while(lo<hi){const md=(lo+hi)>>1;if(a[md]<r)lo=md+1;else hi=md}S._rs[s]={ret:r*100,pctl:a.length>1?lo/(a.length-1)*100:50}}}}
   return S._rs[st.s]||{ret:0,pctl:50}}
 // ป้าย rating ที่ผู้ใช้เห็น: ยึดระบบซื้อขายที่ทดสอบแล้ว (ชนะ 80%+) เป็นหลัก คะแนนรวมใช้แยกระดับเมื่อระบบยังไม่ให้ซื้อ
-// ซื้อ = ระบบมีจุดตั้งซื้อวันนี้ และหุ้นตัวนี้เองผลทดสอบ 5 ปีผ่าน (ความน่าเชื่อถือปานกลางขึ้นไป)
-function sysVerdict(x,tone,lv){if(tone==="buy")return lv>=3?["ซื้อตามระบบ","p-buy2"]:lv>=2?["ซื้อตามระบบ","p-buy"]:["สัญญาณซื้อ · ผลย้อนหลังอ่อน","p-hold"];
-  if(tone==="sell"||x<35)return x<35?["หลีกเลี่ยง","p-sell2"]:["ยังไม่ควรเข้า","p-sell"];return x>=45?["รอจังหวะ","p-hold"]:["ระวัง","p-sell"]}
+// ซื้อ = วันนี้เกิดสัญญาณตามระบบที่ทดสอบไว้ (คะแนนข้าม 40 + ตัวกรอง) และคำสั่งตั้งซื้อยังไม่หมดอายุ · ป้ายแยกระดับตามผลทดสอบของหุ้นตัวนั้น
+function sysVerdict(x,tone,lv,sig){if(sig)return lv>=3?["ซื้อตามระบบ","p-buy2"]:lv>=2?["ซื้อตามระบบ","p-buy"]:["สัญญาณซื้อ · ผลย้อนหลังอ่อน","p-hold"];
+  if(tone==="sell"||x<35)return x<35?["หลีกเลี่ยง","p-sell2"]:["ยังไม่ควรเข้า","p-sell"];return tone==="buy"?["แนวโน้มดี · รอสัญญาณ","p-hold"]:x>=45?["รอจังหวะ","p-hold"]:["ระวัง","p-sell"]}
 function verdict(x){return x>=70?["ซื้อ (แรง)","p-buy2"]:x>=58?["น่าซื้อ","p-buy"]:x>=45?["ถือ / รอ","p-hold"]:x>=35?["ระวัง","p-sell"]:["หลีกเลี่ยง","p-sell2"]}
 function levels(I,n){const atr=I.atr[n]||I.c[n]*.02,c=I.c[n],pts=[];for(let j=Math.max(3,n-150);j<=n-3;j++){if(I.pl[j])pts.push(I.l[j]);if(I.ph[j])pts.push(I.h[j])}
   pts.sort((a,b)=>a-b);const cl=[];for(const p of pts){const L=cl.at(-1);if(L&&p-L.hi<=.5*atr){L.hi=p;L.sum+=p;L.n++}else cl.push({hi:p,sum:p,n:1})}
@@ -348,6 +348,10 @@ function analyze(st){
   const rows=VOTES.map((v,k)=>{const r=v.f(I,n,true);return r?{...r,id:v.id,name:v.name,mean:v.mean,w:model.w[k],w0:v.w}:null}).filter(Boolean);
   const tech={score:Math.round(model.arr[n]),rows,agree:rows.filter(r=>r.v>0).length,against:rows.filter(r=>r.v<0).length};
   const plan=makePlan(st,I,tech.score,rsPass(rsA,n));
+  // สัญญาณตามระบบที่ทดสอบไว้ (เหมือน simulate): คะแนนเพิ่งข้าม thr + ตัวกรองครบ แล้วตั้งซื้อ ค้างได้ ld วัน ถ้ายังไม่ได้ของและยังไม่หมดอายุ = ส่งคำสั่งได้
+  const sys=(()=>{const a=model.arr,ld=RP.ld||1;for(let j=n;j>=Math.max(1,n-ld+1);j--){if(!(a[j-1]<RP.thr&&a[j]>=RP.thr&&sigOK(I,j,rsA,RP)))continue;
+    const at=I.atr[j];if(!at)return null;const lp=B[j].c-RP.lim*at;for(let d=j+1;d<=n;d++)if(B[d].l<=lp)return null;
+    return{d:B[j].t,lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:rt(lp-RP.sl*at,st.m,"floor"),left:ld-(n-j)}}return null})();
   const f=fundOf(st),fund=fundScore(f),ns=newsScore(st),fs=factorScore(st),rs=relStrength(st);
   const rsV=rs.pctl>=70?1:rs.pctl<=30?-1:0;
   const techP=(tech.score+100)/2,ctxP=clamp(50+ns.s*20+fs*8+rsV*10,0,100);
@@ -358,8 +362,8 @@ function analyze(st){
   // ทดสอบ 5 ปี: เพิ่มเงื่อนไขแข็งกว่าตลาด 70% และขายเมื่อปิดเหนือ SMA10 → ชนะ 66–67% กำไร +0.62/+0.69% ต่อไม้ (เดิม +0.26/+0.22%)
   const r2=rsi(I.c,2),s10=sma(I.c,10),s200=sma(I.c,200),pbSig=i=>s200[i]!=null&&I.c[i]>s200[i]&&r2[i]<5&&rsPass(rs70,i),PB={...RULES,sl:3,tp:null,hold:15,exit:j=>I.c[j]>s10[j]};
   const pbt=simulate(B,I,pbSig,0,B.length,st.m,PB);const pb={all:stats(pbt),trades:pbt,now:pbSig(n),r2:r2[n],s5:s10[n],s200:s200[n],rs:rs70?!!rs70[n]:null,near:s200[n]!=null&&I.c[n]>s200[n]&&r2[n]<15&&rsPass(rs70,n)};
-  const qq=!S.px[st.s]&&S.quotes?.q?.[st.s];const R={key,st,B,I,V,pb,sStd:std.arr,tech,plan,per,model,bh,split,f,fund,ns,fs,rs,rsV,techP,ctxP,overall,v:verdict(overall),sample:!hasBars(st),last:B[n].c,chg:qq&&qq.chg!=null?qq.chg:(B[n].c/B[n-1].c-1)*100};
-  R.conf=confidence(R);R.v=sysVerdict(overall,plan?.tone,R.conf.lv);R.why=reasons(R);
+  const qq=!S.px[st.s]&&S.quotes?.q?.[st.s];const R={key,st,B,I,V,pb,sys,sStd:std.arr,tech,plan,per,model,bh,split,f,fund,ns,fs,rs,rsV,techP,ctxP,overall,v:verdict(overall),sample:!hasBars(st),last:B[n].c,chg:qq&&qq.chg!=null?qq.chg:(B[n].c/B[n-1].c-1)*100};
+  R.conf=confidence(R);R.v=sysVerdict(overall,plan?.tone,R.conf.lv,!!sys);R.why=reasons(R);
   S.cache.set(st.s,R);return R;
 }
 function reasons(R){
@@ -399,7 +403,7 @@ const liquid=st=>!st.uni||st.m==="US"||(st.mc||0)>=5e9;
 function summarize(R){const P=R.plan,I=R.I,n=I.c.length-1,c=I.c.slice(-90),L=c.at(-1)||1,sp=[];for(let i=0;i<c.length;i+=3)sp.push(Math.round(c[i]/L*1000));sp.push(1000);
   const up=I.e200[n]!=null&&I.c[n]>I.e50[n]&&I.e50[n]>I.e200[n]&&(I.adx[n]||0)>20,os=(I.rsi[n]??50)<35,ns=!!(P.L.sup[0]&&(I.c[n]-P.L.sup[0].p)/I.c[n]<.03);
   return{o:R.overall,c:R.conf.lv,p:R.last,ch:+R.chg.toFixed(3),pl:[P.lo,P.hi,P.sl,P.tp1,P.tp2,P.tone,P.mode],
-    pb:[R.pb.now,R.pb.near,R.pb.r2!=null?+R.pb.r2.toFixed(1):null,R.pb.s5!=null?+R.pb.s5.toFixed(3):null],tp:Math.round(R.techP),fs:R.fund.thin?null:R.fund.score,
+    sy:R.sys?[R.sys.lp,R.sys.tp,R.sys.sl,R.sys.left,R.sys.d]:null,pb:[R.pb.now,R.pb.near,R.pb.r2!=null?+R.pb.r2.toFixed(1):null,R.pb.s5!=null?+R.pb.s5.toFixed(3):null],tp:Math.round(R.techP),fs:R.fund.thin?null:R.fund.score,
     rs:{ret:+R.rs.ret.toFixed(2),pctl:Math.round(R.rs.pctl)},f:[up,os,ns],fq:R.f.fs?[r1(R.f.fs.yoyR),r1(R.f.fs.yoyN),r1(R.f.fs.qoqR),r1(R.f.fs.qoqN),R.f.fs.last]:null,fv:(()=>{try{const v=valuation(R);return v.fair?[r2(v.fair.bear),r2(v.fair.base),r2(v.fair.bull),v.methods.length]:null}catch{return null}})(),sp,t:R.B.at(-1).t}}
 // ข้อมูลสำหรับรายการหุ้น: ถ้ามีราคาย้อนหลังในเครื่องจะวิเคราะห์เต็ม ถ้าไม่มีใช้ผลที่คำนวณไว้แล้วบน GitHub
 const CONF_LV=[["ข้อมูลตัวอย่าง","var(--ink-2)"],["ต่ำ","var(--down)"],["ปานกลาง","var(--warn)"],["สูง","var(--up)"]];
@@ -408,7 +412,7 @@ function info(st){if(hasBars(st))return analyze(st);
   const m=S.summary?.[st.s],q=S.quotes?.q?.[st.s],key=(m?1:0)+"|"+(q?.ts??"")+"|"+(q?.p??"");S._info??=new Map();const hit=S._info.get(st.s);if(hit&&hit.k===key&&hit.m===m)return hit.R;
   let R;
   if(!m)R={st,lite:true,none:true,overall:null,v:["ยังไม่มีข้อมูล","p-hold"],conf:{t:"–",c:"var(--ink-2)",lv:0},last:q?.p??null,chg:q?.chg??0,sp:[],plan:null,pb:{now:false},f:[]};
-  else{const pl=m.pl,lv=Array.isArray(m.c)?m.c[2]:m.c;R={st,lite:true,overall:m.o,v:sysVerdict(m.o,pl?.[5],lv),conf:{t:CONF_LV[lv][0],c:CONF_LV[lv][1],lv},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
+  else{const pl=m.pl,lv=Array.isArray(m.c)?m.c[2]:m.c;R={st,lite:true,overall:m.o,v:sysVerdict(m.o,pl?.[5],lv,!!m.sy),sys:m.sy?{lp:m.sy[0],tp:m.sy[1],sl:m.sy[2],left:m.sy[3],d:m.sy[4]}:null,rs:m.rs||null,conf:{t:CONF_LV[lv][0],c:CONF_LV[lv][1],lv},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
     plan:{lo:pl[0],hi:pl[1],sl:pl[2],tp1:pl[3],tp2:pl[4],tone:pl[5],mode:pl[6],entry:(pl[0]+pl[1])/2},pb:{now:m.pb[0],near:m.pb[1],r2:m.pb[2],s5:m.pb[3]},f:m.f||[],fq:m.fq,fv:m.fv}}
   S._info.set(st.s,{k:key,m,R});return R}
 
