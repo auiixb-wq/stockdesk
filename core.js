@@ -392,7 +392,9 @@ function analyze(st){
   const cond=(()=>{if(sys||sw[2]||RP.dip==null||model.arr[end]<RP.thr)return null;const at=I.atr[end];if(!at)return null;
     const x=rsiTrigger(I.c,end,2,RP.dip);if(!(x>0))return null;const trig=rt(x-tick(x)*.5,st.m,"floor"),lp=trig-RP.lim*at;if(!(lp>0))return null;
     return{trig,lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:slR(lp,at,RP,st.m)}})();
-  const R={key,st,B,I,V,pb,sys,sw,cond,lvl:[plan?.L?.sup?.[0]?.p??null,plan?.L?.res?.[0]?.p??null],sStd:std.arr,tech,plan,per,model,bh,split,f,fund,ns,fs,rs,rsV,techP,ctxP,overall,v:verdict(overall),sample:!hasBars(st),last:B[n].c,chg:qq&&qq.chg!=null?qq.chg:(B[n].c/B[n-1].c-1)*100};
+  // แผนอ้างอิง (ยังไม่มีสัญญาณ): ถ้าผ่านเงื่อนไขวันนี้ จะตั้งซื้อ/ขาย/ตัดขาดทุนที่ราคาเหล่านี้ (คิดจากราคาปิดล่าสุด)
+  const ref=(()=>{const at=I.atr[end];if(!at)return null;const lp=B[end].c-RP.lim*at;return lp>0?{lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:slR(lp,at,RP,st.m)}:null})();
+  const R={key,st,B,I,V,pb,sys,sw,cond,ref,lvl:[plan?.L?.sup?.[0]?.p??null,plan?.L?.res?.[0]?.p??null],sStd:std.arr,tech,plan,per,model,bh,split,f,fund,ns,fs,rs,rsV,techP,ctxP,overall,v:verdict(overall),sample:!hasBars(st),last:B[n].c,chg:qq&&qq.chg!=null?qq.chg:(B[n].c/B[n-1].c-1)*100};
   R.conf=confidence(R);R.v=sysVerdict(overall,plan?.tone,R.conf.lv,!!sys);R.why=reasons(R);
   S.cache.set(st.s,R);return R;
 }

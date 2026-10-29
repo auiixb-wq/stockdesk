@@ -139,6 +139,86 @@ function run(name) {
   return EXITS.map((X, k) => ({ X, is: sm(res[k].is), oos: sm(res[k].oos), y: Object.fromEntries(Object.entries(res[k].y || {}).map(([a, v]) => [a, sm(v)])) }));
 }
 const f = r => `${r.n}ไม้ ชนะ${r.win.toFixed(1)}% ${r.avg >= 0 ? "+" : ""}${r.avg.toFixed(2)}% PF${r.pf.toFixed(2)}`;
+// Desk Strategy: จุดเข้าเดิม (T_U3) แต่ออกแบบ "แพ้น้อย ออกไว ชนะยาว" — DESK=1 node research/smc.js <res> . TH
+if (process.env.DESK) {
+  const ENG = {
+    // ตัดขาดทุนเริ่มต้น (ATR), ไม่ใช้ราคาใต้แนวรับ?, วันที่ต้องเริ่มกำไร, แบ่งขายครึ่งแรกที่ (ATR), เลื่อนตาม (ATR), ปรับตามตลาด
+    BASE: { sl: 5, cap: MK === "TH" ? .08 : .12, fail: 0, half: 0, trail: 0, tp: MK === "TH" ? 1 : .8, hold: 20 },
+    D1: { sl: 1.5, st: true, fail: 3, half: 0, trail: 2.5, hold: 30 },
+    D2: { sl: 2, fail: 5, half: .8, trail: 2, hold: 30 },
+    D3: { sl: 1.5, st: true, fail: 3, half: .8, trail: 2, hold: 30 },
+    D4: { sl: 1.5, st: true, fail: 3, half: .8, trail: 2, hold: 30, adapt: true },
+    D5: { sl: 1.5, st: true, fail: 3, half: .6, trail: 2, hold: 30, adapt: true },
+    D6: { sl: 2, st: true, fail: 4, half: .6, trail: 2.5, hold: 40, adapt: true },
+    // รอบ 2: ล็อกกำไรเร็ว (ส่วนแรกใหญ่ เป้าใกล้) + เลื่อนจุดตัดมาทุนทันที + ส่วนที่เหลือปล่อยวิ่ง
+    E1: { sl: 1.5, st: true, fail: 3, half: .4, hf: .6, trail: 2, hold: 30, be: true },
+    E2: { sl: 2, st: true, fail: 4, half: .4, hf: .6, trail: 2.5, hold: 30, be: true },
+    E3: { sl: 2, st: true, fail: 4, half: .5, hf: .7, trail: 2.5, hold: 30, be: true, cs: true },
+    E4: { sl: 2, st: true, fail: 4, half: .4, hf: .6, trail: 2.5, hold: 30, be: true, cs: true, reg: true },
+    E5: { sl: 2, st: true, fail: 4, half: .4, hf: .6, trail: 2.5, hold: 30, be: true, cs: true, ph: true },
+    E6: { sl: 2, st: true, fail: 4, half: .4, hf: .6, trail: 2.5, hold: 30, be: true, cs: true, reg: true, ph: true },
+    E3n: { sl: 2, fail: 4, half: .5, hf: .7, trail: 2.5, hold: 30, be: true, cs: true },
+    E3c: { sl: 2, fail: 4, half: .5, hf: .7, trail: 2.5, hold: 30, be: true, cs: true, hcap: .08 },
+    F1: { sl: 2, fail: 4, half: .5, hf: .7, trail: 2.5, hold: 20, be: true, cs: true, hcap: .08 },
+    F2: { sl: 2, fail: 4, half: .6, hf: .7, trail: 2, hold: 20, be: true, cs: true, hcap: .08 },
+    F3: { sl: 2, fail: 4, half: .7, hf: .7, trail: 2.5, hold: 30, be: true, cs: true, hcap: .08 },
+    F4: { sl: 2.5, fail: 5, half: .6, hf: .7, trail: 2.5, hold: 30, be: true, cs: true, hcap: .08 },
+    F5: { sl: 2, fail: 4, half: .5, hf: .5, trail: 2.5, hold: 30, be: true, cs: true, hcap: .08 },
+    E7: { sl: 1.5, st: true, fail: 3, half: .3, hf: .7, trail: 2, hold: 30, be: true, cs: true, ph: true },
+  };
+  const sig = STRAT.T_U3, out = {};
+  for (const [nm, E] of Object.entries(ENG)) {
+    const res = { is: [], oos: [], all: [] };
+    for (const x of st) {
+      const B = x.B, n = B.length; let busy = 0; const past = [];  // ผลไม้ก่อนหน้าของหุ้นตัวนี้ [วันปิด, ผล]
+      for (let i = 210; i < n - 1; i++) {
+        const sg = sig(x, i); if (!sg) continue; const a = atr(x, i);
+        let e = -1, en = 0; for (let d = i + 1; d <= Math.min(n - 1, i + sg.days); d++) if (B[d].l <= sg.px) { e = d; en = Math.min(B[d].o, sg.px); break }
+        if (e < 0 || e < busy) continue;
+        if (E.reg && !REG.get(B[i].t)) continue;
+        if (E.ph) { const h = past.filter(z => z[0] < B[i].t).slice(-4); if (h.length >= 3 && h.filter(z => z[1] > 0).length / h.length < .5) continue }  // หุ้นนี้แพ้บ่อยกับกลยุทธ์นี้ → พัก
+        const L = x.sl[i];  // แนวรับ (swing low) ล่าสุดที่ยืนยันแล้ว
+        let sl = en - E.sl * a; if (E.st && L && L.p < en && L.p > en - E.sl * a) sl = L.p - .2 * a; if (E.cap) sl = Math.max(sl, en * (1 - E.cap));
+        const strong = REG.get(B[i].t), trail = E.adapt ? (strong ? E.trail + .5 : E.trail) : E.trail, half2 = E.adapt && !strong ? 2 : null;
+        let part = [], left = 1, hi = en, stop = sl, j = e, xi = e, hd = null; const hf = E.hf || .5, hard = Math.max(en - (E.sl + 1.5) * a, E.hcap ? en * (1 - E.hcap) : 0);
+        for (; j < Math.min(n, e + E.hold); j++) {
+          const b = B[j]; xi = j;
+          if (E.cs && left === 1) {  // ตัดขาดทุนเมื่อ "ปิด" ต่ำกว่าจุด (กันโดนสะบัด) แต่มีจุดฉุกเฉินระหว่างวัน
+            if (b.l <= hard) { part.push([1, Math.min(hard, j > e ? b.o : hard)]); left = 0; break }
+            if (b.c <= stop) { part.push([1, b.c]); left = 0; break }
+          } else if (b.l <= stop) { part.push([left, Math.min(stop, j > e ? b.o : stop)]); left = 0; break }
+          if (j === e) { hi = Math.max(hi, b.c); continue }  // วันที่ได้ของไม่นับขายกำไร
+          if (E.tp && b.h >= en + E.tp * a) { part.push([left, Math.max(en + E.tp * a, b.o)]); left = 0; break }
+          if (E.half && left === 1 && b.h >= en + E.half * a) { part.push([hf, Math.max(en + E.half * a, b.o)]); left = 1 - hf; hd = b.t; stop = Math.max(stop, E.be ? en * (1 + COST) : en) }
+          if (half2 && left < 1 && left > 0 && b.h >= en + half2 * a) { part.push([left, Math.max(en + half2 * a, b.o)]); left = 0; break }
+          if (E.fail && j - e + 1 >= E.fail && left === 1 && b.c < en) { part.push([1, b.c]); left = 0; break }  // ไม่ไปตามคาด: ออกไว
+          hi = Math.max(hi, b.c);
+          if (E.trail && left < 1 + (E.half ? 0 : 1)) stop = Math.max(stop, hi - trail * a);
+        }
+        if (left > 0) part.push([left, B[Math.min(xi, n - 1)].c]);
+        busy = xi + 1;
+        const r = part.reduce((s, [w, p]) => s + w * (p / en - 1), 0) - COST; past.push([B[xi].t, r]);
+        (B[e].t < SPLIT ? res.is : res.oos).push(r); res.all.push([B[e].t, r, x.s, en, B[xi].t, x.rs[i] ?? 0, hd, part[0] && hd ? part[0][1] / en - 1 : 0, 1 - hf]);
+      }
+    }
+    const f = a => { const w = a.filter(r => r > 0), l = a.filter(r => r <= 0); return { n: a.length, win: w.length / a.length * 100, avg: a.reduce((p, r) => p + r, 0) / a.length * 100, aw: w.reduce((p, r) => p + r, 0) / (w.length || 1) * 100, al: l.reduce((p, r) => p + r, 0) / (l.length || 1) * 100, worst: Math.min(...a) * 100, best: Math.max(...a) * 100 } };
+    const I = f(res.is), O = f(res.oos), A = f(res.all.map(z => z[1]));
+    if ((process.env.PORTD || '').split(',').includes(nm)) {  // พอร์ต 5 ตัว ตัวละ 1/5 ของมูลค่าพอร์ต เรียงตาม RS · วัดลดลงลึกสุดจากราคาปิดจริง
+      const N = 5, T = res.all.slice().sort((a, b) => a[0].localeCompare(b[0]) || b[5] - a[5]), byDay = {}; for (const t of T) (byDay[t[0]] ??= []).push(t);
+      const SBY = Object.fromEntries(st.map(z => [z.s, z])); let cash = 1e5, open = [], peak = 1e5, mdd = 0, eq = 1e5;
+      for (const d of dates) { if (d < T[0][0]) continue;
+        for (const p of open.filter(p => p.t[4] < d)) cash += p.left * p.amt * (1 + (p.t[1] - (1 - p.left) * p.t[7]) / p.left); open = open.filter(p => p.t[4] >= d);
+        if (process.env.REL) for (const p of open) if (p.left === 1 && p.t[6] && p.t[6] < d) { const hf = 1 - p.t[8]; cash += hf * p.amt * (1 + p.t[7]); p.left = 1 - hf }
+        const mark = open.reduce((a, p) => { const z = SBY[p.t[2]], j = z.idx.get(d); return a + p.left * (j == null ? p.amt : p.amt * z.B[j].c / p.t[3]) }, 0); eq = cash + mark; peak = Math.max(peak, eq); mdd = Math.max(mdd, 1 - eq / peak);
+        for (const t of byDay[d] || []) { if (open.filter(p => p.left === 1).length >= N || open.some(p => p.t[2] === t[2])) continue; const amt = Math.min(cash, eq / N); if (amt < eq / N * .5) continue; cash -= amt; open.push({ t, amt, left: 1 }) } }
+      for (const p of open) cash += p.left * p.amt * (1 + (p.t[1] - (1 - p.left) * p.t[7]) / p.left);
+      const yrs = (Date.parse(dates.at(-1)) - Date.parse(T[0][0])) / 3.156e10;
+      console.log(`พอร์ต ${N} ตัว ~${yrs.toFixed(1)} ปี: 100,000 → ${Math.round(cash).toLocaleString()} (${((Math.pow(cash / 1e5, 1 / yrs) - 1) * 100).toFixed(1)}%/ปี) · ลดลงลึกสุด ${(mdd * 100).toFixed(1)}%`);
+    }
+    console.log(`${MK} ${nm.padEnd(4)} ชนะ ${I.win.toFixed(0)}/${O.win.toFixed(0)}% · เฉลี่ย ${I.avg.toFixed(2)}/${O.avg.toFixed(2)}% · ชนะเฉลี่ย +${A.aw.toFixed(1)}% · แพ้เฉลี่ย ${A.al.toFixed(1)}% · ชนะ:แพ้ ${(A.aw / -A.al).toFixed(2)} · ดีสุด +${A.best.toFixed(0)}% แย่สุด ${A.worst.toFixed(0)}% · ${A.n} ไม้`);
+  }
+  process.exit(0);
+}
 // แผนล่วงหน้า: วันที่ผ่านตัวกรอง คะแนน ≥ 40 แต่ RSI2 ยังไม่ < 20 → ถ้าวันถัดไปปิดต่ำกว่าราคาที่คำนวณ สัญญาณเกิดจริงกี่ %
 if (process.env.COND) {
   let n = 0, hit = 0, sig = 0;
