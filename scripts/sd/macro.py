@@ -55,8 +55,9 @@ def fed(prev):
 
 def cpi(prev):
     d = json.loads(_get("https://api.bls.gov/publicAPI/v2/timeseries/data/CUUR0000SA0"))["Results"]["series"][0]["data"]
-    v = {(int(x["year"]), int(x["period"][1:])): float(x["value"]) for x in d if x["period"].startswith("M") and x["period"] != "M13"}
-    (y, m) = max(v)
+    v = {(int(x["year"]), int(x["period"][1:])): float(x["value"]) for x in d
+         if x["period"].startswith("M") and x["period"] != "M13" and re.fullmatch(r"[\d.]+", str(x["value"]))}  # บางเดือนไม่มีข้อมูล ("-")
+    (y, m) = max(k for k in v if (k[0] - 1, k[1]) in v)
     yoy = (v[(y, m)] / v[(y - 1, m)] - 1) * 100
     pm = (y, m - 1) if m > 1 else (y - 1, 12)
     prev_yoy = (v[pm] / v[(pm[0] - 1, pm[1])] - 1) * 100 if (pm[0] - 1, pm[1]) in v and pm in v else None
@@ -142,25 +143,31 @@ def ai(prev):
         except Exception:
             continue
         cx = [abs(x) for x in q.get("capex", []) if x is not None]
+        ya = [abs(x) for x in (json.load(open(os.path.join(DATA, "hist", "fin", s + ".json")))["a"].get("capex") or []) if x is not None]
         if len(cx) >= 8:
             tot[s] = (sum(cx[-4:]), sum(cx[-8:-4]))
+        elif len(ya) >= 2:  # รายไตรมาสไม่ครบ 8 ไตรมาส ใช้งบรายปีล่าสุดเทียบปีก่อน
+            tot[s] = (ya[-1], ya[-2])
     if len(tot) < 3:
         raise ValueError("งบ capex ไม่พอ")
     now_, pre = sum(a for a, _ in tot.values()), sum(b for _, b in tot.values())
     g = (now_ / pre - 1) * 100
     return {"text": f"{g:+.0f}% YoY", "value": round(g, 1), "asOf": NOW.strftime("%Y-%m-%d"), "dir": 1 if g > 10 else -1 if g < -5 else 0,
-            "strength": min(1, abs(g) / 40), "note": f"รายจ่ายลงทุน 4 ไตรมาสล่าสุดของ {', '.join(tot)} รวม ${now_ / 1e9:,.0f}B",
+            "strength": min(1, abs(g) / 40), "note": f"รายจ่ายลงทุนช่วงล่าสุด (4 ไตรมาสหรือปีงบล่าสุด) ของ {', '.join(tot)} รวม ${now_ / 1e9:,.0f}B",
             "src": "งบการเงิน (Yahoo Finance)", "url": "https://finance.yahoo.com/"}
 
 
 def tariff(prev):
+    from .news import FACTOR_KW
     it = load("news.json", {}).get("items", [])
     cut = time.time() - 7 * 86400
-    L = [l["eff"] for x in it if (x.get("ts") or 0) >= cut for l in x.get("factors", []) if l.get("id") == "tariff" and l.get("eff")]
-    n = sum(1 for x in it if (x.get("ts") or 0) >= cut and any(l.get("id") == "tariff" for l in x.get("factors", [])))
+    rx = re.compile(FACTOR_KW["tariff"], re.I)
+    recent = [x for x in it if (x.get("ts") or 0) >= cut and rx.search(x.get("title", "") + " " + (x.get("summary") or ""))]
+    L = [l["eff"] for x in recent for l in x.get("factors", []) if l.get("id") == "tariff" and l.get("eff")]
+    n = len(recent)
     s = sum(L)
     return {"text": f"ข่าว {n} ชิ้น / 7 วัน", "value": n, "asOf": NOW.strftime("%Y-%m-%d"), "dir": 1 if s >= 2 else -1 if s <= -2 else 0,
-            "strength": round(min(1, n / 15), 2), "note": "นับจากข่าวที่ระบบผูกกับปัจจัยภาษีการค้า (บวก = ตึงเครียดขึ้น)",
+            "strength": round(min(1, n / 15), 2), "note": "นับข่าวที่พูดถึงภาษีการค้าใน 7 วัน (ทิศทาง: บวก = ตึงเครียดขึ้น)",
             "src": "ข่าวในระบบ", "url": "#news"}
 
 
