@@ -135,6 +135,16 @@ function run(name) {
   return EXITS.map((X, k) => ({ X, is: sm(res[k].is), oos: sm(res[k].oos), y: Object.fromEntries(Object.entries(res[k].y || {}).map(([a, v]) => [a, sm(v)])) }));
 }
 const f = r => `${r.n}ไม้ ชนะ${r.win.toFixed(1)}% ${r.avg >= 0 ? "+" : ""}${r.avg.toFixed(2)}% PF${r.pf.toFixed(2)}`;
+// แผนล่วงหน้า: วันที่ผ่านตัวกรอง คะแนน ≥ 40 แต่ RSI2 ยังไม่ < 20 → ถ้าวันถัดไปปิดต่ำกว่าราคาที่คำนวณ สัญญาณเกิดจริงกี่ %
+if (process.env.COND) {
+  let n = 0, hit = 0, sig = 0;
+  for (const x of st) for (let i = 210; i < x.B.length - 1; i++) {
+    if (!(FILT(x, i) && x.sc[i] >= 40 && x.r2[i] >= 20)) continue; n++;
+    if (x.r2[i + 1] < 20) { hit++; if (x.sc[i + 1] >= 40 && FILT(x, i + 1)) sig++ }
+  }
+  console.log(`${MK}: วันที่มีแผนล่วงหน้า ${n} · ราคาปิดถึงจุดวันถัดไป ${hit} (${(hit / n * 100).toFixed(1)}%) · สัญญาณเกิดจริง ${sig} (${(sig / hit * 100).toFixed(1)}% ของครั้งที่ถึง)`);
+  process.exit(0);
+}
 // จำลองพอร์ต 5 ปี: PORT="กลยุทธ์,tp,sl,hold" · เงินเริ่ม 100,000 · ถือพร้อมกันสูงสุด 10 ตัว ตัวละ 10% ของมูลค่าพอร์ตตอนซื้อ
 if (process.env.PORT) {
   const [nm, tp, sl, hold] = process.env.PORT.split(","), X = { tp: isNaN(+tp) ? tp : +tp, sl: isNaN(+sl) ? sl : +sl, hold: +hold };

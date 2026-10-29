@@ -58,6 +58,10 @@ const PRESETS={win:{preset:"win"},edge:{preset:"edge"}};const RULES0={...RULES};
 const volOK=(I,i,P)=>P.vol==null||(I.atr[i]||0)/I.c[i]*100>=P.vol;
 // จุดเกิดสัญญาณ: คะแนนเพิ่งข้าม thr หรือ (คะแนน ≥ thr และย่อสั้นแรง RSI(2) < dip) — รอบ 5: ได้ไม้ ~1.5–2 เท่า ชนะและกำไรต่อไม้เท่าเดิม
 const r2Of=I=>I.r2??=rsi(I.c,2);
+// ราคาปิดถัดไปที่ทำให้ RSI(p) ต่ำกว่า T (ย้อนสูตร Wilder): ลงจาก c[n] เกิน g/k − l โดย k = T/(100−T)
+function rsiTrigger(c,n,p,T){if(n<p+1)return null;let g=0,l=0;for(let i=1;i<=p;i++){const d=c[i]-c[i-1];d>0?g+=d:l-=d}g/=p;l/=p;
+  for(let i=p+1;i<=n;i++){const d=c[i]-c[i-1];g=(g*(p-1)+Math.max(d,0))/p;l=(l*(p-1)+Math.max(-d,0))/p}
+  const k=T/(100-T),drop=(g*(p-1)/(k)-l*(p-1))/1;return c[n]-Math.max(0,drop)}
 // แท่งสุดท้ายยังไม่ปิด = เป็นวันนี้ของตลาดนั้น และยังไม่ถึงเวลาปิด (ไทย 16:40 · สหรัฐฯ 16:00 เวลาท้องถิ่น)
 // สัญญาณต้องมาจากแท่งที่ปิดแล้วเท่านั้น เหมือนการทดสอบย้อนหลัง
 function barLive(m,t){try{const p=new Intl.DateTimeFormat("en-CA",{timeZone:m==="TH"?"Asia/Bangkok":"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(new Date()),g=k=>p.find(x=>x.type===k)?.value;
@@ -379,7 +383,11 @@ function analyze(st){
   const r2=rsi(I.c,2),s10=sma(I.c,10),s200=sma(I.c,200),pbSig=i=>s200[i]!=null&&I.c[i]>s200[i]&&r2[i]<5&&rsPass(rs70,i),PB={...RULES,sl:3,tp:null,hold:15,exit:j=>I.c[j]>s10[j]};
   const pbt=simulate(B,I,pbSig,0,B.length,st.m,PB);const pb={all:stats(pbt),trades:pbt,now:pbSig(n),r2:r2[n],s5:s10[n],s200:s200[n],rs:rs70?!!rs70[n]:null,near:s200[n]!=null&&I.c[n]>s200[n]&&r2[n]<15&&rsPass(rs70,n)};
   const qq=!S.px[st.s]&&S.quotes?.q?.[st.s];const sw=[Math.round(model.arr[end]),Math.round(r2Of(I)[end]??50),(I.wk[end]>=0?0:1)|(rsPass(rsA,end)?0:2)|(RP.adx==null||(I.adx[end]??0)>RP.adx?0:4)|(volOK(I,end,RP)?0:8)];
-  const R={key,st,B,I,V,pb,sys,sw,sStd:std.arr,tech,plan,per,model,bh,split,f,fund,ns,fs,rs,rsV,techP,ctxP,overall,v:verdict(overall),sample:!hasBars(st),last:B[n].c,chg:qq&&qq.chg!=null?qq.chg:(B[n].c/B[n-1].c-1)*100};
+  // แผนล่วงหน้า (หุ้นผ่านตัวกรอง คะแนน ≥ 40 แต่ยังไม่ย่อพอ): ถ้าราคาปิดวันถัดไป ≤ trig จะเกิดสัญญาณตามระบบ แล้วตั้งซื้อ lp
+  const cond=(()=>{if(sys||sw[2]||RP.dip==null||model.arr[end]<RP.thr)return null;const at=I.atr[end];if(!at)return null;
+    const x=rsiTrigger(I.c,end,2,RP.dip);if(!(x>0))return null;const trig=rt(x-tick(x)*.5,st.m,"floor"),lp=trig-RP.lim*at;if(!(lp>0))return null;
+    return{trig,lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:rt(lp-RP.sl*at,st.m,"floor")}})();
+  const R={key,st,B,I,V,pb,sys,sw,cond,lvl:[plan?.L?.sup?.[0]?.p??null,plan?.L?.res?.[0]?.p??null],sStd:std.arr,tech,plan,per,model,bh,split,f,fund,ns,fs,rs,rsV,techP,ctxP,overall,v:verdict(overall),sample:!hasBars(st),last:B[n].c,chg:qq&&qq.chg!=null?qq.chg:(B[n].c/B[n-1].c-1)*100};
   R.conf=confidence(R);R.v=sysVerdict(overall,plan?.tone,R.conf.lv,!!sys);R.why=reasons(R);
   S.cache.set(st.s,R);return R;
 }
@@ -420,7 +428,7 @@ const liquid=st=>!st.uni||st.m==="US"||(st.mc||0)>=5e9;
 function summarize(R){const P=R.plan,I=R.I,n=I.c.length-1,c=I.c.slice(-90),L=c.at(-1)||1,sp=[];for(let i=0;i<c.length;i+=3)sp.push(Math.round(c[i]/L*1000));sp.push(1000);
   const up=I.e200[n]!=null&&I.c[n]>I.e50[n]&&I.e50[n]>I.e200[n]&&(I.adx[n]||0)>20,os=(I.rsi[n]??50)<35,ns=!!(P.L.sup[0]&&(I.c[n]-P.L.sup[0].p)/I.c[n]<.03);
   return{o:R.overall,c:R.conf.lv,p:R.last,ch:+R.chg.toFixed(3),pl:[P.lo,P.hi,P.sl,P.tp1,P.tp2,P.tone,P.mode],
-    sy:R.sys?[R.sys.lp,R.sys.tp,R.sys.sl,R.sys.left,R.sys.d,R.sys.hit?1:0]:null,sw:R.sw,pb:[R.pb.now,R.pb.near,R.pb.r2!=null?+R.pb.r2.toFixed(1):null,R.pb.s5!=null?+R.pb.s5.toFixed(3):null],tp:Math.round(R.techP),fs:R.fund.thin?null:R.fund.score,
+    sy:R.sys?[R.sys.lp,R.sys.tp,R.sys.sl,R.sys.left,R.sys.d,R.sys.hit?1:0]:null,sw:R.sw,cd:R.cond?[R.cond.trig,R.cond.lp,R.cond.tp,R.cond.sl]:null,lv:R.lvl.map(v=>v==null?null:+v.toFixed(4)),pb:[R.pb.now,R.pb.near,R.pb.r2!=null?+R.pb.r2.toFixed(1):null,R.pb.s5!=null?+R.pb.s5.toFixed(3):null],tp:Math.round(R.techP),fs:R.fund.thin?null:R.fund.score,
     rs:{ret:+R.rs.ret.toFixed(2),pctl:Math.round(R.rs.pctl)},f:[up,os,ns],fq:R.f.fs?[r1(R.f.fs.yoyR),r1(R.f.fs.yoyN),r1(R.f.fs.qoqR),r1(R.f.fs.qoqN),R.f.fs.last]:null,fv:(()=>{try{const v=valuation(R);return v.fair?[r2(v.fair.bear),r2(v.fair.base),r2(v.fair.bull),v.methods.length]:null}catch{return null}})(),sp,t:R.B.at(-1).t}}
 // ข้อมูลสำหรับรายการหุ้น: ถ้ามีราคาย้อนหลังในเครื่องจะวิเคราะห์เต็ม ถ้าไม่มีใช้ผลที่คำนวณไว้แล้วบน GitHub
 const CONF_LV=[["ข้อมูลตัวอย่าง","var(--ink-2)"],["ต่ำ","var(--down)"],["ปานกลาง","var(--warn)"],["สูง","var(--up)"]];
@@ -429,7 +437,7 @@ function info(st){if(hasBars(st))return analyze(st);
   const m=S.summary?.[st.s],q=S.quotes?.q?.[st.s],key=(m?1:0)+"|"+(q?.ts??"")+"|"+(q?.p??"");S._info??=new Map();const hit=S._info.get(st.s);if(hit&&hit.k===key&&hit.m===m)return hit.R;
   let R;
   if(!m)R={st,lite:true,none:true,overall:null,v:["ยังไม่มีข้อมูล","p-hold"],conf:{t:"–",c:"var(--ink-2)",lv:0},last:q?.p??null,chg:q?.chg??0,sp:[],plan:null,pb:{now:false},f:[]};
-  else{const pl=m.pl,lv=Array.isArray(m.c)?m.c[2]:m.c;R={st,lite:true,overall:m.o,v:sysVerdict(m.o,pl?.[5],lv,!!m.sy),sys:m.sy?{lp:m.sy[0],tp:m.sy[1],sl:m.sy[2],left:m.sy[3],d:m.sy[4],hit:!!m.sy[5]}:null,rs:m.rs||null,sw:m.sw||null,conf:{t:CONF_LV[lv][0],c:CONF_LV[lv][1],lv},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
+  else{const pl=m.pl,lv=Array.isArray(m.c)?m.c[2]:m.c;R={st,lite:true,overall:m.o,v:sysVerdict(m.o,pl?.[5],lv,!!m.sy),sys:m.sy?{lp:m.sy[0],tp:m.sy[1],sl:m.sy[2],left:m.sy[3],d:m.sy[4],hit:!!m.sy[5]}:null,rs:m.rs||null,sw:m.sw||null,cond:m.cd?{trig:m.cd[0],lp:m.cd[1],tp:m.cd[2],sl:m.cd[3]}:null,lvl:m.lv||[null,null],conf:{t:CONF_LV[lv][0],c:CONF_LV[lv][1],lv},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
     plan:{lo:pl[0],hi:pl[1],sl:pl[2],tp1:pl[3],tp2:pl[4],tone:pl[5],mode:pl[6],entry:(pl[0]+pl[1])/2},pb:{now:m.pb[0],near:m.pb[1],r2:m.pb[2],s5:m.pb[3]},f:m.f||[],fq:m.fq,fv:m.fv}}
   S._info.set(st.s,{k:key,m,R});return R}
 
