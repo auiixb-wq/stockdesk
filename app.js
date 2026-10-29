@@ -969,6 +969,15 @@ function vData(){
 /* ---------- accuracy: rating calibration + parameter search ---------- */
 // ใช้ผลที่คำนวณจากหุ้นทั้งตลาดใน GitHub Actions (data/calib.json) ถ้าไม่มีจึงคำนวณจากหุ้นหลักในเครื่อง
 function calib(){if(S.calibData&&!lsGet("rules"))return S.calibData;const C=calibNew();for(const st of allStocks().filter(s=>!s.uni&&hasBars(s)))calibAdd(C,analyze(st));return calibDone(C)}
+// ผลจริงของสัญญาณตามระบบที่ออกไปแล้ว เทียบกับผลทดสอบย้อนหลัง — ตัวชี้ว่าระบบยังได้ผลกับตลาดตอนนี้หรือไม่
+function sysFwdCard(C){const F=C.fwdSys;if(!F)return "";const M=F.M||{},bm=C.baseM||{};
+  const col=m=>{const r=M[m],b=bm[m];if(!r)return `<div class="sysm"><b>${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</b><span class="muted">ยังไม่มีสัญญาณที่บันทึกไว้</span></div>`;
+    const w=r.closed?r.win/r.closed*100:null,a=r.closed?r.sum/r.closed:null,ok=r.closed>=20?(w>=75&&a>0):null;
+    return `<div class="sysm"><b>${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} ${ok==null?`<span class="pill sm p-hold">ไม้ยังน้อย</span>`:ok?`<span class="pill sm p-buy">ตรงกับ backtest</span>`:`<span class="pill sm p-sell">ต่ำกว่า backtest</span>`}</b>
+     <div class="num">${r.closed?`ปิดแล้ว ${r.closed} ไม้ · ชนะ ${w.toFixed(0)}% · เฉลี่ย ${pct(a,2)} ต่อไม้`:"ยังไม่มีไม้ที่ปิด"}</div>
+     <div class="muted" style="font-size:12.5px">สัญญาณ ${r.sig} · ได้ของ ${r.filled} · ยังถือ/รอ ${r.open} · ขายกำไร ${r.tp} · ตัดขาดทุน ${r.sl} · ครบเวลา ${r.time}${b?.oos?.n?` · backtest ชนะ ${b.oos.win.toFixed(0)}% เฉลี่ย ${pct(b.oos.avg,2)}`:""}</div>
+     ${r.recent?.length?`<div class="muted num" style="font-size:12px">ล่าสุด: ${r.recent.slice(-6).reverse().map(([s,d,x,h])=>`${esc(dsym(s))} <span class="${cls(x)}">${pct(x,1)}</span>`).join(" · ")}</div>`:""}</div>`};
+  return `<section class="card"><div class="card-h"><div><h2>ผลจริงของสัญญาณตามระบบ (ติดตามไปข้างหน้า)</h2><div class="sub-t">ทุกสัญญาณที่เว็บออกตั้งแต่ ${F.first?thDate(F.first):"–"} ใช้ราคาตั้งซื้อ/TP/SL ของวันนั้นจริง ไม่แก้ย้อนหลัง · ตัดสินเมื่อปิดครบ 20 ไม้ขึ้นไป</div></div></div><div class="sysg">${col("TH")}${col("US")}</div></section>`}
 function fwdCard(C){const F=C.fwd;if(!F)return "";const h5=F.H?.[5]||[],h20=F.H?.[20]||[],n5=h5.reduce((a,b)=>a+b.n,0);
   const row=(b,b2)=>`<tr><td>${b.lab}</td><td class="r num">${b.n?b.n.toLocaleString():"–"}</td><td class="r num ${cls(b.n?b.ex/b.n:0)}">${b.n?pct(b.ex/b.n,2):"–"}</td><td class="r num">${b.n?(b.pos/b.n*100).toFixed(0)+"%":"–"}</td><td class="r num ${cls(b2?.n?b2.ex/b2.n:0)}">${b2?.n?pct(b2.ex/b2.n,2):"รอข้อมูล"}</td></tr>`;
   return `<section class="card"><div class="card-h"><div><h2>ผลจริงหลังให้คะแนน (ติดตามไปข้างหน้า)</h2><div class="sub-t">วัดคะแนนรวมทั้งหมด (เทคนิค + งบ + ข่าว + ปัจจัย) ที่บันทึกไว้ ${F.days} วัน ตั้งแต่ ${F.first?thDate(F.first):"–"} · ไม่แก้ย้อนหลัง</div></div></div>
@@ -1007,6 +1016,7 @@ function vAccuracy(){
     <tr><td><b>ซื้อตอนย่อ (RSI 2)</b><div class="mean">แข็งกว่าตลาด 70% · ราคาเหนือ SMA200 และ RSI(2) &lt; 5 · ขายเมื่อปิดเหนือ SMA10 หรือ 15 วัน · SL 3 ATR</div></td>${sRow(C.pb.is)}${sRow(C.pb.oos)}<td class="muted" style="font-size:12px">แสดงในหน้าหุ้นทุกตัว</td></tr>
     ${C.hiwin.map(r=>`<tr><td><b>ตามคะแนนเทคนิค</b><div class="mean">${fmtG(r.g)}</div></td>${sRow(r.is)}${sRow(r.oos)}<td></td></tr>`).join("")}</tbody></table></div>
    <p class="foot" style="margin:10px 0 0">ระบบที่ชนะบ่อยจะได้กำไรต่อไม้น้อย และเวลาแพ้จะเสียมากกว่าตอนชนะ (SL ไกลกว่า TP) ห้ามเลื่อน SL ออกไปอีก และควรเสี่ยงไม่เกิน 1–2% ของเงินต่อไม้ เพราะแพ้ติดกัน 3–4 ไม้ยังเกิดขึ้นได้</p></section>
+  ${sysFwdCard(C)}
   ${fwdCard(C)}
   <section class="card method"><h2>ระบบทำให้ rating แม่นยำขึ้นอย่างไร (อัตโนมัติ)</h2><ul>
    <li><b>ราคาจริงย้อนหลัง 5 ปีทุกตัว</b> ครอบคลุมทั้งช่วงขาขึ้นและขาลง จำนวนไม้ทดสอบหลายหมื่นไม้</li>

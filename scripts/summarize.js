@@ -7,8 +7,8 @@ const load = (f, d) => { try { return JSON.parse(fs.readFileSync(path.join(ROOT,
 const ctx = { console };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, "core.js"), "utf8") +
-  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars,liquid,calibNew,calibAdd,calibDone,barsOf,stockBySym,indicators,VOTES,sma,uniOf};", ctx);
-const { S, analyze, summarize, allStocks, buildFactors, mergeNews, hasBars, liquid, calibNew, calibAdd, calibDone, barsOf, stockBySym } = ctx.__core;
+  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars,liquid,calibNew,calibAdd,calibDone,barsOf,stockBySym,indicators,VOTES,sma,uniOf,rulesFor,costOf};", ctx);
+const { S, analyze, summarize, allStocks, buildFactors, mergeNews, hasBars, liquid, calibNew, calibAdd, calibDone, barsOf, stockBySym, rulesFor, costOf } = ctx.__core;
 
 const uni = load("data/universe.json", { items: [] }), fund = load("data/fund.json", {}), macro = load("data/macro.json", {});
 const news = load("data/news.json", { items: [] }), man = load("manual.json", {}), quotes = load("data/quotes.json", null);
@@ -75,6 +75,7 @@ if (thin(C.stocks, oldCal.stocks || 0)) {
   cal = { ...oldCal, staleFrom: oldCal.updated, checked: cal.updated };
 }
 cal.fwd = forward();
+cal.fwdSys = forwardSys();
 fs.writeFileSync(path.join(DATA, "calib.json"), JSON.stringify(cal));
 console.log(`calib: ${C.stocks} หุ้น`);
 
@@ -102,10 +103,42 @@ function forward() {
   }
   return { days: days.length, first: days[0] || null, H: res };
 }
+// ผลจริงของสัญญาณตามระบบที่ออกไปแล้ว: ใช้คำสั่งตั้งซื้อ/TP/SL ที่บันทึกไว้วันนั้น แล้วเดินตามราคาที่เกิดขึ้นจริง (กติกาเดียวกับ simulate)
+function forwardSys() {
+  const sd = path.join(hdir, "snap"), seen = new Set(), res = {};
+  const days = fs.existsSync(sd) ? fs.readdirSync(sd).filter(f => f.endsWith(".json")).sort() : [];
+  for (const f of days) {
+    let snap; try { snap = JSON.parse(fs.readFileSync(path.join(sd, f), "utf8")); } catch { continue; }
+    for (const [sym, v] of Object.entries(snap)) {
+      const y = v[8]; if (!Array.isArray(y)) continue;
+      const [lp, tp, sl, , d] = y, key = sym + d; if (seen.has(key)) continue; seen.add(key);
+      const st = stockBySym(sym); if (!st) continue;
+      const P = rulesFor(st.m), B = barsOf(st), r = (res[st.m] ??= { sig: 0, filled: 0, closed: 0, win: 0, sum: 0, open: 0, tp: 0, sl: 0, time: 0, recent: [] });
+      r.sig++;
+      const i0 = B.findIndex(b => b.t > d); if (i0 < 0) { r.open++; continue; }
+      let e = -1; for (let k = i0; k < Math.min(B.length, i0 + (P.ld || 1)); k++) if (B[k].l <= lp) { e = k; break; }
+      if (e < 0) { if (i0 + (P.ld || 1) > B.length) r.open++; continue; }
+      r.filled++;
+      const en = Math.min(B[e].o, lp); let xp = null, how = "";
+      for (let j = e; j < Math.min(B.length, e + P.hold); j++) {
+        const b = B[j];
+        if (j > e && b.o <= sl) { xp = b.o; how = "sl"; break } if (b.l <= sl) { xp = sl; how = "sl"; break }
+        if (j === e) continue;
+        if (b.o >= tp) { xp = b.o; how = "tp"; break } if (b.h >= tp) { xp = tp; how = "tp"; break }
+      }
+      if (xp == null) { if (e + P.hold <= B.length) { xp = B[e + P.hold - 1].c; how = "time" } else { r.open++; continue } }
+      const c = costOf(st.m), ret = (xp * (1 - c) / (en * (1 + c)) - 1) * 100;
+      r.closed++; r.sum += ret; if (ret > 0) r.win++; r[how]++;
+      r.recent.push([sym, d, +ret.toFixed(2), how]);
+    }
+  }
+  for (const r of Object.values(res)) r.recent = r.recent.slice(-15);
+  return { first: days[0]?.slice(0, 10) || null, M: res };
+}
 // บันทึกสัญญาณและแผนของวันนี้ไว้ตรวจความแม่นยำภายหลัง (ไม่แก้ย้อนหลัง)
 const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10), sdir = path.join(hdir, "snap");
 fs.mkdirSync(sdir, { recursive: true });
-if (!thin(Object.keys(out).length, Object.keys(oldSum.s || {}).length)) fs.writeFileSync(path.join(sdir, day + ".json"), JSON.stringify(Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [v.o, v.p, ...v.pl.slice(0, 5), v.pb[0] ? 1 : 0]]))));
+if (!thin(Object.keys(out).length, Object.keys(oldSum.s || {}).length)) fs.writeFileSync(path.join(sdir, day + ".json"), JSON.stringify(Object.fromEntries(Object.entries(out).map(([k, v]) => [k, [v.o, v.p, ...v.pl.slice(0, 5), v.pb[0] ? 1 : 0, v.sy || 0]]))));
 const nOld = Object.keys(oldSum.s || {}).length, nNew = Object.keys(out).length;
 if (thin(nNew, nOld)) console.error(`summary: ได้แค่ ${nNew} หุ้น (เดิม ${nOld}) ใช้ผลเดิม`);
 else fs.writeFileSync(path.join(DATA, "summary.json"), JSON.stringify({ updated: Math.floor(Date.now() / 1000), s: out }));
