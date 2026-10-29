@@ -393,7 +393,7 @@ function vStock(sym){
   <nav class="stabs" aria-label="ส่วนของหน้าหุ้น">${TABS.map(([k,l])=>`<button data-tab="${k}" aria-current="${tab===k?"page":"false"}">${l}</button>`).join("")}</nav>`;
   return head+(tab==="chart"?tChart(R):tab==="bt"?tBt(R):tab==="fa"?tFa(R):tab==="news"?tNews(R):tab==="data"?tData(R):tab==="val"?tVal(R):tab==="risk"?tRisk(R):tab==="peers"?tPeers(R):tSum(R));
 }
-function posCard(R){const h=holds()[R.st.s];if(!(h?.q>0)||R.last==null)return "";const L=posLevels(R,h.c),p=R.last,k=cur(R.st.m);
+function posCard(R){const h=holds()[R.st.s];if(!(h?.q>0)||R.last==null||priceIssue(R.st,R.last,h.c))return "";const L=posLevels(R,h.c),p=R.last,k=cur(R.st.m);
   if(!L)return `<section class="card"><h2 style="margin-bottom:4px">หุ้นที่คุณถือ</h2><p class="muted" style="margin:0">ถือ ${h.q.toLocaleString()} หุ้น · ใส่ต้นทุนต่อหุ้นในหน้าโปรด (✎ พอร์ต) เพื่อดูกำไรขาดทุน เป้าขาย และจุดตัดขาดทุนที่คิดจากต้นทุนของคุณ</p></section>`;
   const g=(p/L.c-1)*100,st=planState(R);
   return `<section class="card"><div class="card-h"><h2>หุ้นที่คุณถือ</h2><span class="pill ${st[1]}">${st[0]}</span></div><div class="stat">
@@ -402,12 +402,12 @@ function posCard(R){const h=holds()[R.st.s];if(!(h?.q>0)||R.last==null)return ""
    <div><div class="k">เป้าขาย</div><div class="v num">${fmt(L.tp1)}</div><div class="s">เป้า 2: ${fmt(L.tp2)}</div></div>
    <div><div class="k">ตัดขาดทุน</div><div class="v num">${fmt(L.sl)}</div><div class="s">${pct((L.sl/L.c-1)*100,1)} จากทุน</div></div></div>
    <p class="foot" style="margin:8px 0 0">คิดจากต้นทุนของคุณด้วยระยะเดียวกับระบบที่ทดสอบย้อนหลัง (เป้าขาย +${rulesFor(R.st.m).tp} ATR, ตัดขาดทุน −${rulesFor(R.st.m).sl} ATR) ส่วน "ตั้งซื้อ/รอซื้อ" ด้านบนเป็นแผนสำหรับซื้อเพิ่ม</p></section>`}
-function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),W=R.why,c=cur(R.st.m),N=R.ns;
+function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),fromE=v=>pct((v/P.entry-1)*100,1),W=R.why,c=cur(R.st.m),N=R.ns;
   const tile=(k,v,d,cl)=>`<div class="kt ${cl}"><div class="k">${k}</div><div class="v num">${v}</div><div class="d">${d}</div></div>`;
   return `<section class="vh">
     <div class="vh-l"><div class="eyebrow" style="color:var(--deep-2)">สรุปในประโยคเดียว</div><div class="vword">${R.v[0]}</div><p class="vline">${esc(headline(R))}</p>${gauge(R.overall)}
       <div class="vmeta"><span>คะแนน <b class="num">${R.overall}</b>/100</span><span><span class="dot" style="--c:${R.conf.c==="var(--ink-2)"?"var(--deep-2)":R.conf.c}"></span>ความน่าเชื่อถือ ${R.conf.t}</span></div></div>
-    <div class="vh-r">${tile(P.limit?"ตั้งซื้อที่":"รอซื้อที่",P.limit?fmt(P.entry):`${fmt(P.lo)}–${fmt(P.hi)}`,P.limit?`${dist(P.entry)} · ใช้ได้วันทำการถัดไป`:dist(P.entry),"kt-en")}${tile("ขายทำกำไร",`${fmt(P.tp1)} / ${fmt(P.tp2)}`,`${dist(P.tp1)} / ${dist(P.tp2)}`,"kt-tp")}${tile("ตัดขาดทุน",fmt(P.sl),`${dist(P.sl)} · R:R ${P.rr2.toFixed(1)}`,"kt-sl")}
+    <div class="vh-r">${tile(P.limit?"ตั้งซื้อที่":"รอซื้อที่",P.limit?fmt(P.entry):`${fmt(P.lo)}–${fmt(P.hi)}`,P.limit?`${dist(P.entry)} · ใช้ได้วันทำการถัดไป`:dist(P.entry),"kt-en")}${tile("เป้าขาย (หลังซื้อได้)",`${fmt(P.tp1)} / ${fmt(P.tp2)}`,`${fromE(P.tp1)} / ${fromE(P.tp2)} จากราคาซื้อ`,"kt-tp")}${tile("ตัดขาดทุน (หลังซื้อได้)",fmt(P.sl),`${fromE(P.sl)} จากราคาซื้อ`,"kt-sl")}
       <details class="vcalc"><summary>ควรซื้อกี่หุ้น</summary><div class="calc" style="margin-top:8px"><label class="field">เงินลงทุน (${c})<input id="capIn" type="number" min="0" step="1000" value="${lsGet("cap")||100000}"></label><label class="field">ยอมเสี่ยงต่อไม้ (%)<input id="riskIn" type="number" min="0.1" max="10" step="0.1" value="${lsGet("risk")||1}"></label></div><dl id="calcOut" class="kv" style="margin-top:8px"></dl></details></div>
   </section>
   ${posCard(R)}
@@ -755,8 +755,9 @@ function applyTheme(m){const r=document.documentElement;if(m==="light"||m==="dar
 /* ---------- watchlist ---------- */
 // จุดขาย/ตัดขาดทุนของหุ้นที่ถืออยู่ คิดจากต้นทุนจริงของผู้ใช้ด้วยระยะ ATR เดียวกับระบบที่ทดสอบไว้ (ไม่ใช้จุดเข้าของแผนซื้อใหม่)
 function posLevels(R,c){const P=R.plan,m=R.st.m;if(!P||!(c>0))return null;const RP=rulesFor(m),atr=P.atr||((P.entry??(P.lo+P.hi)/2)-P.sl)/RP.sl;if(!(atr>0))return null;
-  const tp1=Math.max(rt(c+RP.tp*atr,m,"floor"),rt(c+tick(c),m,"ceil"));return{c,atr,sl:rt(c-RP.sl*atr,m,"floor"),tp1,tp2:Math.max(P.tp2||0,rt(c+2*RP.tp*atr,m,"floor"),tp1)}}
+  const tp1=Math.max(rt(c+RP.tp*atr,m,"floor"),rt(c+tick(c),m,"ceil"));return{c,atr,sl:Math.max(rt(c-RP.sl*atr,m,"floor"),tick(c)),tp1,tp2:Math.max(P.tp2||0,rt(c+2*RP.tp*atr,m,"floor"),tp1)}}
 function planState(R){const P=R.plan,p=R.last;if(!P||p==null)return["กำลังโหลด…","p-hold"];const h=holds()[R.st.s];
+  const bad=priceIssue(R.st,p,h?.c);if(bad)return["ราคาน่าจะผิด รอข้อมูลใหม่","p-sell"];
   if(h?.q>0){const L=posLevels(R,h.c);if(!L)return["ถืออยู่ · ใส่ต้นทุนเพื่อดูเป้าขาย","p-hold"];const g=pct((p/L.c-1)*100,1);
     if(p<=L.sl)return[`ต่ำกว่าจุดตัดขาดทุน ${g}`,"p-sell2"];if(p>=L.tp2)return[`ถึงเป้าขาย 2 · ${g}`,"p-buy2"];if(p>=L.tp1)return[`ถึงเป้าขาย · ${g}`,"p-buy"];return[`ถืออยู่ ${g}`,p>=L.c?"p-buy":"p-hold"]}
   // ยังไม่ได้ถือ: บอกแค่สถานะเทียบจุดซื้อ (เป้าขาย/ตัดขาดทุนใช้เมื่อซื้อแล้วเท่านั้น)
@@ -808,7 +809,7 @@ function vWatch(){
   ${list.length?riskCard(portfolio()):""}
   ${list.length?`<section class="card"><div class="wl">${list.map(R=>{const st=R.st,ps=planState(R),P=R.plan,x=h[st.s],ed=S.editHold===st.s;return `<div class="wr"><a class="wl-a" href="#s-${esc(st.s)}">${logo(st.s)}<span class="ms"><b>${esc(dsym(st.s))} <span class="pill sm ${R.v[1]}">${R.v[0]}</span></b><span class="muted">${esc(st.n)}${x?.q>0?` · ถือ ${x.q.toLocaleString()} หุ้น`:""}</span></span></a>
     <span class="wl-p"><span class="num pxv" data-q="${esc(st.s)}">${cur(st.m)}${fmt(R.last)}</span>${chgPill(R.chg,st.s)}</span>
-    <span class="wl-s"><span class="chips"><span class="pill ${ps[1]}">${ps[0]}</span>${R.pb?.now?`<span class="pill p-buy2">ซื้อตอนย่อ</span>`:""}</span><span class="muted num" style="font-size:12px">${(()=>{if(!P)return "กำลังโหลดแผน…";const L=x?.q>0&&posLevels(R,x.c);if(L)return `ทุน ${fmt(L.c)} · เป้าขาย ${fmt(L.tp1)} · ตัดขาดทุน ${fmt(L.sl)}`;return `${P.lo===P.hi?"ตั้งซื้อ "+fmt(P.lo):"โซนซื้อ "+fmt(P.lo)+"–"+fmt(P.hi)}${P.tone==="buy"?` · ถ้าได้ซื้อ เป้าขาย ${fmt(P.tp1)} · ตัดขาดทุน ${fmt(P.sl)}`:""}`})()}</span></span>
+    <span class="wl-s"><span class="chips"><span class="pill ${ps[1]}">${ps[0]}</span>${R.pb?.now?`<span class="pill p-buy2">ซื้อตอนย่อ</span>`:""}</span><span class="muted num" style="font-size:12px">${(()=>{if(!P)return "กำลังโหลดแผน…";const bad=priceIssue(st,R.last,x?.c);if(bad)return esc(bad);const L=x?.q>0&&posLevels(R,x.c);if(L)return `ทุน ${fmt(L.c)} · เป้าขาย ${fmt(L.tp1)} · ตัดขาดทุน ${fmt(L.sl)}`;return `${P.lo===P.hi?"ตั้งซื้อ "+fmt(P.lo):"โซนซื้อ "+fmt(P.lo)+"–"+fmt(P.hi)}${P.tone==="buy"?` · ถ้าได้ซื้อ เป้าขาย ${fmt(P.tp1)} · ตัดขาดทุน ${fmt(P.sl)}`:""}`})()}</span></span>
     <span class="wl-b"><button class="btn sm ghost" data-edithold="${esc(st.s)}" aria-expanded="${ed}">✎ พอร์ต</button><button class="icon-btn" data-unfav="${esc(st.s)}" aria-label="เอา ${esc(st.s)} ออกจากรายการโปรด" title="เอาออก">✕</button></span>
     ${ed?`<div class="hold-ed"><label class="field">จำนวนหุ้นที่ถือ<input id="hq-${esc(st.s)}" data-hold="${esc(st.s)}" data-k="q" type="number" min="0" step="${st.m==="TH"?100:1}" inputmode="decimal" value="${x?.q??""}" placeholder="เช่น ${st.m==="TH"?"1000":"10"}"></label><label class="field">ต้นทุนต่อหุ้น (${cur(st.m)}) ไม่บังคับ<input id="hc-${esc(st.s)}" data-hold="${esc(st.s)}" data-k="c" type="number" min="0" step="any" inputmode="decimal" value="${x?.c??""}" placeholder="${fmt(R.last)}"></label><label class="field">แจ้งเตือนถ้าราคาต่ำกว่า<input data-hold="${esc(st.s)}" data-k="lo" type="number" min="0" step="any" inputmode="decimal" value="${x?.lo??""}" placeholder="${fmt((posLevels(R,x?.c)||P).sl)}"></label><label class="field">แจ้งเตือนถ้าราคาสูงกว่า<input data-hold="${esc(st.s)}" data-k="hi" type="number" min="0" step="any" inputmode="decimal" value="${x?.hi??""}" placeholder="${fmt((posLevels(R,x?.c)||P).tp1)}"></label><button class="btn sm primary" data-edithold="">เสร็จ</button></div>`:""}</div>`}).join("")}</div></section>`
   :`<section class="card empty"><h2 style="margin-bottom:6px">ยังไม่มีหุ้นในรายการโปรด</h2><p style="margin:0 auto">แตะ ☆ ในหน้าหุ้น หรือเพิ่มจากคำแนะนำด้านล่าง</p></section>`}
