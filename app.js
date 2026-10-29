@@ -770,14 +770,16 @@ const lum=h=>{const m=/^#([0-9a-f]{6})$/i.exec(h||"");if(!m)return 1;const n=par
 const thbPerUsd=()=>S.macro?.usdthb?.value||null;
 // ตรวจราคาก่อนนำไปคิดมูลค่าพอร์ต: เทียบกับราคาที่คำนวณจากมูลค่าตลาด/จำนวนหุ้น และกับต้นทุนที่ผู้ใช้ใส่ ถ้าห่างผิดปกติถือว่าข้อมูลน่าสงสัย
 function implied(st){if(S._umK!==S.universe){S._umK=S.universe;S._umM=new Map((S.universe||[]).map(x=>[x.s+"|"+x.m,x]))}const u=S._umM.get(st.s+"|"+st.m);return u?.mc>0&&u?.sh>0?rt(u.mc/u.sh,st.m):null}
-function priceIssue(st,p,cost){if(!(p>0))return "ไม่มีราคา";
-  const imp=implied(st);if(imp&&(p/imp>3||imp/p>3))return `ราคา ${fmt(p)} ไม่สอดคล้องกับมูลค่าตลาด (ราว ${fmt(imp)})`;
+// ราคาอ้างอิง: ราคาปิดล่าสุดจากประวัติราคาของหุ้นตัวนั้น (หุ้นไทยเทียบมูลค่าตลาด/จำนวนหุ้นด้วย ส่วนหุ้นสหรัฐฯ หลายตัวมีหลายคลาส ค่านี้จึงเพี้ยนได้)
+const far=(a,b,k)=>a>0&&b>0&&(a/b>k||b/a>k);
+function priceIssue(st,p,cost){if(!(p>0))return "ไม่มีราคา";const imp=st.m==="TH"?implied(st):null,sp=S.summary?.[st.s]?.p;
+  if(far(p,imp,3))return `ราคา ${fmt(p)} ไม่สอดคล้องกับมูลค่าตลาด (ราว ${fmt(imp)})`;if(far(p,sp,2.5))return `ราคา ${fmt(p)} ห่างจากราคาปิดล่าสุด ${fmt(sp)} ผิดปกติ`;
   if(cost>0&&(p/cost>8||cost/p>8))return `ราคา ${fmt(p)} ห่างจากต้นทุน ${fmt(cost)} เกิน 8 เท่า`;return null}
 function portfolio(){const h=holds(),fx=thbPerUsd()||36,rows=[],bad=[],alt=[];
   for(const s of S.watch){const x=h[s],st=stockBySym(s);if(!st||st.m!==S.mkt||!x||!(x.q>0))continue;const R=info(st),k=st.m==="US"?fx:1;if(R.last==null)continue;
     let last=R.last,chg=R.chg;const why=priceIssue(st,last,x.c);
     // ราคาจากแหล่งหลักผิด (เช่นได้ราคาหุ้นสหรัฐฯ ชื่อย่อเดียวกัน): ใช้ราคาที่คำนวณจากมูลค่าตลาด/จำนวนหุ้นของบริษัทนี้แทน ถ้าตรงกับต้นทุนพอสมควร
-    if(why){const imp=implied(st);if(imp&&!priceIssue(st,imp,x.c)){last=imp;chg=0;alt.push(st)}else{bad.push([st,why]);continue}}
+    if(why){const fb=[S.summary?.[st.s]?.p,st.m==="TH"?implied(st):null].find(v=>v>0&&!priceIssue(st,v,x.c));if(fb){last=fb;chg=0;alt.push(st)}else{bad.push([st,why]);continue}}
     rows.push({st,R,q:x.q,c:x.c||null,val:x.q*last*k,cost:x.c>0?x.q*x.c*k:null,day:x.q*last*k*(chg/100)/(1+chg/100)})}
   const tot=rows.reduce((a,r)=>a+r.val,0),costT=rows.filter(r=>r.cost).reduce((a,r)=>a+r.cost,0),valC=rows.filter(r=>r.cost).reduce((a,r)=>a+r.val,0),day=rows.reduce((a,r)=>a+r.day,0);
   return{rows,bad,alt,tot,pl:costT?valC-costT:null,plPct:costT?(valC/costT-1)*100:null,day,dayPct:tot?day/(tot-day)*100:0,fx:thbPerUsd()}}
@@ -785,7 +787,7 @@ function donutSVG(parts,center){const r=70,C=2*Math.PI*r,tot=parts.reduce((a,p)=
   const segs=parts.map(p=>{const len=p.v/tot*C,gap=parts.length>1?Math.min(2.5,len*.3):0;const s=`<circle r="${r}" cx="90" cy="90" fill="none" stroke="${p.c}" stroke-width="22" stroke-dasharray="${Math.max(0,len-gap)} ${C}" stroke-dashoffset="${-off}" transform="rotate(-90 90 90)"><title>${esc(p.l)} ${(p.v/tot*100).toFixed(1)}%</title></circle>`;off+=len;return s}).join("");
   return `<svg viewBox="0 0 180 180" class="donut" role="img" aria-label="สัดส่วนพอร์ต"><circle r="${r}" cx="90" cy="90" fill="none" stroke="var(--surface-2)" stroke-width="22"/>${segs}<text x="90" y="84" text-anchor="middle" class="d1">${center[0]}</text><text x="90" y="104" text-anchor="middle" class="d2">${center[1]}</text></svg>`}
 function portCard(){const P=portfolio(),mode=S.pmode||"stock";
-  const badN=(P.alt.length?`<p class="foot" style="margin:8px 0 0">${P.alt.map(st=>esc(dsym(st.s))).join(", ")}: ใช้ราคาประมาณจากมูลค่าตลาด เพราะราคาล่าสุดที่ได้มาไม่ถูกต้อง กำลังดึงใหม่</p>`:"")+(P.bad.length?`<p class="foot warn" style="margin:8px 0 0">ไม่นับ ${P.bad.map(([st,w])=>`${esc(dsym(st.s))} (${esc(w)})`).join(", ")} เพราะราคาน่าจะผิด จะนับให้อัตโนมัติเมื่อข้อมูลถูกต้อง</p>`:"");
+  const badN=(P.alt.length?`<p class="foot" style="margin:8px 0 0">${P.alt.map(st=>esc(dsym(st.s))).join(", ")}: ใช้ราคาปิดล่าสุด (หรือราคาจากมูลค่าตลาด) แทน เพราะราคาล่าสุดที่ได้มาผิดปกติ</p>`:"")+(P.bad.length?`<p class="foot warn" style="margin:8px 0 0">ไม่นับ ${P.bad.map(([st,w])=>`${esc(dsym(st.s))} (${esc(w)})`).join(", ")} เพราะราคาน่าจะผิด จะนับให้อัตโนมัติเมื่อข้อมูลถูกต้อง</p>`:"");
   if(!P.rows.length)return `<section class="card port"><div class="port-empty"><div class="pe-ring" aria-hidden="true"></div><div><h2 class="ih">${ic("pie")}สัดส่วนพอร์ต</h2><p class="muted" style="margin:6px 0 0">กด <b>✎ พอร์ต</b> ที่หุ้นในรายการด้านล่าง แล้วใส่จำนวนหุ้นที่ถือ (และต้นทุนถ้ามี) แผนภูมิจะแสดงสัดส่วนเงินลงทุนให้ทันที</p>${badN}</div></div></section>`;
   const g={};for(const r of P.rows){const k=mode==="sector"?r.st.sec:mode==="market"?r.st.m:r.st.s;(g[k]??=[]).push(r)}
   const parts=Object.entries(g).map(([k,rs])=>{const v=rs.reduce((a,r)=>a+r.val,0);return{k,v,l:mode==="sector"?SECTORS[k].th:mode==="market"?(k==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"):dsym(k),c:mode==="sector"?SEC_COL[k]:mode==="market"?MKT_COL[k]:(lum(BRAND[dsym(k)]?.[0])<.75?BRAND[dsym(k)][0]:SEC_COL[stockBySym(k).sec])}}).sort((a,b)=>b.v-a.v);
@@ -921,6 +923,12 @@ function vMore(){const MI={accuracy:"target",data:"data",method:"book",factors:"
   <section class="card"><h2 style="margin-bottom:10px">ตั้งค่า</h2><div class="chips">${[["system","◐ ตามระบบ"],["light","☀ สว่าง"],["dark","☾ มืด"]].map(([k,l])=>`<button class="chip" data-theme-set="${k}" aria-pressed="${(lsGet("theme")||"system")===k}">${l}</button>`).join("")}</div>
   <p class="foot" style="margin:12px 0 0">ติดตั้งเป็นแอป: บน iPhone กด แชร์ → เพิ่มไปยังหน้าจอโฮม · บน Android/Chrome กด ⋮ → ติดตั้งแอป · รายการโปรด ไฟล์ราคา และงบที่กรอกเองบันทึกในเครื่องนี้เท่านั้น</p></section>`}
 /* ---------- data health ---------- */
+// ผลตรวจคุณภาพข้อมูลจากขั้นตอนดึงข้อมูล (scripts/sd/health.py)
+function healthCard(){if(S.health===undefined){S.health=null;J("data/health.json").then(h=>{S.health=h||false;if(route().v==="data")render()});return ""}
+  const H=S.health;if(!H)return "";const dot={ok:`<span class="up">●</span>`,warn:`<span class="warn">●</span>`,bad:`<span class="down">●</span>`};
+  return `<section class="card"><div class="card-h"><h2>ตรวจคุณภาพข้อมูลอัตโนมัติ</h2><span class="pill ${H.bad?"p-sell2":H.warn?"p-hold":"p-buy"}">${H.bad?`ผิดปกติ ${H.bad} ข้อ`:H.warn?`ควรดู ${H.warn} ข้อ`:"ผ่านทุกข้อ"}</span></div>
+   <ul class="misslist">${H.checks.map(c=>`<li>${dot[c.st]} <b>${esc(c.name)}</b> <span class="muted">${esc(c.detail)}</span></li>`).join("")}</ul>
+   <p class="foot" style="margin:8px 0 0">ตรวจทุกครั้งที่ดึงข้อมูล (ล่าสุด ${new Date(H.updated*1000).toLocaleString("th-TH")}) · ราคาที่ห่างจากราคาปิดของบริษัทนั้นผิดปกติจะถูกกันออกก่อนถึงหน้าเว็บ</p></section>`}
 function vData(){
   const want=allStocks().filter(s=>!s.uni||S.watch.includes(s.s));loadHist(want.map(s=>s.s));
   const M=S.metaLive,st=want.filter(hasBars),rows=st.map(s=>{const R=analyze(s),ps=M?.prices?.[s.s],q=S.quotes?.q?.[s.s],fr=R.fund;const n7=newsFor(s).filter(x=>ageDays(x.date)<=7).length;
@@ -929,6 +937,7 @@ function vData(){
   const staleF=S.factors.filter(f=>!f.live&&f.asOf&&ageDays(f.asOf)>30);
   const ok=v=>`<span class="up">●</span>`,bad=`<span class="down">●</span>`,mid=`<span class="warn">●</span>`;
   return `<div><h1>สถานะข้อมูล</h1><p class="muted" style="margin:4px 0 0">${M?`ดึงข้อมูลรอบล่าสุด ${new Date(M.updated*1000).toLocaleString("th-TH")} (${ago(M.updated)}) ใช้เวลา ${M.seconds} วินาที · งบการเงินอัปเดต ${M.fundUpdated?thDate(M.fundUpdated):"–"}`:"ยังไม่มีข้อมูลจริง เว็บกำลังใช้ข้อมูลจำลอง"}</p></div>
+  ${healthCard()}
   <section class="card"><h2 style="margin-bottom:8px">ข้อมูลที่ยังขาด</h2>${Object.keys(miss).length||staleF.length?`<ul class="misslist">${Object.entries(miss).sort((a,b)=>b[1].length-a[1].length).map(([k,v])=>`<li><b>${esc(k)}</b> <span class="muted">${v.length} หุ้น: ${v.slice(0,12).join(", ")}${v.length>12?" …":""}</span></li>`).join("")}${staleF.map(f=>`<li><b>${esc(f.short||f.name)}</b> <span class="muted">ข้อมูลเก่า ${Math.round(ageDays(f.asOf))} วัน (${thDate(f.asOf)}) ต้องอัปเดตด้วยมือใน manual.json</span></li>`).join("")}</ul>`:`<p class="up" style="margin:0">ข้อมูลครบทุกส่วน</p>`}
    <p class="foot" style="margin:10px 0 0">แหล่งข้อมูลฟรีไม่มี NPL ของธนาคาร, PMI จีน, ดอกเบี้ย ธปท. และ bond yield ไทยแบบอัตโนมัติ ส่วนนี้อยู่ใน manual.json ซึ่งแก้ไขได้ใน GitHub</p></section>
   <section class="card"><h2 style="margin-bottom:8px">รายหุ้น</h2><div class="tscroll"><table class="wide"><thead><tr><th>หุ้น</th><th>ราคา</th><th class="r">ประวัติ</th><th>ราคาล่าสุด</th><th>งบการเงิน</th><th class="r">ข่าว 7 วัน</th></tr></thead><tbody>

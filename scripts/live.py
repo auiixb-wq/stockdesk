@@ -3,7 +3,7 @@
 GitHub Actions แบบตั้งเวลา (cron) มักล่าช้าหรือข้ามรอบ งานนี้จึงเปิดค้างไว้ทั้งช่วงตลาดแทน
 ทุก ~30 นาทีจะรันรอบใหญ่ (ราคาย้อนหลัง ข่าว ปัจจัย) ด้วย update.py แยกอีก process
 """
-import datetime as dt, json, os, subprocess, sys, time
+import datetime as dt, os, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import update  # noqa: E402
