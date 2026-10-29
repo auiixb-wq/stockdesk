@@ -899,7 +899,7 @@ function advisorCard(){const P=portfolio(),rows=P.rows.length?P.rows.map(r=>[r.s
      ${a.wrong.length?`<p class="foot" style="margin:8px 0 0"><b>มุมมองนี้ผิดถ้า:</b> ${a.wrong.map(esc).join(" · ")}</p>`:""}<a class="btn ghost sm" style="margin-top:8px" href="#s-${esc(a.st.s)}">ดูวิเคราะห์เต็ม →</a></details>`).join("")}</div></section>`}
 /* ---------- signals ---------- */
 // แผนพอร์ตตามระบบ: ถือพร้อมกันไม่เกิน 5 ตัว ตัวละ 1/5 ของเงินพอร์ต · เลือกสัญญาณที่หุ้นแข็งกว่าตลาดมากสุดก่อน (เหมือนการทดสอบพอร์ต)
-const SLOTS=5,PORT_BT={TH:"ไทย 5 ปี: เงิน 100,000 → 194,132 (17.5%/ปี) · ลดลงลึกสุด 5.9%",US:"สหรัฐฯ 5 ปี: เงิน 100,000 → 486,266 (46.3%/ปี) · ลดลงลึกสุด 26.9%"};
+const SLOTS=5,PORT_BT={TH:"ไทย ~4 ปี: เงิน 100,000 → 308,140 (31.4%/ปี) · ลดลงลึกสุด 9.8%",US:"สหรัฐฯ ~4 ปี: เงิน 100,000 → 953,658 (72.1%/ปี) · ลดลงลึกสุด 19.7%"};
 function vSignals(){const mk=S.mkt==="US"?"US":"TH",cap=+(lsGet("cap"+mk)||(mk==="TH"?100000:10000)),h=holds(),lot=mk==="TH"?100:1,P=rulesFor(mk),bm=S.calibData?.baseM?.[mk];
   const held=Object.keys(h).filter(s=>h[s]?.q>0&&stockBySym(s)?.m===mk);
   const sig=allStocks().filter(st=>st.m===mk&&liquid(st)).map(info).filter(R=>R.sys&&!held.includes(R.st.s)).sort((a,b)=>(b.rs?.pctl??0)-(a.rs?.pctl??0));
@@ -911,7 +911,7 @@ function vSignals(){const mk=S.mkt==="US"?"US":"TH",cap=+(lsGet("cap"+mk)||(mk==
   <div class="chips"><button class="chip" data-mkt="TH" aria-pressed="${mk==="TH"}">หุ้นไทย</button><button class="chip" data-mkt="US" aria-pressed="${mk==="US"}">หุ้นสหรัฐฯ</button></div>
   <section class="card plk"><label class="field">เงินพอร์ต${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} (${k})<input data-cap="${mk}" type="number" min="0" step="${mk==="TH"?10000:1000}" value="${cap}" inputmode="decimal"></label>
    <div><span class="muted">ตัวละ</span><b class="num">${k}${Math.round(per).toLocaleString()}</b></div><div><span class="muted">ถืออยู่</span><b class="num">${held.length}/${SLOTS}</b></div><div><span class="muted">ช่องว่าง</span><b class="num">${free}</b></div><div><span class="muted">สัญญาณวันนี้</span><b class="num">${sig.length}</b></div></section>
-  <section class="card" style="padding:6px 14px">${sig.length?sig.slice(0,Math.max(free,0)+5).map(row).join(""):`<p class="muted" style="padding:12px 0;margin:0">วันนี้ยังไม่มีสัญญาณใหม่ ระบบจะแจ้งเมื่อคะแนนของหุ้นแนวโน้มดีกลับขึ้นข้าม 40</p>`}</section>
+  <section class="card" style="padding:6px 14px">${sig.length?sig.slice(0,Math.max(free,0)+5).map(row).join(""):`<p class="muted" style="padding:12px 0;margin:0">วันนี้ยังไม่มีสัญญาณใหม่ ระบบจะแจ้งเมื่อคะแนนข้าม 40 หรือหุ้นแนวโน้มดีย่อแรง (RSI2 < 20)</p>`}</section>
   <section class="card"><h2 style="margin-bottom:6px">วิธีใช้</h2><ol class="steps" style="margin:0">
    <li>ส่งคำสั่ง <b>ตั้งซื้อ (limit)</b> ตามราคาและจำนวนในรายการ ${P.ld>1?`คำสั่งค้างได้ ${P.ld} วันทำการ`:"ใช้ได้วันทำการถัดไปวันเดียว"} ถ้าไม่ได้ของให้ยกเลิก</li>
    <li>ได้ของแล้ว ตั้ง <b>ขายกำไร</b> และ <b>ตัดขาดทุน</b> ตามราคาในรายการทันที ถ้าครบ ${P.hold} วันทำการยังไม่ถึงทั้งคู่ ขายที่ราคาปิด</li>

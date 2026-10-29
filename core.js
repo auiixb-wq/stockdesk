@@ -46,15 +46,19 @@ const RULES={thr:40,split:.7,warm:60,wk:true,rs:70,adx:20,preset:"win"};
 // · วันที่ได้ของจากคำสั่งตั้งซื้อไม่นับขายกำไร เพราะไม่รู้ลำดับราคาสูง/ต่ำในวันนั้น)
 // lim = ตั้งซื้อต่ำกว่าราคาปิดวันที่เกิดสัญญาณกี่ ATR · ld = คำสั่งตั้งซื้อค้างได้กี่วันทำการ
 // เน้นอัตราชนะ (research/smc.js รอบ 3, 29 ต.ค. 69 — ลอง SMC/RSI2/IBS แล้วไม่ดีกว่า ที่ได้ผลคือ TP กว้างขึ้นและจุดเข้าลึกขึ้น)
+// รอบ 5 (เพิ่มไม้): สัญญาณ = ข้าม 40 หรือ คะแนน ≥ 40 + RSI(2) < 20 · พอร์ต 5 ตัว: ไทย 17.5 → 31.4%/ปี (ลึกสุด 9.8%), สหรัฐฯ 46.3 → 72.1%/ปี (ลึกสุด 19.7%)
 //   ไทย:    ADX > 25 · TP 1 ATR ถือ 20 วัน · ชนะ 83.1% → 81.1% (ปีต่ำสุด 79%) · กำไร +1.36% → +1.35%/ไม้ (เดิม +1.00%)
 //   สหรัฐฯ: แข็งกว่าตลาด 80% · แกว่ง ATR ≥ 2.5% ของราคา · ตั้งซื้อ −1.5 ATR ค้าง 3 วัน · TP 0.8 ATR ถือ 20 วัน
 //           ชนะทุกปี 80–90% · 5 ปี +1.47%/ไม้ (เดิม +0.83%) · พอร์ต 10 ตัว 51%/ปี ลึกสุด 14% (รอบ 4: กรองแกว่งแรงกว่านี้ไม้น้อยจนพอร์ตแย่ลง)
 // เน้นกำไรต่อไม้ สหรัฐฯ: TP 3 / SL 3 ATR · ชนะ 56–61% · กำไร +2.06% → +1.25%/ไม้ (ไทยไม่มีแบบที่ดีกว่าค่าเน้นอัตราชนะ จึงใช้ค่าเดียวกัน)
-const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,hold:20,adx:25,rs:70},US:{lim:1.5,ld:3,tp:.8,sl:5,hold:20,adx:20,rs:80,vol:2.5}},
+const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,hold:20,adx:25,rs:70,dip:20},US:{lim:1.5,ld:3,tp:.8,sl:5,hold:20,adx:20,rs:80,vol:2.5,dip:20}},
                  edge:{TH:{lim:1,ld:1,tp:1,sl:5,hold:20,adx:25,rs:70},US:{lim:1,ld:1,tp:3,sl:3,hold:30,adx:20,rs:70}}};
 const rulesFor=m=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH)});
 const PRESETS={win:{preset:"win"},edge:{preset:"edge"}};const RULES0={...RULES};
 const volOK=(I,i,P)=>P.vol==null||(I.atr[i]||0)/I.c[i]*100>=P.vol;
+// จุดเกิดสัญญาณ: คะแนนเพิ่งข้าม thr หรือ (คะแนน ≥ thr และย่อสั้นแรง RSI(2) < dip) — รอบ 5: ได้ไม้ ~1.5–2 เท่า ชนะและกำไรต่อไม้เท่าเดิม
+const r2Of=I=>I.r2??=rsi(I.c,2);
+const sysTrig=(a,I,i,P)=>a[i]>=P.thr&&(a[i-1]<P.thr||(P.dip!=null&&(r2Of(I)[i]??99)<P.dip));
 const sigOK=(I,i,rsA,P)=>(P.wk===false||I.wk[i]>=0)&&rsPass(rsA,i)&&(P.adx==null||(I.adx[i]??0)>P.adx)&&volOK(I,i,P);
 
 /* ---------- state ---------- */
@@ -302,12 +306,12 @@ function calibAdd(C,R){if(R.sample)return;C.stocks++;C.real++;const H=C.H,c=R.I.
   for(let i=RULES.warm;i<n-H;i++){const f=(c[i+H]/c[i]-1)*100,s=arr[i],k=i<R.split?"is":"oos";const b=C.A[k].find(b=>s>=b.lo&&s<b.hi);if(b){b.n++;b.sum+=f;if(f>0)b.pos++}
     if(i%3===0){padd(C.all[k],s,f);R.V[i].forEach((v,j)=>{if(v!=null)padd(C.ic[j][k],v,f)})}}
   const tr=t=>({ret:t.ret,R:t.R,i:t.i,x:t.x}),RP=rulesFor(R.st.m),rsA=RP.rs!=null?rsSeries(R.st,B,RP.rs):null,mk=R.st.m;
-  for(const G of C.grid){if(G.g.m&&G.g.m!==mk)continue;const g=G.g,P={...RP,...g},a=arr,sig=i=>a[i-1]<g.thr&&a[i]>=g.thr&&sigOK(I,i,rsA,P);
+  for(const G of C.grid){if(G.g.m&&G.g.m!==mk)continue;const g=G.g,P={...RP,...g},a=arr,sig=i=>sysTrig(a,I,i,P)&&sigOK(I,i,rsA,P);
     for(const t of simulate(B,I,sig,0,R.split,R.st.m,P))G.is.push(tr(t));for(const t of simulate(B,I,sig,R.split,B.length,R.st.m,P))G.oos.push(tr(t))}
   for(const t of R.pb.trades)(t.i<R.split?C.pb.is:C.pb.oos).push(tr(t));
   // ตัดทีละตัว: ถ้าไม่มีอินดิเคเตอร์ตัวนี้ ระบบตามคะแนนได้กำไรต่อไม้ต่างไปเท่าไร (ใช้ตัดสินว่าจะเก็บตัวไหน)
   const w0=VOTES.map(v=>v.w),score=w=>R.V.map(row=>{if(!row)return 0;let s=0,ws=0;row.forEach((x,k)=>{if(x!=null&&w[k]){s+=w[k]*x;ws+=w[k]*2}});return ws?s/ws*100:0});
-  const run=(a,into)=>{const sig=i=>a[i-1]<RP.thr&&a[i]>=RP.thr&&sigOK(I,i,rsA,RP);for(const t of simulate(B,I,sig,0,R.split,mk,RP))into.is.push(tr(t));for(const t of simulate(B,I,sig,R.split,B.length,mk,RP))into.oos.push(tr(t))};
+  const run=(a,into)=>{const sig=i=>sysTrig(a,I,i,RP)&&sigOK(I,i,rsA,RP);for(const t of simulate(B,I,sig,0,R.split,mk,RP))into.is.push(tr(t));for(const t of simulate(B,I,sig,R.split,B.length,mk,RP))into.oos.push(tr(t))};
   run(score(w0),C.base);C.baseM[mk]??={is:[],oos:[]};run(score(w0),C.baseM[mk]);VOTES.forEach((_,j)=>run(score(w0.map((w,k)=>k===j?0:w)),C.loo[j]))}
 function calibDone(C){const strip=s=>s.n?{n:s.n,win:s.win,avg:s.avg,exp:s.exp,pf:s.pf}:{n:0};
   const res=C.grid.map(G=>({g:G.g,is:strip(stats(G.is)),oos:strip(stats(G.oos))}));
@@ -341,7 +345,7 @@ function analyze(st){
   const sc=w=>V.map(row=>{let s=0,ws=0;row.forEach((x,k)=>{if(x!=null){s+=w[k]*x;ws+=w[k]*2}});return ws?s/ws*100:0});
   const rsA=rulesFor(st.m).rs!=null?rsSeries(st,B,rulesFor(st.m).rs):null,rs70=rsSeries(st,B,70);
   const RP=rulesFor(st.m);
-  const run=(arr)=>{const sig=i=>arr[i-1]<RP.thr&&arr[i]>=RP.thr&&sigOK(I,i,rsA,RP);const a=simulate(B,I,sig,0,split,st.m,RP),b=simulate(B,I,sig,split,B.length,st.m,RP);return{is:stats(a),oos:stats(b),trades:a.concat(b),arr}};
+  const run=(arr)=>{const sig=i=>sysTrig(arr,I,i,RP)&&sigOK(I,i,rsA,RP);const a=simulate(B,I,sig,0,split,st.m,RP),b=simulate(B,I,sig,split,B.length,st.m,RP);return{is:stats(a),oos:stats(b),trades:a.concat(b),arr}};
   const std=run(sc(wStd)),ad=run(sc(wAd));
   const useAd=ad.is.n>=3&&(ad.is.exp??-9)>(std.is.exp??-9);
   const model={...(useAd?ad:std),name:useAd?"ปรับน้ำหนักตามหุ้นนี้":"น้ำหนักมาตรฐาน",w:useAd?wAd:wStd,other:useAd?std:ad,adaptive:useAd};
@@ -349,7 +353,7 @@ function analyze(st){
   const tech={score:Math.round(model.arr[n]),rows,agree:rows.filter(r=>r.v>0).length,against:rows.filter(r=>r.v<0).length};
   const plan=makePlan(st,I,tech.score,rsPass(rsA,n));
   // สัญญาณตามระบบที่ทดสอบไว้ (เหมือน simulate): คะแนนเพิ่งข้าม thr + ตัวกรองครบ แล้วตั้งซื้อ ค้างได้ ld วัน ถ้ายังไม่ได้ของและยังไม่หมดอายุ = ส่งคำสั่งได้
-  const sys=(()=>{const a=model.arr,ld=RP.ld||1;for(let j=n;j>=Math.max(1,n-ld+1);j--){if(!(a[j-1]<RP.thr&&a[j]>=RP.thr&&sigOK(I,j,rsA,RP)))continue;
+  const sys=(()=>{const a=model.arr,ld=RP.ld||1;for(let j=n;j>=Math.max(1,n-ld+1);j--){if(!(sysTrig(a,I,j,RP)&&sigOK(I,j,rsA,RP)))continue;
     const at=I.atr[j];if(!at)return null;const lp=B[j].c-RP.lim*at;for(let d=j+1;d<=n;d++)if(B[d].l<=lp)return null;
     return{d:B[j].t,lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:rt(lp-RP.sl*at,st.m,"floor"),left:ld-(n-j)}}return null})();
   const f=fundOf(st),fund=fundScore(f),ns=newsScore(st),fs=factorScore(st),rs=relStrength(st);

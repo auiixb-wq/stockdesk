@@ -74,6 +74,22 @@ const BASEF = (rs, adx) => (x, i) => x.sc[i - 1] < 40 && x.sc[i] >= 40 && x.I.wk
 for (const [nm, k, d] of [["B1_1", 1, 1], ["B1.5_3", 1.5, 3]]) for (const v of [2, 2.5, 3, 4]) for (const [fn, rs, adx] of [["", MK === "TH" ? 70 : 80, MK === "TH" ? 25 : 20], ["L", 60, 20]])
   STRAT[`${nm}${fn}_v${v}`] = (x, i) => BASEF(rs, adx)(x, i) && vol(x, i) >= v ? { kind: "limit", px: x.B[i].c - k * atr(x, i), days: d } : null;
 for (const [nm, k, d] of [["B1_1", 1, 1], ["B1.5_3", 1.5, 3]]) STRAT[`${nm}L`] = (x, i) => BASEF(60, 20)(x, i) ? { kind: "limit", px: x.B[i].c - k * atr(x, i), days: d } : null;
+// รอบ 5: เพิ่มจำนวนไม้โดยคงคุณภาพ — ทริกเกอร์แบบ "ย่อในขาขึ้น" แทน/เสริมการข้าม 40
+const FILT = (x, i) => x.I.wk[i] >= 0 && x.rs[i] >= (MK === "TH" ? 70 : 80) && x.I.adx[i] > (MK === "TH" ? 25 : 20) && (MK === "TH" || vol(x, i) >= 2.5);
+const [LK, LD] = MK === "TH" ? [1, 1] : [1.5, 3];
+const LIM = (x, i) => ({ kind: "limit", px: x.B[i].c - LK * atr(x, i), days: LD });
+const TRIG = {
+  X40: (x, i) => x.sc[i - 1] < 40 && x.sc[i] >= 40,
+  X30: (x, i) => x.sc[i - 1] < 30 && x.sc[i] >= 30,
+  X50: (x, i) => x.sc[i - 1] < 50 && x.sc[i] >= 50,
+  P1: (x, i) => x.sc[i] >= 40 && x.B[i].c < x.B[i - 1].c,
+  P2: (x, i) => x.sc[i] >= 40 && x.I.e20[i] != null && x.B[i].c < x.I.e20[i],
+  P3: (x, i) => x.sc[i] >= 40 && x.r2[i] < 20,
+  P3b: (x, i) => x.sc[i] >= 40 && x.r2[i] < 10,
+};
+for (const [k, f] of Object.entries(TRIG)) STRAT["T_" + k] = (x, i) => FILT(x, i) && f(x, i) ? LIM(x, i) : null;
+STRAT.T_U2 = (x, i) => FILT(x, i) && (TRIG.X40(x, i) || TRIG.P2(x, i)) ? LIM(x, i) : null;
+STRAT.T_U3 = (x, i) => FILT(x, i) && (TRIG.X40(x, i) || TRIG.P3(x, i)) ? LIM(x, i) : null;
 // ---- จุดออกที่ลอง ----
 const EXITS = [];
 for (const tp of [.6, .8, 1, 1.5, 2, "sh", "s5"]) for (const sl of [2, 3, 5, "st"]) for (const hold of [10, 20]) EXITS.push({ tp, sl, hold });
