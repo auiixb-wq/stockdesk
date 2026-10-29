@@ -521,3 +521,5 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .nbar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
 .nbar input,.nbar select{font:inherit;font-size:14px;padding:9px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);min-width:0}
 .nsrc summary{cursor:pointer;font-weight:600;font-size:14px}
+.sysg{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:8px}
+.sysm{display:grid;gap:4px}.sysm .pill{justify-self:start}.sysm .num{font-size:17px}
