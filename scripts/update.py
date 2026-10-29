@@ -17,8 +17,47 @@ NOW = dt.datetime.now(dt.timezone.utc)
 ERRORS = []
 
 
+def plain(sym):
+    """ชื่อย่อที่ใช้ในตลาด (ตัดส่วนท้ายที่ระบบเติมเมื่อชื่อซ้ำกันระหว่างตลาดไทยกับสหรัฐฯ)"""
+    return re.sub(r"\.(US|BK)$", "", sym)
+
+
 def ysym(s):
-    return s["s"] + ".BK" if s["m"] == "TH" else s["s"].replace(".", "-")
+    return plain(s["s"]) + ".BK" if s["m"] == "TH" else plain(s["s"]).replace(".", "-")
+
+
+def uniq_keys(items):
+    """ชื่อย่อซ้ำกันระหว่างตลาด (เช่น TEAM = Team Precision กับ Atlassian) ทำให้ราคา กราฟ และงบของสองบริษัทเขียนทับกัน
+    ฝั่งหนึ่งใช้ชื่อเดิม (หุ้นไทย หรือหุ้นในรายการหลัก) อีกฝั่งเติม .US/.BK เป็นรหัสในระบบ ส่วนหน้าเว็บแสดงชื่อเดิม"""
+    pref = {x["s"]: x["m"] for x in CFG["stocks"]}
+    mk = {}
+    for i in items:
+        mk.setdefault(plain(i["s"]), set()).add(i["m"])
+    clash = {p for p, ms in mk.items() if len(ms) > 1}
+    for i in items:
+        p = plain(i["s"])
+        if p in clash:
+            i["s"] = p if i["m"] == pref.get(p, "TH") else p + (".US" if i["m"] == "US" else ".BK")
+    return clash
+
+
+def clean_clashes(clash):
+    """ครั้งเดียว: ลบไฟล์ราคา/งบเดิมของชื่อย่อที่ซ้ำ เพราะอาจเป็นข้อมูลของอีกบริษัทที่เขียนทับไว้ แล้วให้ดึงใหม่"""
+    d0 = os.path.join(DATA, "hist")
+    mark = os.path.join(d0, ".keys_v1")
+    if not clash or os.path.exists(mark):
+        return
+    os.makedirs(os.path.join(d0, "fin"), exist_ok=True)
+    for p in clash:
+        for f in (os.path.join(d0, p + ".json"), os.path.join(d0, "fin", p + ".json")):
+            if os.path.exists(f):
+                os.remove(f)
+    fund = load("fund.json", {})
+    if fund:
+        save("fund.json", {k: v for k, v in fund.items() if k not in clash})
+    open(mark, "w").write(",".join(sorted(clash)))
+    open(os.path.join(DATA, ".hist_new"), "w").close()
+    ERRORS.append(f"แยกชื่อย่อซ้ำ {len(clash)} ตัว ดึงข้อมูลใหม่")
 
 
 def load(name, default):
@@ -191,7 +230,8 @@ def quote_of(x):
 
 def cnbc_th_quotes(uni):
     """ราคาหุ้นไทยจาก CNBC (ล่าช้าราว 15 นาที เร็วกว่า Yahoo ที่ล่าช้าราว 30 นาที) ขอทีละ 40 ตัว"""
-    syms = [i["s"] for i in uni["items"] if i["m"] == "TH" and re.fullmatch(r"[A-Z0-9]+", i["s"])]
+    keys = {plain(i["s"]): i["s"] for i in uni["items"] if i["m"] == "TH" and re.fullmatch(r"[A-Z0-9]+", plain(i["s"]))}
+    syms = list(keys)
     got = {}
 
     def one(k):
@@ -214,7 +254,7 @@ def cnbc_th_quotes(uni):
     for rows in batches:
         for q in rows:
             try:
-                s = str(q["symbol"]).removesuffix("-TH")
+                s = keys.get(str(q["symbol"]).removesuffix("-TH"), str(q["symbol"]).removesuffix("-TH"))
                 p = float(str(q["last"]).replace(",", ""))
                 prev = float(str(q.get("previous_day_closing") or "0").replace(",", "")) or None
                 ts = int(dt.datetime.strptime(q["last_time"], "%Y-%m-%dT%H:%M:%S.%f%z").timestamp())
@@ -233,6 +273,10 @@ def fetch_universe():
     old = load("universe.json", {"items": []})
     full = os.environ.get("FULL") == "1" or not old["items"]
     if not full:
+        before = [i["s"] for i in old["items"]]
+        clean_clashes(uniq_keys(old["items"]))
+        if before != [i["s"] for i in old["items"]]:
+            save("universe.json", old)
         return old
     items, seen = [], set()
     for m in ("TH", "US"):
@@ -251,11 +295,12 @@ def fetch_universe():
             except Exception as e:
                 ERRORS.append(f"universe {m} {ysec}: {str(e)[:80]}")
     for s in CFG["stocks"]:  # หุ้นในรายการหลักต้องมีเสมอ
-        if not any(i["s"] == s["s"] for i in items):
+        if not any(i["s"] == s["s"] and i["m"] == s["m"] for i in items):
             items.append({"s": s["s"], "y": ysym(s), "n": s["n"], "m": s["m"], "sec": s["sec"]})
     if len(items) < 50 and old["items"]:
         ERRORS.append(f"universe: ได้แค่ {len(items)} ตัว ใช้รายชื่อเดิม")
         return old
+    clean_clashes(uniq_keys(items))
     out = {"updated": int(time.time()), "items": items}
     save("universe.json", out)
     return out
@@ -327,6 +372,23 @@ BS = {"ta": ["Total Assets"], "tl": ["Total Liabilities Net Minority Interest", 
 CF = {"ocf": ["Operating Cash Flow"], "capex": ["Capital Expenditure"], "fcf": ["Free Cash Flow"]}
 
 
+_FX = {}
+
+
+def fx_rate(frm, to):
+    """อัตราแลกเปลี่ยนล่าสุด 1 frm = ? to"""
+    k = frm + to
+    if k not in _FX:
+        r = None
+        try:
+            c = yf.Ticker(f"{frm}{to}=X").history(period="10d")["Close"].dropna()
+            r = float(c.iloc[-1]) if len(c) else None
+        except Exception as e:
+            ERRORS.append(f"fx {k}: {str(e)[:60]}")
+        _FX[k] = r if r and r > 0 else None
+    return _FX[k]
+
+
 def stmt(frames, maps, keep):
     """รวมงบหลายชุดเป็นตาราง {d:[วันสิ้นงวด], key:[ค่า]} เรียงจากเก่าไปใหม่"""
     dates = sorted({c for f in frames if f is not None and not f.empty for c in f.columns})[-keep:]
@@ -351,9 +413,13 @@ def fetch_fin(uni):
     limit = int(os.environ.get("FIN_PER_RUN", "500"))
     week = (NOW - dt.timedelta(days=7)).strftime("%Y-%m-%d")
 
+    fxneed = {i["s"] for i in uni["items"] if i.get("fcur") and i.get("cur") and i["fcur"] != i["cur"]}
+
     def age(sym):
         try:
             j = json.load(open(os.path.join(d0, sym + ".json")))
+            if sym in fxneed and not j.get("fx"):
+                return ""  # งบเดิมยังเป็นสกุลเงินที่บริษัทรายงาน ยังไม่แปลงเป็นสกุลเงินที่หุ้นซื้อขาย
             return j.get("at", "") if j.get("v") == 2 else ""  # ไฟล์รุ่นเก่ายังไม่มีลูกหนี้/สินค้าคงเหลือ/EBITDA ให้ดึงใหม่
         except Exception:
             return ""
@@ -375,8 +441,22 @@ def fetch_fin(uni):
             a = stmt([t.income_stmt, t.balance_sheet, t.cashflow], [FIN, BS, CF], 5)
             if not q["d"] and not a["d"]:
                 continue
+            extra = {}
+            fc, pc = i.get("fcur"), i.get("cur")
+            if fc and pc and fc != pc:  # เช่น TSM รายงานเป็นดอลลาร์ไต้หวันแต่ซื้อขายเป็นดอลลาร์สหรัฐ
+                r = fx_rate(fc, pc)
+                if not r:
+                    continue  # ไม่รู้อัตราแลกเปลี่ยน อย่าบันทึกตัวเลขที่ผิดหน่วย
+                for tb in (q, a):
+                    for k, v in tb.items():
+                        if k != "d":
+                            tb[k] = [None if x is None else num(x * r, 4) for x in v]
+                if pc == "USD" and i["m"] == "US":  # ADR: 1 หน่วยอาจเท่ากับหลายหุ้นสามัญ EPS จากงบจึงเทียบกับราคาไม่ได้
+                    for tb in (q, a):
+                        tb["eps"] = [None] * len(tb.get("d", []))
+                extra = {"fx": r, "fcur": fc, "cur": pc}
             with open(os.path.join(d0, i["s"] + ".json"), "w") as f:
-                json.dump({"v": 2, "at": NOW.strftime("%Y-%m-%d"), "q": q, "a": a}, f, separators=(",", ":"))
+                json.dump({"v": 2, "at": NOW.strftime("%Y-%m-%d"), "q": q, "a": a, **extra}, f, separators=(",", ":"))
             ok += 1
             time.sleep(0.15)
         except Exception as e:
@@ -731,8 +811,9 @@ class Tagger:
     def __init__(self, uni):
         th = [x for x in uni if x["m"] == "TH"]
         us = sorted([x for x in uni if x["m"] == "US"], key=lambda x: -(x.get("mc") or 0))
-        self.th_syms = {x["s"] for x in th}
-        self.us_syms = {x["s"] for x in us}
+        self.key = {"TH": {plain(x["s"]): x["s"] for x in th}, "US": {plain(x["s"]): x["s"] for x in us}}
+        self.th_syms = set(self.key["TH"])
+        self.us_syms = set(self.key["US"])
         first = {}
         for x in us[:400]:
             w = (x.get("n") or "").split()
@@ -762,6 +843,7 @@ class Tagger:
             self.en[m] = (re.compile(r"(?<![\w&])(" + "|".join(re.escape(k) for k in ks) + r")(?![\w&])"), d) if ks else (None, d)
         self.us_name = {v: k for k, v in sorted(names["US"].items(), key=lambda kv: len(kv[0]))}
         self.th_alias = sorted([(k, v) for k, v in TH_ALIAS.items() if v and v in self.th_syms], key=lambda kv: -len(kv[0]))
+        self.us_name = {self.key["US"].get(plain(k), k): n for k, n in self.us_name.items()}
         self.sym_re = re.compile(r"(?<![A-Za-z0-9&.])([A-Z][A-Z0-9&]{0,9}(?:-[A-Z])?)(?![A-Za-z0-9&])")
 
     def protect(self, text, market):
@@ -776,8 +858,12 @@ class Tagger:
 
     def tag(self, text, market):
         found = []
-        pool = self.th_syms if market == "TH" else self.us_syms
-        add = lambda s: s in pool and s not in found and found.append(s)
+        km = self.key["TH" if market == "TH" else "US"]
+
+        def add(s):
+            s = km.get(plain(s or ""), s if s in km.values() else None)
+            if s and s not in found:
+                found.append(s)
         thai = bool(re.search(r"[\u0e00-\u0e7f]", text))
         for m in re.finditer(r"\((?:NYSE|NASDAQ|Nasdaq|NYSE American|AMEX|SET|mai)\s*:\s*([A-Z.\-]{1,6})\)|\$([A-Z]{1,5})\b|หุ้น\s?([A-Z][A-Z0-9&]{1,9})", text):
             s = (m.group(1) or m.group(2) or m.group(3)).replace(".", "-")
@@ -888,13 +974,12 @@ def fetch_news():
     t0 = time.time()
     uni = load("universe.json", {"items": []})["items"] or [{"s": s["s"], "n": s.get("n", s["s"]), "m": s["m"], "sec": s["sec"]} for s in CFG["stocks"]]
     for s in CFG["stocks"]:
-        if not any(u["s"] == s["s"] for u in uni):
+        if not any(u["s"] == s["s"] and u["m"] == s["m"] for u in uni):
             uni.append({"s": s["s"], "n": s.get("n", s["s"]), "m": s["m"], "sec": s["sec"], "mc": 1e15})
     TG = Tagger(uni)
     sec_of = {(x["m"], x["s"]): x.get("sec") for x in uni}
     th = [x["s"] for x in sorted([x for x in uni if x["m"] == "TH"], key=lambda x: -(x.get("mc") or 0))]
     us = [x["s"] for x in sorted([x for x in uni if x["m"] == "US"], key=lambda x: -(x.get("mc") or 0))]
-    curated = [s["s"] for s in CFG["stocks"]]
     slot = int(time.time() // 1800)  # หมุนเวียนรายชื่อหุ้นที่ค้นข่าวทุกครึ่งชั่วโมง เพื่อไม่ให้ยิง Google ถี่เกิน
 
     def rot(lst, keep, n):
@@ -909,19 +994,19 @@ def fetch_news():
     jobs += [("gq", (q, lang, 2), m, None) for q, lang, m in SITE_Q]
     for q in CFG["macroQueries"]:
         jobs.append(("macro", q, q.get("m", "ALL"), None))
-    th_q = list(dict.fromkeys([s for s in curated if s in TG.th_syms] + th[:150]))
-    us_q = list(dict.fromkeys([s for s in curated if s in TG.us_syms] + us[:250]))
+    th_q = list(dict.fromkeys([s["s"] for s in CFG["stocks"] if s["m"] == "TH"] + th[:150]))
+    us_q = list(dict.fromkeys([s["s"] for s in CFG["stocks"] if s["m"] == "US"] + us[:250]))
     for s in rot(th_q, 30, 50):
-        jobs.append(("gq", (f'"{s}" หุ้น', "th", 3), "TH", s))
+        jobs.append(("gq", (f'"{plain(s)}" หุ้น', "th", 3), "TH", s))
     for s in rot(us_q, 12, 18):
         nm = TG.us_name.get(s, s)
         jobs.append(("gq", (f'"{nm}" stock', "en", 2), "US", s))
     for s in us_q[:200]:
-        jobs.append(("yahoo", s, "US", s))
+        jobs.append(("yahoo", plain(s), "US", s))
     for s in rot(us_q, 20, 20)[:40]:
-        jobs.append(("sa", s, "US", s))
+        jobs.append(("sa", plain(s), "US", s))
     for i in range(0, 120, 10):
-        jobs.append(("yrss", ",".join(us_q[i:i + 10]), "US", None))
+        jobs.append(("yrss", ",".join(plain(x) for x in us_q[i:i + 10]), "US", None))
 
     def run(job):
         kind, arg, m, qs = job
@@ -986,10 +1071,10 @@ def fetch_news():
         tk = TG.tag(text, mk if mk != "ALL" else "TH")
         if mk == "US" and not tk and kind == "feed":
             tk = TG.tag(text, "US")
-        if qs and qs not in tk and (kind == "sa" or (kind == "yahoo" and qs in it.get("rel", []))):
+        if qs and qs not in tk and (kind == "sa" or (kind == "yahoo" and plain(qs) in it.get("rel", []))):
             tk = [qs] + tk
         if kind == "yahoo":
-            tk += [r for r in it.get("rel", []) if r in TG.us_syms and r not in tk][:3]
+            tk += [TG.key["US"][r] for r in it.get("rel", []) if r in TG.us_syms and TG.key["US"][r] not in tk][:3]
         fac = factor_links(it["title"] + ". " + (it.get("summary") or "")[:160])
         if kind in ("feed", "gq") and not qs and not tk and not fac and not REL.search(text):
             continue  # ข่าวทั่วไปที่ไม่เกี่ยวกับหุ้นหรือเศรษฐกิจ
