@@ -729,7 +729,7 @@ const RAW=(()=>{const h=location.hostname;if(!h.endsWith("github.io"))return nul
 const newest=(...xs)=>xs.filter(Boolean).sort((a,b)=>(b.updated||0)-(a.updated||0))[0]||null;
 // raw.githubusercontent.com เก็บแคชไว้ ~5 นาที จึงอ่านราคาผ่าน GitHub API (แคช 1 นาที) ทุก ~2 นาทีด้วย ถ้าเกินโควตา (60 ครั้ง/ชม.) จะพัก 15 นาที
 const API=RAW&&RAW.replace("https://raw.githubusercontent.com/","https://api.github.com/repos/").replace(/\/live\/$/,"/contents/");let apiNext=0;
-async function apiJ(f){if(!API||document.hidden||Date.now()<apiNext)return null;const tok=typeof SY!=="undefined"&&SY.tok;apiNext=Date.now()+(tok?55000:65000);
+async function apiJ(f){if(!API||document.hidden||Date.now()<apiNext)return null;const tok=typeof SY!=="undefined"&&SY.tok;apiNext=Date.now()+(tok?28000:65000);
   try{const r=await fetch(API+f+"?ref=live",{headers:{Accept:"application/vnd.github.raw+json",...(tok?{Authorization:"Bearer "+tok}:{})},cache:"no-store"});if(r.status===403||r.status===429){apiNext=Date.now()+15*60000;return null}return r.ok?await r.json():null}catch{return null}}
 async function getLive(){const [q1,m1,q2,m2,q3]=await Promise.all([J("data/quotes.json"),J("data/meta.json"),RAW?J(RAW+"quotes.json"):null,RAW?J(RAW+"meta.json"):null,apiJ("quotes.json")]);
   const m=[m1,m2].filter(Boolean).sort((a,b)=>(b.quotesUpdated||b.updated||0)-(a.quotesUpdated||a.updated||0))[0]||null;return{q:newest(q1,q2,q3),meta:m}}
@@ -1050,7 +1050,7 @@ function vAccuracy(){
 S.watch=lsGet("watch")||[];S.mkt=["TH","US"].includes(lsGet("mkt"))?lsGet("mkt"):"TH";S.px=lsGet("px")||{};S.fa=lsGet("fa")||{};if(lsGet("rulesV")!==5){try{localStorage.removeItem("rules")}catch{}lsSet("rulesV",5)}Object.assign(RULES,lsGet("rules")||{});
 applyTheme(lsGet("theme")||"system");
 render();loadAll();syInit();
-setInterval(refreshQuotes,30000);
+setInterval(refreshQuotes,15000);
 setInterval(()=>{if(!document.hidden&&!document.querySelector("details[open],input:focus,select:focus"))loadAll()},15*60000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-(S.loadedAt||0)>5*60000)loadAll()});
 setInterval(liveBadge,30000);
