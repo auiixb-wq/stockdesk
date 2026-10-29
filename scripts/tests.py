@@ -85,5 +85,28 @@ with tempfile.TemporaryDirectory() as d:
     H.sanitize_quotes(q)
     check("กันราคาผิดบริษัท", sorted(q) == ["BCP", "IBKR"], (sorted(q), H.QUARANTINE))
 
+# คลังข้อมูล: ส่งเป็น commit ต่อท้าย ของเก่าต้องอยู่ครบ และข่าวที่เก็บแล้วไม่เก็บซ้ำ
+import subprocess  # noqa: E402
+from sd import archive as A  # noqa: E402
+with tempfile.TemporaryDirectory() as d:
+    C.DATA = d
+    A.AR = os.path.join(d, "archive")
+    bare = os.path.join(d, "remote.git")
+    subprocess.run(["git", "init", "-q", "--bare", bare], check=True)
+    os.environ.update({"ARCHIVE_URL": bare, "ARCHIVE_WORKDIR": os.path.join(d, "wd")})
+    json.dump({"items": UNI}, open(os.path.join(d, "universe.json"), "w"))
+    A.QUOTE_EVERY = 0
+    ok1 = A.snap_quotes({"BCP": {"p": 33.0}, "NVDA": {"p": 200.0}}, {"TH"})
+    n1 = A.snap_news([{"url": "a", "seen": now}, {"url": "b", "seen": now}])
+    p1 = A.push()
+    time.sleep(1.1)  # ไฟล์ตั้งชื่อตามวินาที
+    n2 = A.snap_news([{"url": "a", "seen": now}, {"url": "c", "seen": now + 5}])
+    p2 = A.push()
+    files = subprocess.run(["git", "--git-dir", bare, "ls-tree", "-r", "--name-only", "archive"], capture_output=True, text=True).stdout.split()
+    commits = subprocess.run(["git", "--git-dir", bare, "rev-list", "--count", "archive"], capture_output=True, text=True).stdout.strip()
+    check("คลังข้อมูลต่อท้าย", ok1 and (n1, n2, p1, p2) == (2, 1, 2, 1) and len(files) == 3 and commits == "2", (ok1, n1, n2, p1, p2, files, commits))
+    for k in ("ARCHIVE_URL", "ARCHIVE_WORKDIR"):
+        os.environ.pop(k)
+
 print("ผ่านทั้งหมด" if not fails else "ไม่ผ่าน:\n- " + "\n- ".join(fails))
 sys.exit(1 if fails else 0)

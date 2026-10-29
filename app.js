@@ -297,7 +297,7 @@ function vMarket(){
 function newsList(){const f=S.nf,q=(S.nq||"").trim(),Q=q.toUpperCase(),mine=new Set([...S.watch,...Object.keys(holds())]);
   let list=sortedNews().filter(x=>!x.market||x.market==="ALL"||x.market===S.mkt);
   if(f==="mine")list=list.filter(x=>(x.tickers||[]).some(t=>mine.has(t)));else if(f==="co")list=list.filter(x=>(x.tickers||[]).length);
-  else if(f==="macro")list=list.filter(x=>!(x.tickers||[]).length||newsLinks(x).via.length);else if(f==="pos")list=list.filter(x=>x.sentiment>0);else if(f==="neg")list=list.filter(x=>x.sentiment<0);
+  else if(f==="macro")list=list.filter(x=>!(x.tickers||[]).length||newsLinks(x).via.length);else if(f==="t1")list=list.filter(x=>x.tier===1||(x.alt||[]).some(a=>a.t===1));else if(f==="pos")list=list.filter(x=>x.sentiment>0);else if(f==="neg")list=list.filter(x=>x.sentiment<0);
   if(S.nsec)list=list.filter(x=>(x.sectors||[]).includes(S.nsec)||(x.tickers||[]).some(t=>stockBySym(t)?.sec===S.nsec));
   if(q)list=list.filter(x=>(x.tickers||[]).includes(Q)||(x.titleTh||"").includes(q)||(x.title||"").toLowerCase().includes(q.toLowerCase())||(x.summaryTh||"").includes(q));
   return list}
@@ -312,7 +312,7 @@ function vNews(){
   return `<div><h1>ข่าว${S.mkt==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</h1><p class="muted" style="margin:4px 0 0">${day.length} ข่าวใน 24 ชม. · ทั้งหมด ${all.length} ข่าวจาก ${srcs.size} แหล่ง · ข่าวเรื่องเดียวกันรวมเป็นเรื่องเดียว แสดงฉบับที่ละเอียดที่สุด${S.newsUpd?` · อัปเดต ${new Date(S.newsUpd*1e3).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"})} น.`:""}</p></div>
   ${hot.length?`<section><div class="fnh" style="margin-bottom:8px">หุ้นที่เป็นข่าวมากที่สุด 2 วันนี้</div><div class="hotn">${hot.map(([t,c])=>`<button class="hchip" data-nq="${esc(t)}" aria-pressed="${S.nq===t}">${logo(t)}<b>${esc(dsym(t))}</b><span class="cnt">${c}</span></button>`).join("")}</div></section>`:""}
   <div class="nbar"><input id="nq" type="search" placeholder="ค้นหาหุ้นหรือคำในข่าว เช่น ${S.mkt==="TH"?"PTT, ดอกเบี้ย":"NVDA, earnings"}" value="${esc(S.nq||"")}" autocomplete="off"><select id="nsec" aria-label="กลุ่มอุตสาหกรรม"><option value="">ทุกกลุ่ม</option>${secs.map(([k,v])=>`<option value="${k}"${S.nsec===k?" selected":""}>${v.th}</option>`).join("")}</select></div>
-  <div class="chips">${b("all","ทั้งหมด")}${b("mine","หุ้นของฉัน")}${b("co","ข่าวบริษัท")}${b("macro","เศรษฐกิจ/ปัจจัย")}${b("pos","ข่าวบวก")}${b("neg","ข่าวลบ")}</div>
+  <div class="chips">${b("all","ทั้งหมด")}${b("t1","แหล่งระดับ 1")}${b("mine","หุ้นของฉัน")}${b("co","ข่าวบริษัท")}${b("macro","เศรษฐกิจ/ปัจจัย")}${b("pos","ข่าวบวก")}${b("neg","ข่าวลบ")}</div>
   <section class="card" id="nlist">${newsBody()}</section>
   <details class="card nsrc"><summary>แหล่งข่าวทั้งหมด ${srcs.size} แหล่ง และระดับความน่าเชื่อถือ</summary><p class="foot" style="margin:8px 0">ระดับ 1 = สำนักข่าวหลักระดับโลกหรือประกาศทางการ · ระดับ 2 = สื่อธุรกิจและบทวิเคราะห์ · ระดับ 3 = เว็บรวบรวมข่าว · ข่าวระดับสูงมีน้ำหนักในคะแนนหุ้นมากกว่า</p><div class="chips">${Object.entries(byS).sort((a,b)=>a[1].t-b[1].t||b[1].n-a[1].n).map(([k,v])=>`<span class="chip"><span class="tier t${v.t}">${["","ร.1","ร.2","ร.3"][v.t]}</span> ${esc(k)} · ${v.n}</span>`).join("")}</div></details>`;
 }

@@ -7,7 +7,12 @@ from .common import CFG, ERRORS, load, plain, save
 
 # ---------- news ----------
 TIER1 = ["reuters", "bloomberg", "barron's", "barrons", "wall street journal", "wsj", "financial times", "ft.com", "associated press", "ap news",
-         "set.or.th", "ตลาดหลักทรัพย์", "bank of thailand", "ธนาคารแห่งประเทศไทย", "federal reserve", "sec.gov", "nikkei"]
+         "set.or.th", "ตลาดหลักทรัพย์", "bank of thailand", "ธนาคารแห่งประเทศไทย", "federal reserve", "sec.gov", "nikkei",
+         "the economist", "economist.com", "u.s. sec", "securities and exchange commission", "ก.ล.ต", "คณะกรรมการกำกับหลักทรัพย์",
+         "sec.or.th", "กระทรวงการคลัง", "mof.go.th", "สภาพัฒน์", "สำนักงานสภาพัฒนาการ", "nesdc", "ธปท"]
+# ประกาศทางการ: เก็บทุกข่าวโดยไม่ต้องผ่านตัวกรองความเกี่ยวข้อง
+OFFICIAL = re.compile(r"federal reserve|u\.s\. sec|ธนาคารแห่งประเทศไทย|ธปท|ก\.ล\.ต|คณะกรรมการกำกับหลักทรัพย์|ตลาดหลักทรัพย์แห่งประเทศไทย|"
+                      r"กระทรวงการคลัง|สภาพัฒน์|สำนักงานสภาพัฒนาการ|nesdc|bank of thailand|set\.or\.th|sec\.or\.th", re.I)
 TIER2 = ["cnbc", "marketwatch", "barron", "yahoo finance", "investopedia", "motley fool", "the motley fool", "business insider",
          "bangkok post", "nation thailand", "nationthailand", "kaohoon", "ข่าวหุ้น", "thansettakij", "ฐานเศรษฐกิจ",
          "prachachat", "ประชาชาติ", "ทันหุ้น", "thunhoon", "hoonsmart", "หุ้นสมาร์ท", "มิติหุ้น", "mitihoon", "seeking alpha",
@@ -98,6 +103,18 @@ def norm_src(s):
 
 # ฟีดตรงของสำนักข่าว (ทดสอบแล้วว่าเข้าถึงได้จาก GitHub Actions) — ข่าวทั่วไปจะถูกกรองให้เหลือเฉพาะข่าวหุ้น/เศรษฐกิจ
 FEEDS = [
+    ("Bloomberg", "US", "https://feeds.bloomberg.com/markets/news.rss"),
+    ("Bloomberg", "US", "https://feeds.bloomberg.com/technology/news.rss"),
+    ("Bloomberg", "US", "https://feeds.bloomberg.com/economics/news.rss"),
+    ("Nikkei Asia", "US", "https://asia.nikkei.com/rss/feed/nar"),
+    ("Federal Reserve", "US", "https://www.federalreserve.gov/feeds/press_all.xml"),
+    ("U.S. SEC", "US", "https://www.sec.gov/news/pressreleases.rss"),
+    ("Wall Street Journal", "US", "https://feeds.content.dowjones.io/public/rss/WSJcomUSBusiness"),
+    ("Wall Street Journal", "US", "https://feeds.content.dowjones.io/public/rss/RSSWSJD"),
+    ("Wall Street Journal", "US", "https://feeds.content.dowjones.io/public/rss/RSSWorldNews"),
+    ("Financial Times", "US", "https://www.ft.com/companies?format=rss"),
+    ("Financial Times", "US", "https://www.ft.com/world?format=rss"),
+    ("The Economist", "US", "https://www.economist.com/finance-and-economics/rss.xml"),
     ("CNBC", "US", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114"),
     ("CNBC", "US", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839135"),
     ("CNBC", "US", "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664"),
@@ -121,6 +138,9 @@ FEEDS = [
 ]
 # สำนักข่าวที่ไม่มีฟีดตรงหรือบล็อกเซิร์ฟเวอร์ ดึงผ่าน Google News แบบจำกัดเว็บไซต์
 SITE_Q = [
+    ("site:reuters.com/business", "en", "US"), ("site:reuters.com/markets", "en", "US"), ("site:apnews.com business", "en", "US"),
+    ("site:bloomberg.com Thailand", "en", "TH"), ("site:ft.com Thailand", "en", "TH"), ("site:asia.nikkei.com Thailand", "en", "TH"),
+    ("site:bot.or.th", "th", "TH"), ("site:sec.or.th", "th", "TH"), ("site:mof.go.th", "th", "TH"), ("site:nesdc.go.th", "th", "TH"),
     ("site:reuters.com stocks OR shares OR earnings", "en", "US"), ("site:reuters.com Thailand OR Thai", "en", "TH"),
     ("site:bloomberg.com stocks OR earnings", "en", "US"), ("site:apnews.com stocks OR earnings", "en", "US"),
     ("site:barrons.com stock", "en", "US"), ("site:cnbc.com stock earnings", "en", "US"),
@@ -533,7 +553,7 @@ def fetch_news():
         if kind == "yahoo":
             tk += [TG.key["US"][r] for r in it.get("rel", []) if r in TG.us_syms and TG.key["US"][r] not in tk][:3]
         fac = factor_links(it["title"] + ". " + (it.get("summary") or "")[:160])
-        if kind in ("feed", "gq") and not qs and not tk and not fac and not REL.search(text):
+        if kind in ("feed", "gq") and not qs and not tk and not fac and not REL.search(text) and not OFFICIAL.search(it["source"] or ""):
             continue  # ข่าวทั่วไปที่ไม่เกี่ยวกับหุ้นหรือเศรษฐกิจ
         if kind == "gq" and qs and qs not in tk and not fac:
             continue  # ผลค้นหาที่ไม่ได้พูดถึงหุ้นที่ค้นจริง

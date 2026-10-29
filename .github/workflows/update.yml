@@ -33,6 +33,7 @@ jobs:
         run: python scripts/tests.py
       - name: Fetch market data
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FULL: ${{ github.event.inputs.full || (github.event.schedule == '37 21 * * 1-5' && '1') || '0' }}
         run: python scripts/update.py
       - name: Publish site with data
