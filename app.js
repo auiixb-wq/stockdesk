@@ -729,8 +729,8 @@ const RAW=(()=>{const h=location.hostname;if(!h.endsWith("github.io"))return nul
 const newest=(...xs)=>xs.filter(Boolean).sort((a,b)=>(b.updated||0)-(a.updated||0))[0]||null;
 // raw.githubusercontent.com เก็บแคชไว้ ~5 นาที จึงอ่านราคาผ่าน GitHub API (แคช 1 นาที) ทุก ~2 นาทีด้วย ถ้าเกินโควตา (60 ครั้ง/ชม.) จะพัก 15 นาที
 const API=RAW&&RAW.replace("https://raw.githubusercontent.com/","https://api.github.com/repos/").replace(/\/live\/$/,"/contents/");let apiNext=0;
-async function apiJ(f){if(!API||document.hidden||Date.now()<apiNext)return null;apiNext=Date.now()+110000;
-  try{const r=await fetch(API+f+"?ref=live",{headers:{Accept:"application/vnd.github.raw+json"},cache:"no-store"});if(r.status===403||r.status===429){apiNext=Date.now()+15*60000;return null}return r.ok?await r.json():null}catch{return null}}
+async function apiJ(f){if(!API||document.hidden||Date.now()<apiNext)return null;const tok=typeof SY!=="undefined"&&SY.tok;apiNext=Date.now()+(tok?55000:65000);
+  try{const r=await fetch(API+f+"?ref=live",{headers:{Accept:"application/vnd.github.raw+json",...(tok?{Authorization:"Bearer "+tok}:{})},cache:"no-store"});if(r.status===403||r.status===429){apiNext=Date.now()+15*60000;return null}return r.ok?await r.json():null}catch{return null}}
 async function getLive(){const [q1,m1,q2,m2,q3]=await Promise.all([J("data/quotes.json"),J("data/meta.json"),RAW?J(RAW+"quotes.json"):null,RAW?J(RAW+"meta.json"):null,apiJ("quotes.json")]);
   const m=[m1,m2].filter(Boolean).sort((a,b)=>(b.quotesUpdated||b.updated||0)-(a.quotesUpdated||a.updated||0))[0]||null;return{q:newest(q1,q2,q3),meta:m}}
 const HIST=RAW?RAW.replace(/live\/$/,"hist/"):"data/hist/";
@@ -766,7 +766,10 @@ function ago(ts){const m=Math.round((Date.now()/1000-ts)/60);return m<1?"เม�
 function liveBadge(){const el=$("#live");if(!el)return;const u=S.quotes?.updated;
   if(!S.live){el.innerHTML=`<span class="dot" style="--c:var(--warn)"></span>ข้อมูลจำลอง`;return}
   const open=mktOpen("TH")||mktOpen("US"),fresh=Date.now()/1000-u<600;
-  el.innerHTML=`<span class="dot${open&&fresh?" pulse":""}" style="--c:${open&&fresh?"var(--up)":open?"var(--warn)":"var(--ink-2)"}"></span>${open?"ราคา":"ตลาดปิด · ราคาล่าสุด"} ${new Date(u*1000).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"})} · ${ago(u)}`}
+  // เวลาของราคาจริง (ไม่ใช่เวลาที่อัปเดตไฟล์): ราคาล่าสุดของตลาดที่ดูอยู่
+  const mk=S.mkt==="US"?"US":"TH",mo=mktOpen(mk);let pt=0;for(const[k,x]of Object.entries(S.quotes?.q||{}))if(x?.ts>pt&&stockBySym(k)?.m===mk)pt=x.ts;pt=pt||u;
+  const lag=Math.max(0,Math.round((Date.now()/1000-pt)/60)),ok=mo&&lag<=20;
+  el.innerHTML=`<span class="dot${ok?" pulse":""}" style="--c:${ok?"var(--up)":mo?"var(--warn)":"var(--ink-2)"}"></span>${mo?`ราคา${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} ณ`:"ตลาดปิด · ราคาล่าสุด"} ${new Date(pt*1000).toLocaleTimeString("th-TH",{hour:"2-digit",minute:"2-digit"})}${mo?` · ช้า ${lag} นาที${mk==="TH"?" (แหล่งฟรีหน่วง 15 นาที)":""}`:""}`}
 function applyTheme(m){const r=document.documentElement;if(m==="light"||m==="dark")r.setAttribute("data-theme",m);else r.removeAttribute("data-theme");lsSet("theme",m);
   const b=$("#themeBtn");if(b){b.innerHTML=svgI(m==="light"?"sun":m==="dark"?"moon":"auto",19);b.title=m==="light"?"โหมดสว่าง":m==="dark"?"โหมดมืด":"ตามระบบ";b.setAttribute("aria-label","สลับโหมดสี: ตอนนี้"+b.title)}}
 /* ---------- watchlist ---------- */
@@ -1047,7 +1050,7 @@ function vAccuracy(){
 S.watch=lsGet("watch")||[];S.mkt=["TH","US"].includes(lsGet("mkt"))?lsGet("mkt"):"TH";S.px=lsGet("px")||{};S.fa=lsGet("fa")||{};if(lsGet("rulesV")!==5){try{localStorage.removeItem("rules")}catch{}lsSet("rulesV",5)}Object.assign(RULES,lsGet("rules")||{});
 applyTheme(lsGet("theme")||"system");
 render();loadAll();syInit();
-setInterval(refreshQuotes,60000);
+setInterval(refreshQuotes,30000);
 setInterval(()=>{if(!document.hidden&&!document.querySelector("details[open],input:focus,select:focus"))loadAll()},15*60000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-(S.loadedAt||0)>5*60000)loadAll()});
 setInterval(liveBadge,30000);
