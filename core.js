@@ -434,7 +434,10 @@ function info(st){if(hasBars(st))return analyze(st);
   S._info.set(st.s,{k:key,m,R});return R}
 
 const FMTV={us10y:v=>v.toFixed(2)+"%",oil:v=>"$"+v.toFixed(2),usdthb:v=>v.toFixed(2),vix:v=>v.toFixed(2),dxy:v=>v.toFixed(2)};
-function buildFactors(man,macro){return (man?.factors||[]).map(f=>{const x=macro?.[f.id];if(!f.auto||!x)return{...f,stale:f.asOf?ageDays(f.asOf)>45:false};
+function buildFactors(man,macro){return (man?.factors||[]).map(f=>{const x=macro?.[f.id];
+  // ค่าอัตโนมัติจากแหล่งทางการ/ข่าว (scripts/sd/macro.py) แทนค่าที่กรอกเอง · ทิศทางตามข้อมูลล่าสุด
+  if(x?.scraped)return{...f,value:x.text,asOf:x.asOf,date:x.asOf,dir:x.dir,strength:x.strength,note:`${f.note||""}${f.note?" · ":""}${x.note}`,src:x.src,url:x.url,live:true,stale:ageDays(x.asOf)>(f.id==="cpi"||f.id==="china"?60:f.id==="bot"?120:10)};
+  if(!f.auto||!x)return{...f,stale:f.asOf?ageDays(f.asOf)>45:false};
   return{...f,value:(FMTV[f.id]||(v=>String(v)))(x.value),asOf:x.asOf,dir:x.dir,strength:x.strength,spark:x.spark,date:x.asOf,
     note:`${f.note} · 20 วันล่าสุด ${pct(x.chg20,1)} (${x.dir>0?"ขึ้นชัดเจน":x.dir<0?"ลงชัดเจน":"ยังไม่ชัด"}) · วันล่าสุด ${pct(x.chg1,2)}`,src:"Yahoo Finance",url:`https://finance.yahoo.com/quote/${encodeURIComponent(f.auto)}`,live:true}})}
 function mergeNews(a,b){const seen=new Set(),out=[];for(const x of [...b,...a]){const k=x.url||x.title;if(seen.has(k))continue;seen.add(k);out.push(x)}return out}
