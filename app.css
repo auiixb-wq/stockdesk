@@ -534,3 +534,8 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 #toast.show{opacity:1;transform:translate(-50%,0)}
 .pl-act{grid-column:1/-1;display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
 .intro ol{margin:6px 0 0;padding-left:20px;display:grid;gap:6px}.intro li{line-height:1.55}
+/* ช่อง "ยังไม่มีสัญญาณ": ข้อความยาว ให้ค่าและรายละเอียดเรียงลงบรรทัดใหม่ ไม่บีบเป็นคำละบรรทัด */
+.kt.kt-wait{grid-template-columns:96px minmax(0,1fr)}
+.kt.kt-wait .v{font-size:16px;line-height:1.35;text-align:left}
+.kt.kt-wait .d{grid-column:1/-1;text-align:left;min-width:0;line-height:1.5}
+@media (max-width:420px){.kt.kt-wait{grid-template-columns:76px minmax(0,1fr)}}
