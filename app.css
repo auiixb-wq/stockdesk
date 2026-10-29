@@ -535,6 +535,7 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .pl-act{grid-column:1/-1;display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
 .intro ol{margin:6px 0 0;padding-left:20px;display:grid;gap:6px}.intro li{line-height:1.55}
 /* ช่อง "ยังไม่มีสัญญาณ": ข้อความยาว ให้ค่าและรายละเอียดเรียงลงบรรทัดใหม่ ไม่บีบเป็นคำละบรรทัด */
+.pll{font-size:12px;color:var(--ink-2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pll-t{display:inline-block;font-size:10.5px;padding:0 5px;margin-right:5px;border-radius:6px;background:var(--surface-2);color:var(--ink-2)}.pll-t.on{background:var(--accent);color:var(--accent-ink)}
 .tpl{margin-top:2px;font-size:13px}.tpl summary{cursor:pointer;color:var(--deep-2);font-size:13px;padding:4px 2px}.tpl-t{width:100%;font-size:13px;border-collapse:collapse}.tpl-t th{font-weight:500;color:var(--deep-2);text-align:left}.tpl-t .r{text-align:right}.tpl-t tr+tr td,.tpl-t tbody tr td{border-top:1px solid rgba(255,255,255,.08)}.tpl-t td,.tpl-t th{padding:5px 6px}.tpl-r{font-size:12px;line-height:1.55;color:var(--deep-2);margin:6px 2px 0}.tpl-r b{color:var(--deep-ink)}
 .kt-note{font-size:12.5px;line-height:1.55;color:var(--deep-2);padding:2px 2px 4px}.kt-note b{color:var(--deep-ink)}
 .kt.kt-wait{grid-template-columns:96px minmax(0,1fr)}

@@ -435,7 +435,7 @@ const liquid=st=>!st.uni||st.m==="US"||(st.mc||0)>=5e9;
 function summarize(R){const P=R.plan,I=R.I,n=I.c.length-1,c=I.c.slice(-90),L=c.at(-1)||1,sp=[];for(let i=0;i<c.length;i+=3)sp.push(Math.round(c[i]/L*1000));sp.push(1000);
   const up=I.e200[n]!=null&&I.c[n]>I.e50[n]&&I.e50[n]>I.e200[n]&&(I.adx[n]||0)>20,os=(I.rsi[n]??50)<35,ns=!!(P.L.sup[0]&&(I.c[n]-P.L.sup[0].p)/I.c[n]<.03);
   return{o:R.overall,c:R.conf.lv,p:R.last,ch:+R.chg.toFixed(3),pl:[P.lo,P.hi,P.sl,P.tp1,P.tp2,P.tone,P.mode],
-    sy:R.sys?[R.sys.lp,R.sys.tp,R.sys.sl,R.sys.left,R.sys.d,R.sys.hit?1:0]:null,sw:R.sw,cd:R.cond?[R.cond.trig,R.cond.lp,R.cond.tp,R.cond.sl]:null,lv:R.lvl.map(v=>v==null?null:+v.toFixed(4)),pb:[R.pb.now,R.pb.near,R.pb.r2!=null?+R.pb.r2.toFixed(1):null,R.pb.s5!=null?+R.pb.s5.toFixed(3):null],tp:Math.round(R.techP),fs:R.fund.thin?null:R.fund.score,
+    sy:R.sys?[R.sys.lp,R.sys.tp,R.sys.sl,R.sys.left,R.sys.d,R.sys.hit?1:0]:null,sw:R.sw,cd:R.cond?[R.cond.trig,R.cond.lp,R.cond.tp,R.cond.sl]:null,rf:R.ref?[R.ref.lp,R.ref.tp,R.ref.sl]:null,lv:R.lvl.map(v=>v==null?null:+v.toFixed(4)),pb:[R.pb.now,R.pb.near,R.pb.r2!=null?+R.pb.r2.toFixed(1):null,R.pb.s5!=null?+R.pb.s5.toFixed(3):null],tp:Math.round(R.techP),fs:R.fund.thin?null:R.fund.score,
     rs:{ret:+R.rs.ret.toFixed(2),pctl:Math.round(R.rs.pctl)},f:[up,os,ns],fq:R.f.fs?[r1(R.f.fs.yoyR),r1(R.f.fs.yoyN),r1(R.f.fs.qoqR),r1(R.f.fs.qoqN),R.f.fs.last]:null,fv:(()=>{try{const v=valuation(R);return v.fair?[r2(v.fair.bear),r2(v.fair.base),r2(v.fair.bull),v.methods.length]:null}catch{return null}})(),sp,t:R.B.at(-1).t}}
 // ข้อมูลสำหรับรายการหุ้น: ถ้ามีราคาย้อนหลังในเครื่องจะวิเคราะห์เต็ม ถ้าไม่มีใช้ผลที่คำนวณไว้แล้วบน GitHub
 const CONF_LV=[["ข้อมูลตัวอย่าง","var(--ink-2)"],["ต่ำ","var(--down)"],["ปานกลาง","var(--warn)"],["สูง","var(--up)"]];
@@ -444,7 +444,7 @@ function info(st){if(hasBars(st))return analyze(st);
   const m=S.summary?.[st.s],q=S.quotes?.q?.[st.s],key=(m?1:0)+"|"+(q?.ts??"")+"|"+(q?.p??"");S._info??=new Map();const hit=S._info.get(st.s);if(hit&&hit.k===key&&hit.m===m)return hit.R;
   let R;
   if(!m)R={st,lite:true,none:true,overall:null,v:["ยังไม่มีข้อมูล","p-hold"],conf:{t:"–",c:"var(--ink-2)",lv:0},last:q?.p??null,chg:q?.chg??0,sp:[],plan:null,pb:{now:false},f:[]};
-  else{const pl=m.pl,lv=Array.isArray(m.c)?m.c[2]:m.c;R={st,lite:true,overall:m.o,v:sysVerdict(m.o,pl?.[5],lv,!!m.sy),sys:m.sy?{lp:m.sy[0],tp:m.sy[1],sl:m.sy[2],left:m.sy[3],d:m.sy[4],hit:!!m.sy[5]}:null,rs:m.rs||null,sw:m.sw||null,cond:m.cd?{trig:m.cd[0],lp:m.cd[1],tp:m.cd[2],sl:m.cd[3]}:null,lvl:m.lv||[null,null],conf:{t:CONF_LV[lv][0],c:CONF_LV[lv][1],lv},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
+  else{const pl=m.pl,lv=Array.isArray(m.c)?m.c[2]:m.c;R={st,lite:true,overall:m.o,v:sysVerdict(m.o,pl?.[5],lv,!!m.sy),sys:m.sy?{lp:m.sy[0],tp:m.sy[1],sl:m.sy[2],left:m.sy[3],d:m.sy[4],hit:!!m.sy[5]}:null,rs:m.rs||null,sw:m.sw||null,cond:m.cd?{trig:m.cd[0],lp:m.cd[1],tp:m.cd[2],sl:m.cd[3]}:null,ref:m.rf?{lp:m.rf[0],tp:m.rf[1],sl:m.rf[2]}:null,lvl:m.lv||[null,null],conf:{t:CONF_LV[lv][0],c:CONF_LV[lv][1],lv},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
     plan:{lo:pl[0],hi:pl[1],sl:pl[2],tp1:pl[3],tp2:pl[4],tone:pl[5],mode:pl[6],entry:(pl[0]+pl[1])/2},pb:{now:m.pb[0],near:m.pb[1],r2:m.pb[2],s5:m.pb[3]},f:m.f||[],fq:m.fq,fv:m.fv}}
   S._info.set(st.s,{k:key,m,R});return R}
 
