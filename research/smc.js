@@ -219,6 +219,19 @@ if (process.env.DESK) {
   }
   process.exit(0);
 }
+// TP หลายขั้น: จากทุกสัญญาณ T_U3 (SL ตามระบบ มีเพดาน) ถึง +k ATR ก่อนโดน SL ภายในกี่ % · TPL=1
+if (process.env.TPL) {
+  const P = MK === "TH" ? { sl: 5, cap: .08, hold: 20 } : { sl: 5, cap: .12, hold: 20 }, K = [MK === "TH" ? 1 : .8, 1.5, 2, 3], hit = K.map(() => 0), days = K.map(() => 0); let n = 0, sl = 0, slr = 0;
+  for (const x of st) { const B = x.B, nn = B.length; let busy = 0;
+    for (let i = 210; i < nn - 1; i++) { const sg = STRAT.T_U3(x, i); if (!sg) continue; const a = atr(x, i);
+      let e = -1, en = 0; for (let d = i + 1; d <= Math.min(nn - 1, i + sg.days); d++) if (B[d].l <= sg.px) { e = d; en = Math.min(B[d].o, sg.px); break }
+      if (e < 0 || e < busy || e + P.hold > nn) continue; n++; const stop = Math.max(en - P.sl * a, en * (1 - P.cap)), got = K.map(() => false); let out = false;
+      for (let j = e; j < e + P.hold; j++) { const b = B[j]; if (b.l <= stop) { out = true; sl++; slr += Math.min(stop, j > e ? b.o : stop) / en - 1; break } if (j === e) continue; K.forEach((k, q) => { if (!got[q] && b.h >= en + k * a) { got[q] = true; hit[q]++; days[q] += j - e } }) }
+      busy = e + 1; }
+  }
+  console.log(`${MK} ${n} ไม้: ` + K.map((k, q) => `+${k}ATR ถึง ${(hit[q] / n * 100).toFixed(0)}% (เฉลี่ย ${(days[q] / hit[q]).toFixed(1)} วัน)`).join(" · ") + ` · โดน SL ก่อนถึง ${(sl / n * 100).toFixed(0)}% เฉลี่ย ${(slr / sl * 100).toFixed(1)}%`);
+  process.exit(0);
+}
 // แผนล่วงหน้า: วันที่ผ่านตัวกรอง คะแนน ≥ 40 แต่ RSI2 ยังไม่ < 20 → ถ้าวันถัดไปปิดต่ำกว่าราคาที่คำนวณ สัญญาณเกิดจริงกี่ %
 if (process.env.COND) {
   let n = 0, hit = 0, sig = 0;
