@@ -47,13 +47,15 @@ const RULES={thr:40,split:.7,warm:60,wk:true,rs:70,adx:20,preset:"win"};
 // lim = ตั้งซื้อต่ำกว่าราคาปิดวันที่เกิดสัญญาณกี่ ATR · ld = คำสั่งตั้งซื้อค้างได้กี่วันทำการ
 // เน้นอัตราชนะ (research/smc.js รอบ 3, 29 ต.ค. 69 — ลอง SMC/RSI2/IBS แล้วไม่ดีกว่า ที่ได้ผลคือ TP กว้างขึ้นและจุดเข้าลึกขึ้น)
 //   ไทย:    ADX > 25 · TP 1 ATR ถือ 20 วัน · ชนะ 83.1% → 81.1% (ปีต่ำสุด 79%) · กำไร +1.36% → +1.35%/ไม้ (เดิม +1.00%)
-//   สหรัฐฯ: แข็งกว่าตลาด 80% · ตั้งซื้อ −1.5 ATR ค้าง 3 วัน · TP 0.8 ATR ถือ 20 วัน · ชนะทุกปี 80–88% · กำไร ≥ +1.03%/ไม้ (เดิม +0.83%)
+//   สหรัฐฯ: แข็งกว่าตลาด 80% · แกว่ง ATR ≥ 2.5% ของราคา · ตั้งซื้อ −1.5 ATR ค้าง 3 วัน · TP 0.8 ATR ถือ 20 วัน
+//           ชนะทุกปี 80–90% · 5 ปี +1.47%/ไม้ (เดิม +0.83%) · พอร์ต 10 ตัว 51%/ปี ลึกสุด 14% (รอบ 4: กรองแกว่งแรงกว่านี้ไม้น้อยจนพอร์ตแย่ลง)
 // เน้นกำไรต่อไม้ สหรัฐฯ: TP 3 / SL 3 ATR · ชนะ 56–61% · กำไร +2.06% → +1.25%/ไม้ (ไทยไม่มีแบบที่ดีกว่าค่าเน้นอัตราชนะ จึงใช้ค่าเดียวกัน)
-const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,hold:20,adx:25,rs:70},US:{lim:1.5,ld:3,tp:.8,sl:5,hold:20,adx:20,rs:80}},
+const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,hold:20,adx:25,rs:70},US:{lim:1.5,ld:3,tp:.8,sl:5,hold:20,adx:20,rs:80,vol:2.5}},
                  edge:{TH:{lim:1,ld:1,tp:1,sl:5,hold:20,adx:25,rs:70},US:{lim:1,ld:1,tp:3,sl:3,hold:30,adx:20,rs:70}}};
 const rulesFor=m=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH)});
 const PRESETS={win:{preset:"win"},edge:{preset:"edge"}};const RULES0={...RULES};
-const sigOK=(I,i,rsA,P)=>(P.wk===false||I.wk[i]>=0)&&rsPass(rsA,i)&&(P.adx==null||(I.adx[i]??0)>P.adx);
+const volOK=(I,i,P)=>P.vol==null||(I.atr[i]||0)/I.c[i]*100>=P.vol;
+const sigOK=(I,i,rsA,P)=>(P.wk===false||I.wk[i]>=0)&&rsPass(rsA,i)&&(P.adx==null||(I.adx[i]??0)>P.adx)&&volOK(I,i,P);
 
 /* ---------- state ---------- */
 const S={hist:{},fin:{},universe:[],summary:{},news:[],factors:[],meta:null,px:{},fa:{},watch:[],uid:null,db:null,dbState:"loading",mkt:"ALL",sort:"score",scr:"all",nf:"all",sec:null,cache:new Map(),bars:new Map(),charts:[],marks:true};
@@ -268,10 +270,11 @@ function rsSeries(st,B,p){const Q=S.rsq?.[st.m],q=Q?.["p"+p];if(!q)return null;S
   return B.map((b,i)=>{if(i<63)return false;let k=idx.get(b.t);if(k==null){if(b.t>last)k=q.length-1;else return null}return B[i].c/B[i-63].c-1>=q[k]})}
 const rsPass=(a,i)=>!a||a[i]==null||a[i];
 function makePlan(st,I,score,rsNow=true){
-  const n=I.c.length-1,c=I.c[n],atr=I.atr[n]||c*.02,m=st.m,L=levels(I,n),RP=rulesFor(m),adxOK=RP.adx==null||(I.adx[n]??0)>RP.adx;
+  const n=I.c.length-1,c=I.c[n],atr=I.atr[n]||c*.02,m=st.m,L=levels(I,n),RP=rulesFor(m),adxOK=RP.adx==null||(I.adx[n]??0)>RP.adx,vOK=volOK(I,n,RP);
   const sup=L.sup[0]?.p??Math.min(...I.l.slice(-20)),res=L.res[0]?.p??Math.max(...I.h.slice(-60));
   const up=I.e50[n]!=null&&c>I.e50[n]&&I.wk[n]>=0;let lo,hi,mode,tone;
   if(score>=20&&up&&!rsNow){mode="รอ: ยังไม่แข็งกว่าตลาด";tone="hold";hi=c-.3*atr;lo=Math.max(sup,c-1.3*atr)}
+  else if(score>=20&&up&&!vOK){mode="รอ: หุ้นแกว่งน้อย (ATR "+(atr/c*100).toFixed(1)+"% < "+RP.vol+"%) กำไรต่อไม้ไม่คุ้ม";tone="hold";hi=c-.3*atr;lo=Math.max(sup,c-1.3*atr)}
   else if(score>=20&&up&&!adxOK){mode="รอ: แนวโน้มยังไม่ชัด (ADX < "+RP.adx+")";tone="hold";hi=c-.3*atr;lo=Math.max(sup,c-1.3*atr)}
   // จุดเข้า = ตั้งซื้อต่ำกว่าราคาปิด lim×ATR ตามระบบที่ทดสอบไว้ (ซื้อตอนราคาย่อระหว่างวัน)
   else if(score>=20&&up){mode="ตั้งซื้อเมื่อย่อ";tone="buy";hi=lo=c-(RP.lim||0)*atr}

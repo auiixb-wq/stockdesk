@@ -9,7 +9,7 @@ const COST = MK === "TH" ? .0017 : .0010;
 const U = Object.fromEntries(JSON.parse(fs.readFileSync(R + "/universe.json")).items.map(i => [i.s, i]));
 const st = [], rsBy = {};
 for (const f of fs.readdirSync(R + "/hist").filter(f => f.endsWith(".json"))) {
-  const s = f.slice(0, -5), u = U[s]; if (!u || u.m !== MK || /-P[A-Z]*$/.test(s)) continue; if (MK === "TH" && (u.mc || 0) < 5e9) continue;
+  const s = f.slice(0, -5), u = U[s]; if (!u || u.m !== MK || /-P[A-Z]*$/.test(s)) continue; if (MK === "TH" && (u.mc || 0) < +(process.env.MCMIN || 5e9)) continue;
   let j; try { j = JSON.parse(fs.readFileSync(R + "/hist/" + f)) } catch { continue }
   const B = j.t.map((t, i) => ({ t, o: j.o[i], h: j.h[i], l: j.l[i], c: j.c[i], v: j.v?.[i] ?? 0 })).filter(b => b.c > 0 && b.o > 0 && b.h >= b.l); if (B.length < 500) continue;
   st.push({ s, B }); B.forEach((b, i) => { if (i >= 63) (rsBy[b.t] ??= []).push(b.c / B[i - 63].c - 1) });
@@ -68,6 +68,12 @@ const m50 = sma(ix, 50), REG = new Map(dates.map((t, k) => [t, m50[k] != null &&
 for (const k of [1, 1.25, 1.5, 2]) for (const d of [1, 3, 5]) for (const reg of ["", "R"]) {
   STRAT[`B${k}_${d}${reg}`] = (x, i) => STRAT.BASE(x, i) && (!reg || REG.get(x.B[i].t)) ? { kind: "limit", px: x.B[i].c - k * atr(x, i), days: d } : null;
 }
+// รอบ 4: เลือกหุ้นที่แกว่งพอ (ATR/ราคา) และผ่อนตัวกรองเพื่อเพิ่มจำนวนไม้
+const vol = (x, i) => atr(x, i) / x.B[i].c * 100;
+const BASEF = (rs, adx) => (x, i) => x.sc[i - 1] < 40 && x.sc[i] >= 40 && x.I.wk[i] >= 0 && x.rs[i] >= rs && x.I.adx[i] > adx;
+for (const [nm, k, d] of [["B1_1", 1, 1], ["B1.5_3", 1.5, 3]]) for (const v of [2, 2.5, 3, 4]) for (const [fn, rs, adx] of [["", MK === "TH" ? 70 : 80, MK === "TH" ? 25 : 20], ["L", 60, 20]])
+  STRAT[`${nm}${fn}_v${v}`] = (x, i) => BASEF(rs, adx)(x, i) && vol(x, i) >= v ? { kind: "limit", px: x.B[i].c - k * atr(x, i), days: d } : null;
+for (const [nm, k, d] of [["B1_1", 1, 1], ["B1.5_3", 1.5, 3]]) STRAT[`${nm}L`] = (x, i) => BASEF(60, 20)(x, i) ? { kind: "limit", px: x.B[i].c - k * atr(x, i), days: d } : null;
 // ---- จุดออกที่ลอง ----
 const EXITS = [];
 for (const tp of [.6, .8, 1, 1.5, 2, "sh", "s5"]) for (const sl of [2, 3, 5, "st"]) for (const hold of [10, 20]) EXITS.push({ tp, sl, hold });
@@ -103,7 +109,7 @@ function run(name) {
         if (xp == null) { xi = Math.min(n - 1, e + X.hold - 1); xp = B[xi].c }
         busy[k] = xi + 1;
         const r = xp / en - 1 - COST;
-        if (TRADES && k === TRADES.k) TRADES.list.push({ s: x.s, d: B[e].t, x: B[xi].t, r, rs: x.rs[i] ?? 0, en });
+        if (TRADES && k === TRADES.k) TRADES.list.push({ s: x.s, d: B[e].t, x: B[xi].t, r, rs: process.env.RANK === "vol" ? vol(x, i) : x.rs[i] ?? 0, en });
         (B[e].t < SPLIT ? res[k].is : res[k].oos).push(r);
         ((res[k].y ??= {})[B[e].t.slice(0, 4)] ??= []).push(r);
       });
