@@ -460,7 +460,7 @@ def fetch_news():
         jobs.append(("gq", (f'"{nm}" stock', "en", 2), "US", s))
     for s in us_q[:200]:
         jobs.append(("yahoo", plain(s), "US", s))
-    for s in rot(us_q, 20, 20)[:40]:
+    for s in rot([x for x in us_q if "-" not in x], 20, 20)[:40]:  # Seeking Alpha ไม่มีฟีดของหุ้นหลายคลาส (BRK-B)
         jobs.append(("sa", plain(s), "US", s))
     for i in range(0, 120, 10):
         jobs.append(("yrss", ",".join(plain(x) for x in us_q[i:i + 10]), "US", None))
