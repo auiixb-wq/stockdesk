@@ -105,7 +105,7 @@ function forward() {
 }
 // ผลจริงของสัญญาณตามระบบที่ออกไปแล้ว: ใช้คำสั่งตั้งซื้อ/TP/SL ที่บันทึกไว้วันนั้น แล้วเดินตามราคาที่เกิดขึ้นจริง (กติกาเดียวกับ simulate)
 function forwardSys() {
-  const sd = path.join(hdir, "snap"), seen = new Set(), res = {};
+  const sd = path.join(hdir, "snap"), seen = new Set(), res = {}, per = {};
   const days = fs.existsSync(sd) ? fs.readdirSync(sd).filter(f => f.endsWith(".json")).sort() : [];
   for (const f of days) {
     let snap; try { snap = JSON.parse(fs.readFileSync(path.join(sd, f), "utf8")); } catch { continue; }
@@ -115,10 +115,13 @@ function forwardSys() {
       const st = stockBySym(sym); if (!st) continue;
       const P = rulesFor(st.m), B = barsOf(st), r = (res[st.m] ??= { sig: 0, filled: 0, closed: 0, win: 0, sum: 0, open: 0, tp: 0, sl: 0, time: 0, recent: [] });
       r.sig++;
-      const i0 = B.findIndex(b => b.t > d); if (i0 < 0) { r.open++; continue; }
+      // รายหุ้น: [สัญญาณ, ได้ของ, ปิดแล้ว, ชนะ, ผลรวม %, ประวัติล่าสุด [วันสัญญาณ, ผล %|null, ทางออก]]
+      const ps = (per[sym] ??= [0, 0, 0, 0, 0, []]); ps[0]++;
+      const log = (ret, how) => { ps[5].push([d, ret == null ? null : +ret.toFixed(2), how]); if (ps[5].length > 8) ps[5].shift() };
+      const i0 = B.findIndex(b => b.t > d); if (i0 < 0) { r.open++; log(null, "wait"); continue; }
       let e = -1; for (let k = i0; k < Math.min(B.length, i0 + (P.ld || 1)); k++) if (B[k].l <= lp) { e = k; break; }
-      if (e < 0) { if (i0 + (P.ld || 1) > B.length) r.open++; continue; }
-      r.filled++;
+      if (e < 0) { if (i0 + (P.ld || 1) > B.length) { r.open++; log(null, "wait") } else log(null, "miss"); continue; }
+      r.filled++; ps[1]++;
       const en = Math.min(B[e].o, lp); let xp = null, how = "";
       for (let j = e; j < Math.min(B.length, e + P.hold); j++) {
         const b = B[j];
@@ -126,14 +129,16 @@ function forwardSys() {
         if (j === e) continue;
         if (b.o >= tp) { xp = b.o; how = "tp"; break } if (b.h >= tp) { xp = tp; how = "tp"; break }
       }
-      if (xp == null) { if (e + P.hold <= B.length) { xp = B[e + P.hold - 1].c; how = "time" } else { r.open++; continue } }
+      if (xp == null) { if (e + P.hold <= B.length) { xp = B[e + P.hold - 1].c; how = "time" } else { r.open++; log(null, "hold"); continue } }
       const c = costOf(st.m), ret = (xp * (1 - c) / (en * (1 + c)) - 1) * 100;
       r.closed++; r.sum += ret; if (ret > 0) r.win++; r[how]++;
+      ps[2]++; ps[4] += ret; if (ret > 0) ps[3]++; log(ret, how);
       r.recent.push([sym, d, +ret.toFixed(2), how]);
     }
   }
   for (const r of Object.values(res)) r.recent = r.recent.slice(-15);
-  return { first: days[0]?.slice(0, 10) || null, M: res };
+  for (const v of Object.values(per)) v[4] = +v[4].toFixed(2);
+  return { first: days[0]?.slice(0, 10) || null, M: res, S: per };
 }
 // บันทึกสัญญาณและแผนของวันนี้ไว้ตรวจความแม่นยำภายหลัง (ไม่แก้ย้อนหลัง)
 const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10), sdir = path.join(hdir, "snap");

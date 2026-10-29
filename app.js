@@ -394,6 +394,21 @@ function vStock(sym){
   <nav class="stabs" aria-label="ส่วนของหน้าหุ้น">${TABS.map(([k,l])=>`<button data-tab="${k}" aria-current="${tab===k?"page":"false"}">${l}</button>`).join("")}</nav>`;
   return head+(tab==="chart"?tChart(R):tab==="bt"?tBt(R):tab==="fa"?tFa(R):tab==="news"?tNews(R):tab==="data"?tData(R):tab==="val"?tVal(R):tab==="risk"?tRisk(R):tab==="peers"?tPeers(R):tSum(R));
 }
+// ระบบกับหุ้นตัวนี้: สัญญาณวันนี้ + ผลทดสอบ 5 ปีของตัวนี้เอง + ผลจริงของสัญญาณที่เคยออก (แต่ละตัวมีนิสัยไม่เหมือนกัน)
+const HOW={tp:"ขายกำไร",sl:"ตัดขาดทุน",time:"ครบเวลา",miss:"ไม่ได้ของ",wait:"รอได้ของ",hold:"ยังถือ"};
+function sysStockCard(R){const y=R.sys,bt=R.model?.trades?stats(R.model.trades):null,L=S.calibData?.fwdSys?.S?.[R.st.s],bm=S.calibData?.baseM?.[R.st.m],P=rulesFor(R.st.m);
+  if(!y&&!L&&!(bt?.n))return "";
+  const w=L?.[2]?L[3]/L[2]*100:null,a=L?.[2]?L[4]/L[2]:null,fill=L?.[0]?L[1]/L[0]*100:null;
+  const note=[];if(bt?.n>=5&&bm?.oos?.n){if(bt.win>=bm.oos.win+3)note.push("ย้อนหลังหุ้นตัวนี้ชนะบ่อยกว่าค่าเฉลี่ยระบบ");else if(bt.win<bm.oos.win-8)note.push("ย้อนหลังหุ้นตัวนี้ชนะน้อยกว่าค่าเฉลี่ยระบบชัดเจน ลดขนาดไม้หรือข้าม");}
+  if(L?.[2]>=3&&w<60)note.push("ผลจริงช่วงหลังแย่กว่า backtest ระวัง");if(L?.[0]>=3&&fill<40)note.push("ราคามักไม่ลงมาถึงจุดตั้งซื้อ");
+  return `<section class="card"><div class="card-h"><h2>ระบบกับหุ้นตัวนี้</h2>${y?`<span class="pill p-buy2">สัญญาณวันนี้</span>`:`<span class="pill p-hold">ไม่มีสัญญาณวันนี้</span>`}</div>
+   ${y?`<p style="margin:0 0 10px">ตั้งซื้อ <b class="num">${fmt(y.lp)}</b> (ค้างได้อีก ${y.left} วัน) · ขายกำไร <b class="num up">${fmt(y.tp)}</b> · ตัดขาดทุน <b class="num down">${fmt(y.sl)}</b> · ถือไม่เกิน ${P.hold} วัน</p>`:""}
+   <div class="stat">
+    <div><div class="k">ทดสอบ 5 ปี (หุ้นตัวนี้)</div><div class="v num">${bt?.n?`ชนะ ${bt.win.toFixed(0)}%`:"–"}</div><div class="s">${bt?.n?`${bt.n} ไม้ · เฉลี่ย ${pct(bt.avg,2)}`:"ยังไม่เคยเกิดสัญญาณ"}</div></div>
+    <div><div class="k">ค่าเฉลี่ยทั้งระบบ</div><div class="v num">${bm?.oos?.n?`ชนะ ${bm.oos.win.toFixed(0)}%`:"–"}</div><div class="s">${bm?.oos?.n?`เฉลี่ย ${pct(bm.oos.avg,2)} ต่อไม้`:""}</div></div>
+    <div><div class="k">ผลจริง (สัญญาณที่ออกไปแล้ว)</div><div class="v num">${L?.[2]?`ชนะ ${w.toFixed(0)}%`:L?`${L[0]} สัญญาณ`:"ยังไม่มี"}</div><div class="s">${L?`${L[2]?`ปิด ${L[2]} ไม้ · เฉลี่ย ${pct(a,2)} · `:""}ได้ของ ${L[1]}/${L[0]}`:"เริ่มบันทึก 29 ต.ค. 69"}</div></div></div>
+   ${L?.[5]?.length?`<div class="muted" style="font-size:12.5px;margin-top:8px">ล่าสุด: ${L[5].slice().reverse().map(([d,x,h])=>`${thDate(d)} ${HOW[h]||h}${x!=null?` <span class="${cls(x)}">${pct(x,1)}</span>`:""}`).join(" · ")}</div>`:""}
+   ${note.length?`<p class="foot warn" style="margin:8px 0 0">${note.join(" · ")}</p>`:""}</section>`}
 function posCard(R){const h=holds()[R.st.s];if(!(h?.q>0)||R.last==null||priceIssue(R.st,R.last,h.c))return "";const L=posLevels(R,h.c),p=R.last,k=cur(R.st.m);
   if(!L)return `<section class="card"><h2 style="margin-bottom:4px">หุ้นที่คุณถือ</h2><p class="muted" style="margin:0">ถือ ${h.q.toLocaleString()} หุ้น · ใส่ต้นทุนต่อหุ้นในหน้าโปรด (✎ พอร์ต) เพื่อดูกำไรขาดทุน เป้าขาย และจุดตัดขาดทุนที่คิดจากต้นทุนของคุณ</p></section>`;
   const g=(p/L.c-1)*100,st=planState(R);
@@ -412,6 +427,7 @@ function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),fromE=v=>pct((v/
       <details class="vcalc"><summary>ควรซื้อกี่หุ้น</summary><div class="calc" style="margin-top:8px"><label class="field">เงินลงทุน (${c})<input id="capIn" type="number" min="0" step="1000" value="${lsGet("cap")||100000}"></label><label class="field">ยอมเสี่ยงต่อไม้ (%)<input id="riskIn" type="number" min="0.1" max="10" step="0.1" value="${lsGet("risk")||1}"></label></div><dl id="calcOut" class="kv" style="margin-top:8px"></dl></details></div>
   </section>
   ${posCard(R)}
+  ${sysStockCard(R)}
   ${thesisCard(R)}
   ${pbCard(R)}
   <div class="sgrid">
