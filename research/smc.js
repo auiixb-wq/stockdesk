@@ -92,7 +92,8 @@ STRAT.T_U2 = (x, i) => FILT(x, i) && (TRIG.X40(x, i) || TRIG.P2(x, i)) ? LIM(x, 
 STRAT.T_U3 = (x, i) => FILT(x, i) && (TRIG.X40(x, i) || TRIG.P3(x, i)) ? LIM(x, i) : null;
 // ---- จุดออกที่ลอง ----
 const EXITS = [];
-for (const tp of [.6, .8, 1, 1.5, 2, "sh", "s5"]) for (const sl of [2, 3, 5, "st"]) for (const hold of [10, 20]) EXITS.push({ tp, sl, hold });
+if (process.env.RR) { for (const tp of [.8, 1, 1.5, 2]) for (const sl of [1.5, 2, 3, 5]) for (const cap of [0, .08, .12]) EXITS.push({ tp, sl, hold: 20, cap }) }
+else for (const tp of [.6, .8, 1, 1.5, 2, "sh", "s5"]) for (const sl of [2, 3, 5, "st"]) for (const hold of [10, 20]) EXITS.push({ tp, sl, hold });
 
 let TRADES = null;
 function run(name) {
@@ -109,7 +110,8 @@ function run(name) {
       if (e < 0) continue;
       EXITS.forEach((X, k) => {
         if (e < busy[k]) return;
-        const slp = X.sl === "st" ? (sg.structSL != null ? Math.min(sg.structSL - .2 * a, en - .5 * a) : en - 2 * a) : en - X.sl * a;
+        let slp = X.sl === "st" ? (sg.structSL != null ? Math.min(sg.structSL - .2 * a, en - .5 * a) : en - 2 * a) : en - X.sl * a;
+        if (X.cap) slp = Math.max(slp, en * (1 - X.cap));  // เพดานขาดทุนเป็น % ของราคาซื้อ
         const H = x.sh[i];
         let tpp = typeof X.tp === "number" ? en + X.tp * a : X.tp === "sh" ? (sg.bosH ?? (H && H.p > en + .3 * a ? H.p : en + a)) : null;
         if (sg.mid && X.tp === "sh") tpp = Math.max(sg.mid, en + .3 * a);
@@ -132,6 +134,8 @@ function run(name) {
     }
   }
   const sm = a => { const n = a.length; if (!n) return { n: 0, win: 0, avg: 0, pf: 0 }; let w = 0, s = 0, gp = 0, gl = 0; for (const r of a) { s += r; if (r > 0) { w++; gp += r } else gl -= r } return { n, win: w / n * 100, avg: s / n * 100, pf: gl ? gp / gl : 99 } };
+  if (process.env.RR) return EXITS.map((X, k) => { const a = [...res[k].is, ...res[k].oos], w = a.filter(r => r > 0), l = a.filter(r => r <= 0);
+    return { X, is: sm(res[k].is), oos: sm(res[k].oos), aw: w.reduce((p, r) => p + r, 0) / (w.length || 1) * 100, al: l.reduce((p, r) => p + r, 0) / (l.length || 1) * 100, worst: Math.min(...a) * 100, big: l.filter(r => r < -.1).length / (a.length || 1) * 100 } });
   return EXITS.map((X, k) => ({ X, is: sm(res[k].is), oos: sm(res[k].oos), y: Object.fromEntries(Object.entries(res[k].y || {}).map(([a, v]) => [a, sm(v)])) }));
 }
 const f = r => `${r.n}ไม้ ชนะ${r.win.toFixed(1)}% ${r.avg >= 0 ? "+" : ""}${r.avg.toFixed(2)}% PF${r.pf.toFixed(2)}`;
@@ -177,6 +181,11 @@ if (process.env.PORT) {
   process.exit(0);
 }
 const names = ONLY ? ONLY.split(",") : Object.keys(STRAT);
+if (process.env.RR) {
+  for (const nm of names) { console.log(`${MK} ${nm}: TP / SL / เพดาน | ชนะ สร้าง/ทดสอบ | เฉลี่ย/ไม้ สร้าง/ทดสอบ | ชนะเฉลี่ย | แพ้เฉลี่ย | แย่สุด | แพ้เกิน 10%`);
+    for (const r of run(nm)) console.log(`  TP${r.X.tp} SL${r.X.sl} cap${r.X.cap ? r.X.cap * 100 + "%" : "-"} | ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% | ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}% | +${r.aw.toFixed(1)}% | ${r.al.toFixed(1)}% | ${r.worst.toFixed(0)}% | ${r.big.toFixed(1)}% ของไม้`) }
+  process.exit(0);
+}
 console.log(MK, st.length, "หุ้น");
 for (const nm of names) {
   const t = Date.now(), rows = run(nm);

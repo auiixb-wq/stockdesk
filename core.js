@@ -45,13 +45,14 @@ const RULES={thr:40,split:.7,warm:60,wk:true,rs:70,adx:20,preset:"win"};
 // จุดเข้า / TP / SL / ตัวกรอง แยกตามตลาด (ทดสอบ 5 ปี ~220 หุ้นไทย ~1,300 หุ้นสหรัฐฯ · เลือกจาก ต.ค.65–มี.ค.67 ยืนยัน เม.ย.67–ต.ค.69
 // · วันที่ได้ของจากคำสั่งตั้งซื้อไม่นับขายกำไร เพราะไม่รู้ลำดับราคาสูง/ต่ำในวันนั้น)
 // lim = ตั้งซื้อต่ำกว่าราคาปิดวันที่เกิดสัญญาณกี่ ATR · ld = คำสั่งตั้งซื้อค้างได้กี่วันทำการ
+// รอบ 6 (ผู้ใช้กังวล SL ห่างกว่า TP มาก): เพดาน SL ไทย −8% → ชนะ 82/80% +1.21/+1.22%/ไม้ แย่สุด −15% (เดิม −23%) · สหรัฐฯ −12% → ชนะ 82/80% +1.29/+1.01% แย่สุด −34% (เดิม −58%)
 // เน้นอัตราชนะ (research/smc.js รอบ 3, 29 ต.ค. 69 — ลอง SMC/RSI2/IBS แล้วไม่ดีกว่า ที่ได้ผลคือ TP กว้างขึ้นและจุดเข้าลึกขึ้น)
 // รอบ 5 (เพิ่มไม้): สัญญาณ = ข้าม 40 หรือ คะแนน ≥ 40 + RSI(2) < 20 · พอร์ต 5 ตัว: ไทย 17.5 → 31.4%/ปี (ลึกสุด 9.8%), สหรัฐฯ 46.3 → 72.1%/ปี (ลึกสุด 19.7%)
 //   ไทย:    ADX > 25 · TP 1 ATR ถือ 20 วัน · ชนะ 83.1% → 81.1% (ปีต่ำสุด 79%) · กำไร +1.36% → +1.35%/ไม้ (เดิม +1.00%)
 //   สหรัฐฯ: แข็งกว่าตลาด 80% · แกว่ง ATR ≥ 2.5% ของราคา · ตั้งซื้อ −1.5 ATR ค้าง 3 วัน · TP 0.8 ATR ถือ 20 วัน
 //           ชนะทุกปี 80–90% · 5 ปี +1.47%/ไม้ (เดิม +0.83%) · พอร์ต 10 ตัว 51%/ปี ลึกสุด 14% (รอบ 4: กรองแกว่งแรงกว่านี้ไม้น้อยจนพอร์ตแย่ลง)
 // เน้นกำไรต่อไม้ สหรัฐฯ: TP 3 / SL 3 ATR · ชนะ 56–61% · กำไร +2.06% → +1.25%/ไม้ (ไทยไม่มีแบบที่ดีกว่าค่าเน้นอัตราชนะ จึงใช้ค่าเดียวกัน)
-const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,hold:20,adx:25,rs:70,dip:20},US:{lim:1.5,ld:3,tp:.8,sl:5,hold:20,adx:20,rs:80,vol:2.5,dip:20}},
+const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,slCap:.08,hold:20,adx:25,rs:70,dip:20},US:{lim:1.5,ld:3,tp:.8,sl:5,slCap:.12,hold:20,adx:20,rs:80,vol:2.5,dip:20}},
                  edge:{TH:{lim:1,ld:1,tp:1,sl:5,hold:20,adx:25,rs:70},US:{lim:1,ld:1,tp:3,sl:3,hold:30,adx:20,rs:70}}};
 const rulesFor=m=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH)});
 const PRESETS={win:{preset:"win"},edge:{preset:"edge"}};const RULES0={...RULES};
@@ -67,6 +68,10 @@ function rsiTrigger(c,n,p,T){if(n<p+1)return null;let g=0,l=0;for(let i=1;i<=p;i
 function barLive(m,t){try{const p=new Intl.DateTimeFormat("en-CA",{timeZone:m==="TH"?"Asia/Bangkok":"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(new Date()),g=k=>p.find(x=>x.type===k)?.value;
   return t===`${g("year")}-${g("month")}-${g("day")}`&&+g("hour")*60+ +g("minute")<(m==="TH"?1000:960)}catch{return false}}
 const sysTrig=(a,I,i,P)=>a[i]>=P.thr&&(a[i-1]<P.thr||(P.dip!=null&&(r2Of(I)[i]??99)<P.dip));
+// จุดตัดขาดทุน = ราคาซื้อ − sl×ATR แต่ไม่ห่างเกิน slCap (ไทย 8% / สหรัฐฯ 12%) — รอบ 6: ยังชนะ 80%+ ไม้ที่เจ็บหนักลดลงมาก
+const slOf=(en,atr,P)=>P.slCap?Math.max(en-P.sl*atr,en*(1-P.slCap)):en-P.sl*atr;
+// ปัดราคาจุดตัดขาดทุนตามช่องราคา: ถ้าชนเพดาน % ปัดเข้าหาราคาซื้อ เพื่อไม่ให้เกินเพดาน
+const slR=(en,atr,P,m)=>{const v=slOf(en,atr,P);return rt(v,m,P.slCap&&v>en-P.sl*atr?"ceil":"floor")};
 const sigOK=(I,i,rsA,P)=>(P.wk===false||I.wk[i]>=0)&&rsPass(rsA,i)&&(P.adx==null||(I.adx[i]??0)>P.adx)&&volOK(I,i,P);
 
 /* ---------- state ---------- */
@@ -169,7 +174,7 @@ function simulate(B,I,sig,from,to,m,P=RULES){
   for(let i=Math.max(from,P.warm);i<to-1;i++){
     if(!sig(i))continue;const atr=I.atr[i];if(!atr)continue;
     let e=i+1,en=B[e].o;if(P.lim){const lp=B[i].c-P.lim*atr;e=-1;for(let d=i+1;d<=Math.min(to-1,i+(P.ld||1));d++)if(B[d].l<=lp){e=d;break}if(e<0)continue;en=Math.min(B[e].o,lp)}
-    const sl=en-P.sl*atr,tp=P.tp?en+P.tp*atr:Infinity,lim=Math.min(to,e+P.hold);let xp=null,xi=null;
+    const sl=slOf(en,atr,P),tp=P.tp?en+P.tp*atr:Infinity,lim=Math.min(to,e+P.hold);let xp=null,xi=null;
     for(let j=e;j<lim;j++){const b=B[j];
       if(j>e&&b.o<=sl){xp=b.o;xi=j;break}
       if(b.l<=sl){xp=sl;xi=j;break}
@@ -300,7 +305,7 @@ function makePlan(st,I,score,rsNow=true){
   else{mode="ยังไม่ควรเข้า";tone="sell";lo=sup;hi=sup+.5*atr}
   if(lo>hi)[lo,hi]=[hi,lo];
   // SL และ TP1 ใช้ระยะเดียวกับระบบที่ผ่านการทดสอบย้อนหลัง (RULES) TP2 คือแนวต้านถัดไปสำหรับคนที่อยากถือต่อ
-  const entry=(lo+hi)/2,sl=entry-RP.sl*atr,risk=entry-sl,tp1=entry+RP.tp*atr;
+  const entry=(lo+hi)/2,sl=slOf(entry,atr,RP),risk=entry-sl,tp1=entry+RP.tp*atr;
   const r2=L.res.find(x=>x.p>tp1+.2*atr&&x.p<=entry+3*RP.tp*atr);const tp2=r2?r2.p:entry+2*RP.tp*atr;
   const P={mode,tone,limit:tone==="buy"&&!!RP.lim,ld:RP.ld||1,hold:RP.hold,lo:rt(lo,m),hi:rt(hi,m),entry:rt(entry,m),sl:rt(sl,m,"floor"),tp1:rt(tp1,m,"floor"),tp2:rt(tp2,m,"floor"),atr,sup,res,L,tp2Src:r2?"แนวต้านถัดไป":"2 เท่าของ TP1"};
   P.rr1=(P.tp1-P.entry)/(P.entry-P.sl);P.rr2=(P.tp2-P.entry)/(P.entry-P.sl);return P;
@@ -371,7 +376,7 @@ function analyze(st){
   const live=barLive(st.m,B[n].t),end=live?n-1:n;
   const sys=(()=>{const a=model.arr,ld=RP.ld||1;for(let j=end;j>=Math.max(1,end-ld+1);j--){if(!(sysTrig(a,I,j,RP)&&sigOK(I,j,rsA,RP)))continue;
     const at=I.atr[j];if(!at)return null;const lp=B[j].c-RP.lim*at;let hit=false;for(let d=j+1;d<=n;d++)if(B[d].l<=lp){if(d<n||!live)return null;hit=true}
-    return{d:B[j].t,lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:rt(lp-RP.sl*at,st.m,"floor"),left:ld-(end-j),hit}}return null})();
+    return{d:B[j].t,lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:slR(lp,at,RP,st.m),left:ld-(end-j),hit}}return null})();
   const f=fundOf(st),fund=fundScore(f),ns=newsScore(st),fs=factorScore(st),rs=relStrength(st);
   const rsV=rs.pctl>=70?1:rs.pctl<=30?-1:0;
   const techP=(tech.score+100)/2,ctxP=clamp(50+ns.s*20+fs*8+rsV*10,0,100);
@@ -386,7 +391,7 @@ function analyze(st){
   // แผนล่วงหน้า (หุ้นผ่านตัวกรอง คะแนน ≥ 40 แต่ยังไม่ย่อพอ): ถ้าราคาปิดวันถัดไป ≤ trig จะเกิดสัญญาณตามระบบ แล้วตั้งซื้อ lp
   const cond=(()=>{if(sys||sw[2]||RP.dip==null||model.arr[end]<RP.thr)return null;const at=I.atr[end];if(!at)return null;
     const x=rsiTrigger(I.c,end,2,RP.dip);if(!(x>0))return null;const trig=rt(x-tick(x)*.5,st.m,"floor"),lp=trig-RP.lim*at;if(!(lp>0))return null;
-    return{trig,lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:rt(lp-RP.sl*at,st.m,"floor")}})();
+    return{trig,lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:slR(lp,at,RP,st.m)}})();
   const R={key,st,B,I,V,pb,sys,sw,cond,lvl:[plan?.L?.sup?.[0]?.p??null,plan?.L?.res?.[0]?.p??null],sStd:std.arr,tech,plan,per,model,bh,split,f,fund,ns,fs,rs,rsV,techP,ctxP,overall,v:verdict(overall),sample:!hasBars(st),last:B[n].c,chg:qq&&qq.chg!=null?qq.chg:(B[n].c/B[n-1].c-1)*100};
   R.conf=confidence(R);R.v=sysVerdict(overall,plan?.tone,R.conf.lv,!!sys);R.why=reasons(R);
   S.cache.set(st.s,R);return R;
