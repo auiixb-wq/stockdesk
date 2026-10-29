@@ -72,6 +72,7 @@ for (const k of [1, 1.25, 1.5, 2]) for (const d of [1, 3, 5]) for (const reg of 
 const EXITS = [];
 for (const tp of [.6, .8, 1, 1.5, 2, "sh", "s5"]) for (const sl of [2, 3, 5, "st"]) for (const hold of [10, 20]) EXITS.push({ tp, sl, hold });
 
+let TRADES = null;
 function run(name) {
   const res = EXITS.map(() => ({ is: [], oos: [] }));
   for (const x of st) {
@@ -102,6 +103,7 @@ function run(name) {
         if (xp == null) { xi = Math.min(n - 1, e + X.hold - 1); xp = B[xi].c }
         busy[k] = xi + 1;
         const r = xp / en - 1 - COST;
+        if (TRADES && k === TRADES.k) TRADES.list.push({ s: x.s, d: B[e].t, x: B[xi].t, r, rs: x.rs[i] ?? 0, en });
         (B[e].t < SPLIT ? res[k].is : res[k].oos).push(r);
         ((res[k].y ??= {})[B[e].t.slice(0, 4)] ??= []).push(r);
       });
@@ -111,6 +113,37 @@ function run(name) {
   return EXITS.map((X, k) => ({ X, is: sm(res[k].is), oos: sm(res[k].oos), y: Object.fromEntries(Object.entries(res[k].y || {}).map(([a, v]) => [a, sm(v)])) }));
 }
 const f = r => `${r.n}ไม้ ชนะ${r.win.toFixed(1)}% ${r.avg >= 0 ? "+" : ""}${r.avg.toFixed(2)}% PF${r.pf.toFixed(2)}`;
+// จำลองพอร์ต 5 ปี: PORT="กลยุทธ์,tp,sl,hold" · เงินเริ่ม 100,000 · ถือพร้อมกันสูงสุด 10 ตัว ตัวละ 10% ของมูลค่าพอร์ตตอนซื้อ
+if (process.env.PORT) {
+  const [nm, tp, sl, hold] = process.env.PORT.split(","), X = { tp: isNaN(+tp) ? tp : +tp, sl: isNaN(+sl) ? sl : +sl, hold: +hold };
+  const k = EXITS.findIndex(e => e.tp === X.tp && e.sl === X.sl && e.hold === X.hold); TRADES = { k, list: [] };
+  const all = run(nm)[k], T = TRADES.list.sort((a, b) => a.d.localeCompare(b.d) || b.rs - a.rs), N = +(process.env.N || 10), START = 1e5;
+  const yr = {}, add = (y, r) => { (yr[y] ??= []).push(r) };
+  for (const t of T) add(t.d.slice(0, 4), t.r);
+  console.log(`${MK} ${nm} TP${X.tp} SL${X.sl} ถือ${X.hold} · ทั้ง 5 ปี: ${T.length} ไม้ ชนะ ${(T.filter(t => t.r > 0).length / T.length * 100).toFixed(1)}% เฉลี่ย ${(T.reduce((a, t) => a + t.r, 0) / T.length * 100).toFixed(2)}%/ไม้ (สร้าง ${all.is.win.toFixed(1)}% · ทดสอบ ${all.oos.win.toFixed(1)}%)`);
+  console.log("รายไม้รายปี: " + Object.entries(yr).map(([y, a]) => `${y} ${a.length}ไม้ ชนะ${(a.filter(r => r > 0).length / a.length * 100).toFixed(0)}% ${(a.reduce((p, r) => p + r, 0) / a.length * 100).toFixed(2)}%`).join(" · "));
+  // พอร์ต: เดินทีละวัน ปิดไม้ที่ครบ แล้วเปิดไม้ใหม่ถ้ามีช่องว่าง (หุ้นตัวเดิมถือได้ทีละไม้)
+  let cash = START, open = [], eq = START, peak = START, mdd = 0, taken = 0, skipped = 0;
+  const SBY = Object.fromEntries(st.map(z => [z.s, z])), byDay = {}; for (const t of T) (byDay[t.d] ??= []).push(t);
+  const curve = {};
+  for (let di = 0; di < dates.length; di++) {
+    const d = dates[di];
+    for (const p of open.filter(p => p.t.x <= d)) { cash += p.amt * (1 + p.t.r) } open = open.filter(p => p.t.x > d);
+    // มูลค่าหุ้นที่ถืออยู่ตามราคาปิดของวันนั้น (ไม่ใช่ราคาทุน) เพื่อให้วัดการลดลงของพอร์ตได้จริง
+    const mark = open.reduce((a, p) => { const z = SBY[p.t.s], j = z.idx.get(d); return a + (j == null ? p.amt : p.amt * z.B[j].c / p.t.en) }, 0); eq = cash + mark; peak = Math.max(peak, eq); mdd = Math.max(mdd, 1 - eq / peak);
+    for (const t of byDay[d] || []) { if (open.length >= N || open.some(p => p.t.s === t.s)) { skipped++; continue } const amt = Math.min(cash, eq / N); if (amt < eq / N * .5) { skipped++; continue } cash -= amt; open.push({ t, amt }); taken++ }
+    curve[d.slice(0, 4)] = eq;
+  }
+  for (const p of open) cash += p.amt * (1 + p.t.r);
+  const end = cash, yrs = (Date.parse(dates.at(-1)) - Date.parse(T[0]?.d || dates[0])) / 3.156e10;
+  let prev = START; const yret = Object.entries(curve).map(([y, v]) => { const r = (v / prev - 1) * 100; prev = v; return `${y} ${r >= 0 ? "+" : ""}${r.toFixed(1)}%` });
+  const i0 = dates.indexOf(T[0]?.d), bh = ix.at(-1) / ix[Math.max(0, i0)] - 1;
+  let pk = 0, ddi = 0; for (let j = Math.max(0, i0); j < ix.length; j++) { pk = Math.max(pk, ix[j]); ddi = Math.max(ddi, 1 - ix[j] / pk) }
+  console.log(`พอร์ต 100,000 → ${Math.round(end).toLocaleString()} (${((end / START - 1) * 100).toFixed(0)}% ใน ${yrs.toFixed(1)} ปี · ${((Math.pow(end / START, 1 / yrs) - 1) * 100).toFixed(1)}%/ปี) · ลดลงลึกสุด ${(mdd * 100).toFixed(1)}% · ซื้อจริง ${taken} ไม้ ข้าม ${skipped} (เต็ม 10 ตัว)`);
+  console.log(`รายปี: ${yret.join(" · ")}`);
+  console.log(`เทียบถือหุ้นทั้งตลาดเท่ากันทุกตัว: ${(bh * 100).toFixed(0)}% (${((Math.pow(1 + bh, 1 / yrs) - 1) * 100).toFixed(1)}%/ปี) · ลดลงลึกสุด ${(ddi * 100).toFixed(1)}%`);
+  process.exit(0);
+}
 const names = ONLY ? ONLY.split(",") : Object.keys(STRAT);
 console.log(MK, st.length, "หุ้น");
 for (const nm of names) {
