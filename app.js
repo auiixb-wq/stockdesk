@@ -184,7 +184,13 @@ function finSection(R){const st=R.st,F=S.fin[st.s];
    ${tile("เงินสด",mn(fs.cash,m),"ล่าสุด")}${tile("หนี้สินที่มีภาระดอกเบี้ย",mn(fs.debt,m),`D/E ${fs.de!=null?fs.de.toFixed(2)+"×":"–"}`)}${tile("ส่วนของผู้ถือหุ้น",mn(fs.eq,m),`สภาพคล่อง ${fs.cr!=null?fs.cr.toFixed(2)+"×":"–"}`)}${tile("กระแสเงินสดอิสระ (4 ไตรมาส)",`<span class="${cls(fs.fcf)}">${mn(fs.fcf,m)}</span>`,`ดำเนินงาน ${mn(fs.ocf,m)} · ลงทุน ${mn(fs.capex,m)}`)}</div></section>`}
 // บรรทัดราคาแผนของหุ้นทุกตัวในรายการ: สัญญาณ > แผนล่วงหน้า > แผนอ้างอิง (ถ้าผ่านเงื่อนไข)
 // TP นับจากราคาซื้อ: ราคาตอนนี้ ≥ TP แต่ยังไม่ได้ถือ = ยังไม่ใช่จังหวะซื้อ (ต้องรอย่อลงมาที่จุดซื้อก่อน)
-function planLine(R){const y=R.sys||R.cond||R.ref;if(!y)return "";const t=R.sys?"สัญญาณ":R.cond?"ล่วงหน้า":"ถ้าผ่าน",held=holds()[R.st.s]?.q>0,up=!held&&R.last>=y.tp;
+const summaryTF=s=>S.summary?.[s]?.tf;
+function planLine(R){
+  // กรอบเล็ก (15 นาที / 1 ชม.) ใช้แผนที่คำนวณไว้ทั้งตลาด ถ้าหุ้นนั้นมีราคากรอบเล็ก
+  const tq=(S.tf==="15m"||S.tf==="1H")&&(R.tfp||summaryTF(R.st.s))?.[S.tf];
+  if(tq){const [k,lp,tp,sl]=tq,t=(k===2?"สัญญาณ":k===1?"ล่วงหน้า":"ถ้าผ่าน")+" "+TF_LABEL[S.tf];
+    return `<div class="pll num"><span class="pll-t${k===2?" on":""}">${t}</span>ซื้อ ${fmt(lp)} · <span class="up">TP ${fmt(tp)}</span> · <span class="down">SL ${fmt(sl)}</span></div>`}
+  const y=R.sys||R.cond||R.ref;if(!y)return "";const t=R.sys?"สัญญาณ":R.cond?"ล่วงหน้า":"ถ้าผ่าน",held=holds()[R.st.s]?.q>0,up=!held&&R.last>=y.tp;
   return `<div class="pll num"><span class="pll-t${R.sys?" on":""}">${t}</span>ซื้อ ${fmt(y.lp)} · <span class="up">TP ${fmt(y.tp)}</span> · <span class="down">SL ${fmt(y.sl)}</span>${up?`<span class="pll-w">ราคาสูงกว่า TP แล้ว ไม่ต้องไล่ซื้อ รอย่อมาที่ ${fmt(y.lp)}</span>`:""}</div>`}
 function rowHTML(R){const st=R.st,fav=S.watch.includes(st.s);return `<a class="row" href="#s-${esc(st.s)}">${logo(st.s)}<div style="min-width:0"><div class="sym">${esc(dsym(st.s))}${fav?`<span class="warn" aria-label="รายการโปรด">★</span>`:""}<span class="pill sm ${R.v[1]}">${R.v[0]}</span></div><div class="nm">${esc(st.n)}${earnTag(R)}</div>${planLine(R)}</div>${spark(R)}<div class="px"><div class="num pxv" data-q="${esc(st.s)}">${cur(st.m)}${fmt(R.last)}</div>${chgPill(R.chg,st.s)}</div></a>`}
 function sentTag(s){return s>0?`<span class="sent up">● บวก</span>`:s<0?`<span class="sent down">● ลบ</span>`:`<span class="sent muted">● กลาง</span>`}
@@ -358,6 +364,7 @@ function vMarket(){
   <div class="mq"><input id="mq" type="search" placeholder="ค้นหาในตลาด: ชื่อย่อหรือชื่อบริษัท" value="${esc(S.mq||"")}" autocomplete="off" aria-label="ค้นหาหุ้นในตลาด"></div>
   <div class="chips">${b("sort","score","คะแนน",S.sort)}${b("sort","chg","เปลี่ยนแปลงวันนี้",S.sort)}${b("sort","mc","มูลค่าตลาด",S.sort)}${b("sort","sym","ชื่อ",S.sort)}</div>
   <div class="chips" aria-label="คัดกรองหุ้น">${SCR.map(([k,l])=>b("scr",k,l,S.scr)).join("")}</div>
+  <div class="chips" aria-label="กรอบเวลาของราคาในรายการ"><span class="chip-l">ราคาซื้อ/TP/SL กรอบ</span>${["15m","1H","D"].map(t=>`<button type="button" class="chip" data-tf="${t}" aria-pressed="${S.tf===t||(t==="D"&&!["15m","1H"].includes(S.tf))}">${TF_LABEL[t]}</button>`).join("")}</div>
   <div class="chips" aria-label="กลุ่มอุตสาหกรรม">${Object.entries(SECTORS).map(([k,v])=>`<button class="chip" data-secf="${k}" aria-pressed="${S.sec===k}">${v.th}</button>`).join("")}</div>
   <div id="addBox"></div>
   <section class="card" id="mlist">${marketList()}</section>${sampleNotice()}
@@ -500,7 +507,7 @@ function tpLadder(m,y,tf="D"){const T=(tf==="D"?TP_LV:TP_LV_TF[tf]||{})[m]||{lv:
   return `<details class="tpl" open><summary>TP หลายขั้น + ความเสี่ยง</summary><table class="tpl-t"><thead><tr><th>ขั้น</th><th class="r">ราคา</th><th class="r">จากซื้อ</th><th class="r">โอกาสถึง</th><th class="r">ใช้เวลา</th></tr></thead><tbody>${rows}</tbody></table>
    <p class="tpl-r"><b>ความเสี่ยง:</b> SL ${fmt(y.sl)} (${fe(y.sl)}) · โอกาสไม่ถึง TP1 ~${T.risk[0]}% · ถ้าถือรอ TP3 โอกาสโดน SL ก่อน ~${T.risk[1]}% · ไม้ที่โดน SL เสียเฉลี่ย ${T.risk[2]}%<br>ผลทดสอบของระบบคิดจากขายทั้งหมดที่ TP1 · TP2/TP3 ได้มากขึ้นแต่โอกาสถึงน้อยลง ใช้กับบางส่วนของหุ้นเมื่อยอมรับความเสี่ยงที่สูงขึ้นได้ · โอกาสคิดจากทุกหุ้นในตลาด ไม่ใช่หุ้นตัวนี้ตัวเดียว</p></details>`}
 // แถบเลือกกรอบเวลา: จุดเข้าซื้อ/TP/SL และกราฟคำนวณใหม่ตามกรอบที่เลือก
-function tfBar(){return `<div class="tfs" role="group" aria-label="กรอบเวลา">${["1H","4H","D","W"].map(t=>`<button type="button" class="chip" data-tf="${t}" aria-pressed="${S.tf===t}">${TF_LABEL[t]}</button>`).join("")}</div>`}
+function tfBar(){return `<div class="tfs" role="group" aria-label="กรอบเวลา">${["15m","1H","4H","D","W"].map(t=>`<button type="button" class="chip" data-tf="${t}" aria-pressed="${S.tf===t}">${TF_LABEL[t]}</button>`).join("")}</div>`}
 // การ์ดแผนซื้อขายของกรอบเวลา X (ผลจาก analyze หรือ analyzeTF): สัญญาณ > แผนล่วงหน้า > แผนอ้างอิง
 function planTiles(X,last,tf){const m=X.st.m,P=rulesFor(m,tf),u=TF_UNIT[tf],dist=v=>pct((v/last-1)*100,1),fe0=y=>v=>pct((v/y.lp-1)*100,1);
   const tile=(k,v,d,cl)=>`<div class="kt ${cl}"><div class="k">${k}</div><div class="v num">${v}</div><div class="d">${d}</div></div>`,bt=X.model?.oos?.n?`<div class="kt-note">ผลทดสอบหุ้นนี้กรอบ ${TF_LABEL[tf]}: ชนะ ${X.model.is.n?X.model.is.win.toFixed(0):"–"}% / ${X.model.oos.win.toFixed(0)}% · ${X.model.is.n+X.model.oos.n} ไม้ (ช่วงสร้าง / ช่วงทดสอบ)</div>`:"";
@@ -510,11 +517,13 @@ function planTiles(X,last,tf){const m=X.st.m,P=rulesFor(m,tf),u=TF_UNIT[tf],dist
   return `<div class="kt-note"><b>ยังไม่มีสัญญาณ</b> · ${esc(w[1]||w[0])}<br>ถ้าผ่านเงื่อนไข ระบบจะตั้งซื้อตามนี้ (คิดจากราคาปิดแท่งล่าสุดของกรอบ ${TF_LABEL[tf]} ขยับทุกแท่ง)</div>`
     +tile("จุดเข้าซื้อ",fmt(y.lp),dist(y.lp),"kt-en")+tile("TP ขายกำไร",fmt(y.tp),fe(y.tp),"kt-tp")+tile("SL ตัดขาดทุน",fmt(y.sl),fe(y.sl),"kt-sl")+tpLadder(m,y,tf)+bt}
 const intraBase=()=>RAW?RAW.replace(/live\/$/,"intra/"):"data/intra/";
-async function loadIntra(sym){S.intra??={};if(S.intra[sym]!==undefined||S.intraLoading?.has(sym))return;(S.intraLoading??=new Set()).add(sym);
-  const old=!S.intraRecent||Date.now()-(S.intraRecentAt||0)>10*60e3,[a,rec]=await Promise.all([J(intraBase()+encodeURIComponent(sym)+".json"),old?J("data/intra_recent.json"):null]);
-  if(rec){S.intraRecent=rec;S.intraRecentAt=Date.now()}S.intraLoading.delete(sym);S.intra[sym]=a&&a.t?a:null;if(route().sym===sym&&!document.querySelector("input:focus"))render()}
+// ราคากรอบชั่วโมง / 15 นาทีของหุ้นหนึ่งตัว (ชุดหลักจาก branch intra / intra15 + ชุดล่าสุดจาก data/*_recent.json)
+async function loadIntra(sym,tf){const q=tf==="15m",K=q?"intra15":"intra",RK=q?"intra15Recent":"intraRecent";S[K]??={};const lk=K+sym;
+  if(S[K][sym]!==undefined||S.intraLoading?.has(lk))return;(S.intraLoading??=new Set()).add(lk);
+  const old=!S[RK]||Date.now()-(S[RK+"At"]||0)>10*60e3,[a,rec]=await Promise.all([J(intraBase().replace(/intra\/$/,K+"/")+encodeURIComponent(sym)+".json"),old?J(`data/${q?"intra15":"intra"}_recent.json`):null]);
+  if(rec){S[RK]=rec;S[RK+"At"]=Date.now()}S.intraLoading.delete(lk);S[K][sym]=a&&a.t?a:null;if(route().sym===sym&&!document.querySelector("input:focus"))render()}
 // ผลวิเคราะห์ของกรอบเวลาที่เลือก (รายวัน = analyze เดิม) · กรอบชั่วโมงต้องโหลดราคาก่อน คืน null ระหว่างรอ
-function chartR(st){const tf=S.tf;if(tf==="D")return analyze(st);if(tf!=="W"&&S.intra?.[st.s]===undefined){loadIntra(st.s);return null}return analyzeTF(st,tf)}
+function chartR(st){const tf=S.tf;if(tf==="D")return analyze(st);const K=tf==="15m"?"intra15":"intra";if(tf!=="W"&&S[K]?.[st.s]===undefined){loadIntra(st.s,tf);return null}return analyzeTF(st,tf)}
 // ภาพเดียวสำหรับตัดสินใจ: งบ (Fundamental) + กราฟ (Technical) + ข่าว/ปัจจัย (News) + ราคาเทียบมูลค่า (Valuation)
 // แต่ละด้าน 0–100 (50 = กลาง) แล้วสรุปว่าสอดคล้องกันหรือขัดกันตรงไหน และควรทำอะไรตามระบบ
 function decision(R){const V=valuation(R),P=[];const lv=v=>v>=60?1:v<=40?-1:0;
@@ -544,7 +553,7 @@ function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),fromE=v=>pct((v/
     <div class="vh-l"><div class="eyebrow" style="color:var(--deep-2)">สรุปในประโยคเดียว</div><div class="vword">${R.v[0]}</div><p class="vline">${esc(headline(R))}</p>${gauge(R.overall)}
       <div class="vmeta"><span>คะแนน <b class="num">${R.overall}</b>/100</span><span><span class="dot" style="--c:${R.conf.c==="var(--ink-2)"?"var(--deep-2)":R.conf.c}"></span>ความน่าเชื่อถือ ${R.conf.t}</span></div></div>
     <div class="vh-r">${tfBar()}${(()=>{if(S.tf==="D")return planTiles(R,R.last,"D");const X=chartR(R.st);
-        if(X)return planTiles(X,R.last,S.tf);const miss=S.intra?.[R.st.s]===null||S.tf==="W";
+        if(X)return planTiles(X,R.last,S.tf);const miss=(S.tf==="15m"?S.intra15:S.intra)?.[R.st.s]===null||S.tf==="W";
         return `<div class="kt-note">${miss?`หุ้นนี้ยังไม่มีราคารายชั่วโมง (มีเฉพาะหุ้นสหรัฐฯ และหุ้นไทยมูลค่าตลาด ≥ 5 พันล้านบาท) ดูกรอบ "วัน" แทน`:"กำลังโหลดราคารายชั่วโมง…"}</div>`})()}
       <details class="vcalc"><summary>ควรซื้อกี่หุ้น</summary><div class="calc" style="margin-top:8px"><label class="field">เงินลงทุน (${c})<input id="capIn" type="number" min="0" step="1000" value="${lsGet("cap")||100000}"></label><label class="field">ยอมเสี่ยงต่อไม้ (%)<input id="riskIn" type="number" min="0.1" max="10" step="0.1" value="${lsGet("risk")||1}"></label></div><dl id="calcOut" class="kv" style="margin-top:8px"></dl></details></div>
   </section>
@@ -780,7 +789,7 @@ function render(){queueMicrotask(renderTicker);
   const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mkt===S.mkt));document.documentElement.dataset.mkt=S.mkt;document.querySelector('meta[name="theme-color"]')?.setAttribute("content",S.mkt==="US"?"#0F1E3D":"#11261B");document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
   killCharts();
   $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="sync"?vSync():vHome()}</div>`;
-  if(r.v==="stock"){const st=stockBySym(r.sym);if(st&&hasBars(st)){const R=analyze(st),X=chartR(st);if($("#cMain")){if(X)drawCharts(X,$("#cRsi")?curRange:S.tf==="D"?126:S.tf==="W"?104:140);else $("#cMain").innerHTML=`<div class="empty">${S.intra?.[st.s]===null?"หุ้นนี้ยังไม่มีราคารายชั่วโมง":"กำลังโหลดราคารายชั่วโมง…"}</div>`}calc(R)}}
+  if(r.v==="stock"){const st=stockBySym(r.sym);if(st&&hasBars(st)){const R=analyze(st),X=chartR(st);if($("#cMain")){if(X)drawCharts(X,$("#cRsi")?curRange:S.tf==="D"?126:S.tf==="W"?104:140);else $("#cMain").innerHTML=`<div class="empty">${(S.tf==="15m"?S.intra15:S.intra)?.[st.s]===null?"หุ้นนี้ยังไม่มีราคารายชั่วโมง":"กำลังโหลดราคารายชั่วโมง…"}</div>`}calc(R)}}
 }
 function calc(R){const out=$("#calcOut");if(!out)return;const cap=+$("#capIn").value||0,rk=+$("#riskIn").value||0,P=R.plan,m=R.st.m;const per=P.entry-P.sl;let sh=per>0?Math.floor(cap*rk/100/per):0;const lot=m==="TH"?100:1;sh=Math.floor(Math.min(sh,cap/P.entry)/lot)*lot;
   out.innerHTML=`<dt>จำนวนหุ้นที่ซื้อได้${m==="TH"?" (ล็อต 100)":""}</dt><dd class="num">${sh.toLocaleString()}</dd><dt>เงินที่ใช้</dt><dd class="num">${cur(m)}${fmt(sh*P.entry)}</dd><dt>ขาดทุนสูงสุดถ้าโดน SL</dt><dd class="num down">−${cur(m)}${fmt(sh*per)}</dd><dt>กำไรถ้าถึง TP2</dt><dd class="num up">+${cur(m)}${fmt(sh*(P.tp2-P.entry))}</dd>`}
@@ -1239,7 +1248,7 @@ function vAccuracy(){
 /* ---------- boot ---------- */
 S.watch=lsGet("watch")||[];S.mkt=["TH","US"].includes(lsGet("mkt"))?lsGet("mkt"):"TH";S.px=lsGet("px")||{};S.fa=lsGet("fa")||{};if(lsGet("rulesV")!==5){try{localStorage.removeItem("rules")}catch{}lsSet("rulesV",5)}Object.assign(RULES,lsGet("rules")||{});
 applyTheme(lsGet("theme")||"system");
-S.tf=["1H","4H","D","W"].includes(lsGet("tf"))?lsGet("tf"):"D";
+S.tf=["15m","1H","4H","D","W"].includes(lsGet("tf"))?lsGet("tf"):"D";
 S.lang=lsGet("lang")==="en"?"en":"th";i18nStart(S.lang);{const b=$("#langBtn");if(b){b.querySelectorAll(".lf").forEach(x=>x.classList.toggle("on",x.dataset.l===S.lang));b.title=S.lang==="en"?"เปลี่ยนเป็นภาษาไทย":"Switch to English"}}
 render();loadAll();syInit();
 /* ---------- แถบข่าววิ่ง: ประกาศงบวันนี้ · ขึ้น/ลงแรงวันนี้ · ข่าวระดับ 1 ล่าสุด (อัปเดตพร้อมราคาทุก 15 วินาที) ---------- */

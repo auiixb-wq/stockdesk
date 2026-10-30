@@ -60,8 +60,8 @@ const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,slCap:.08,hold:20,adx:25,rs:70,di
 //          4 ชม. (ราคารายชั่วโมง 730 วัน) กติกาเดียวกับรายวัน: ไทยชนะ 80/77% (+0.62/+0.29%) · สหรัฐฯ 83/80% (+0.70/+0.52%)
 //          1 ชม.: ไทยชนะ 83/83% (+0.27/+0.33%) · สหรัฐฯ 79/83% (+0.10/+0.34%) · Supertrend ไม่ช่วยในกรอบชั่วโมง จึงปิดไว้
 // กติกาตามกรอบเวลา (ทับค่าของรายวัน) หน่วย ATR ของแท่งกรอบนั้น · ค่าที่ผ่านการทดสอบใน research/smc.js (TF=W / HDIR=h1 TF=4H)
-const TF_RULES={W:{TH:{tp:1,sl:3,slCap:null,hold:20,warm:60},US:{tp:.8,sl:3,slCap:null,hold:20,vol:5.6,warm:60}},"4H":{TH:{st:false},US:{vol:1.8}},"1H":{TH:{st:false},US:{vol:.95}}};
-const TF_LABEL={"1H":"1 ชม.","4H":"4 ชม.",D:"วัน",W:"สัปดาห์"},TF_UNIT={"1H":"ชั่วโมง","4H":"แท่ง 4 ชม.",D:"วันทำการ",W:"สัปดาห์"};
+const TF_RULES={W:{TH:{tp:1,sl:3,slCap:null,hold:20,warm:60},US:{tp:.8,sl:3,slCap:null,hold:20,vol:5.6,warm:60}},"4H":{TH:{st:false},US:{vol:1.8}},"1H":{TH:{st:false},US:{vol:.95}},"15m":{TH:{st:false},US:{vol:.5}}};
+const TF_LABEL={"15m":"15 นาที","1H":"1 ชม.","4H":"4 ชม.",D:"วัน",W:"สัปดาห์"},TF_UNIT={"15m":"แท่ง 15 นาที","1H":"ชั่วโมง","4H":"แท่ง 4 ชม.",D:"วันทำการ",W:"สัปดาห์"};
 // S.tuned = กติกาที่ระบบเรียนรู้เองจากการทดสอบรายคืน (data/learn.json) ใช้เฉพาะแบบเน้นอัตราชนะ และเฉพาะกรอบรายวัน
 const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(RULES.preset!=="edge"&&S.tuned?.[m]?.rules||{}),...(tf!=="D"&&TF_RULES[tf]?.[m]||{})});
 const PRESETS={win:{preset:"win"},edge:{preset:"edge"}};const RULES0={...RULES};
@@ -236,13 +236,13 @@ function sysPlan(st,B,I,arr,rsA,RP,live){const n=B.length-1,end=live?n-1:n;
 // แท่งยังไม่ปิด: สัปดาห์นี้ยังไม่จบ · แท่งชั่วโมงที่ยังไม่ครบเวลา
 function tfLive(m,tf,t){if(tf==="D")return barLive(m,t);const now=Date.now();
   if(tf==="W"){const d=new Date(String(t).slice(0,10)+"T00:00:00Z"),mon=d-((d.getUTCDay()+6)%7)*864e5;return now<mon+5*864e5+(m==="TH"?10*36e5:21*36e5)}
-  const t0=Date.parse(String(t)+":00Z");return now<t0+(tf==="1H"?36e5:4*36e5)&&now-t0<12*36e5}
+  const t0=Date.parse(String(t)+":00Z");return now<t0+(tf==="15m"?9e5:tf==="1H"?36e5:4*36e5)&&now-t0<12*36e5}
 // "แข็งกว่าตลาด" ของกรอบเวลาอื่น = ผลของรายวัน ณ วันทำการก่อนหน้าแท่งนั้น (ไม่แอบดูวันนี้) เหมือนที่ทดสอบ
 function rsTF(st,B,p){const D=barsOf(st),r=rsSeries(st,D,p);if(!r)return null;let k=0;
   return B.map(b=>{const day=String(b.t).slice(0,10);while(k<D.length&&D[k].t<day)k++;return k>0?r[k-1]:null})}
-// แท่งของกรอบเวลา: สัปดาห์จากรายวัน · 1 ชม. จากชุด 6 เดือน + 5 วันล่าสุด · 4 ชม. รวมจาก 1 ชม.
+// แท่งของกรอบเวลา: สัปดาห์จากรายวัน · 1 ชม. จากชุด 6 เดือน + 5 วันล่าสุด · 4 ชม. รวมจาก 1 ชม. · 15 นาที จากชุด 1 เดือน + 2 วันล่าสุด
 function tfBars(st,tf){if(tf==="D")return barsOf(st);if(tf==="W")return resample(barsOf(st),"W");
-  const a=S.intra?.[st.s];if(!a)return null;const rec=S.intraRecent?.s?.[st.s],m=new Map();
+  const q=tf==="15m",a=(q?S.intra15:S.intra)?.[st.s];if(!a)return null;const rec=(q?S.intra15Recent:S.intraRecent)?.s?.[st.s],m=new Map();
   for(const j of [a,rec])if(j)j.t.forEach((t,i)=>{if(j.c[i]!=null&&j.o[i]!=null)m.set(t,{t,o:j.o[i],h:j.h[i],l:j.l[i],c:j.c[i],v:j.v[i]||0})});
   const B=[...m.values()].sort((x,y)=>x.t<y.t?-1:1);return tf==="4H"?resample(B,"4H"):B}
 function analyzeTF(st,tf){if(tf==="D")return analyze(st);const B=tfBars(st,tf);if(!B||B.length<80)return null;
@@ -500,7 +500,7 @@ function info(st){if(hasBars(st))return analyze(st);
   const m=S.summary?.[st.s],q=S.quotes?.q?.[st.s],key=(m?1:0)+"|"+(q?.ts??"")+"|"+(q?.p??"");S._info??=new Map();const hit=S._info.get(st.s);if(hit&&hit.k===key&&hit.m===m)return hit.R;
   let R;
   if(!m)R={st,lite:true,none:true,overall:null,v:["ยังไม่มีข้อมูล","p-hold"],conf:{t:"–",c:"var(--ink-2)",lv:0},last:q?.p??null,chg:q?.chg??0,sp:[],plan:null,pb:{now:false},f:[]};
-  else{const pl=m.pl,lv=Array.isArray(m.c)?m.c[2]:m.c;R={st,lite:true,overall:m.o,v:sysVerdict(m.o,pl?.[5],lv,!!m.sy),sys:m.sy?{lp:m.sy[0],tp:m.sy[1],sl:m.sy[2],left:m.sy[3],d:m.sy[4],hit:!!m.sy[5]}:null,rs:m.rs||null,sw:m.sw||null,cond:m.cd?{trig:m.cd[0],lp:m.cd[1],tp:m.cd[2],sl:m.cd[3]}:null,ref:m.rf?{lp:m.rf[0],tp:m.rf[1],sl:m.rf[2]}:null,lvl:m.lv||[null,null],conf:{t:CONF_LV[lv][0],c:CONF_LV[lv][1],lv},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
+  else{const pl=m.pl,lv=Array.isArray(m.c)?m.c[2]:m.c;R={st,lite:true,overall:m.o,v:sysVerdict(m.o,pl?.[5],lv,!!m.sy),sys:m.sy?{lp:m.sy[0],tp:m.sy[1],sl:m.sy[2],left:m.sy[3],d:m.sy[4],hit:!!m.sy[5]}:null,rs:m.rs||null,sw:m.sw||null,cond:m.cd?{trig:m.cd[0],lp:m.cd[1],tp:m.cd[2],sl:m.cd[3]}:null,ref:m.rf?{lp:m.rf[0],tp:m.rf[1],sl:m.rf[2]}:null,tfp:m.tf||null,lvl:m.lv||[null,null],conf:{t:CONF_LV[lv][0],c:CONF_LV[lv][1],lv},last:q?.p??m.p,chg:q?.chg??m.ch,sp:m.sp,techP:m.tp,fundS:m.fs,
     plan:{lo:pl[0],hi:pl[1],sl:pl[2],tp1:pl[3],tp2:pl[4],tone:pl[5],mode:pl[6],entry:(pl[0]+pl[1])/2},pb:{now:m.pb[0],near:m.pb[1],r2:m.pb[2],s5:m.pb[3]},f:m.f||[],fq:m.fq,fv:m.fv}}
   S._info.set(st.s,{k:key,m,R});return R}
 

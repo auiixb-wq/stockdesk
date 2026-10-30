@@ -7,8 +7,8 @@ const load = (f, d) => { try { return JSON.parse(fs.readFileSync(path.join(ROOT,
 const ctx = { console };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, "core.js"), "utf8") +
-  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars,liquid,calibNew,calibAdd,calibDone,barsOf,stockBySym,indicators,VOTES,sma,uniOf,rulesFor,costOf,valuation};", ctx);
-const { S, analyze, summarize, allStocks, buildFactors, mergeNews, hasBars, liquid, calibNew, calibAdd, calibDone, barsOf, stockBySym, rulesFor, costOf, valuation, uniOf } = ctx.__core;
+  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars,liquid,calibNew,calibAdd,calibDone,barsOf,stockBySym,indicators,VOTES,sma,uniOf,rulesFor,costOf,valuation,analyzeTF};", ctx);
+const { S, analyze, summarize, allStocks, buildFactors, mergeNews, hasBars, liquid, calibNew, calibAdd, calibDone, barsOf, stockBySym, rulesFor, costOf, valuation, uniOf, analyzeTF } = ctx.__core;
 
 const uni = load("data/universe.json", { items: [] }), fund = load("data/fund.json", {}), macro = load("data/macro.json", {});
 const news = load("data/news.json", { items: [] }), man = load("manual.json", {}), quotes = load("data/quotes.json", null);
@@ -55,6 +55,22 @@ for (const f of fs.existsSync(fdir) ? fs.readdirSync(fdir).filter(f => f.endsWit
   fs.writeFileSync(path.join(DATA, "rsq.json"), JSON.stringify(rsq));
   S.cache.clear();
 }
+// ราคากรอบเล็ก (1 ชม. / 15 นาที) สำหรับแผนซื้อขายระยะสั้นในรายการหุ้น
+for (const [K, dir, rec] of [["intra", "intra", "intra_recent.json"], ["intra15", "intra15", "intra15_recent.json"]]) {
+  const d = path.join(DATA, dir); S[K] = {};
+  for (const f of fs.existsSync(d) ? fs.readdirSync(d).filter(f => f.endsWith(".json")) : []) { try { S[K][f.slice(0, -5)] = JSON.parse(fs.readFileSync(path.join(d, f), "utf8")) } catch {} }
+  S[K === "intra" ? "intraRecent" : "intra15Recent"] = load("data/" + rec, null);
+}
+// แผนของกรอบเล็ก: [ชนิด 2=สัญญาณ 1=ล่วงหน้า 0=อ้างอิง, ราคาซื้อ, TP, SL, (จุดเกิดสัญญาณ)]
+function tfPlans(st) {
+  const o = {};
+  for (const tf of ["15m", "1H"]) {
+    if (!(tf === "15m" ? S.intra15 : S.intra)?.[st.s]) continue;
+    try { const X = analyzeTF(st, tf); S.cache.delete(st.s + "@" + tf); if (!X) continue;
+      o[tf] = X.sys ? [2, X.sys.lp, X.sys.tp, X.sys.sl] : X.cond ? [1, X.cond.lp, X.cond.tp, X.cond.sl, X.cond.trig] : X.ref ? [0, X.ref.lp, X.ref.tp, X.ref.sl] : undefined } catch {}
+  }
+  return Object.keys(o).length ? o : undefined;
+}
 const t0 = Date.now(), out = {}, C = calibNew(), MS = {};
 // ตรวจคุณภาพทุกรอบ: ความครบของ 4 ด้าน (งบ กราฟ ข่าว มูลค่า) และ P/E จากงบของเราเทียบ P/E ของ Yahoo (จับงบหรือจำนวนหุ้นผิด)
 const QS = { n: 0, fund: 0, val: 0, news: 0, all4: 0, peN: 0, peBad: [] };
@@ -78,6 +94,7 @@ for (const st of allStocks()) {
   try {
     const R = analyze(st);
     out[st.s] = summarize(R); ok++;
+    const tp = tfPlans(st); if (tp) out[st.s].tf = tp;
     if (liquid(st)) { mstat(R); qstat(R) }
     // ทดสอบความแม่นยำเฉพาะหุ้นที่มีสภาพคล่องและประวัติราคาอย่างน้อย 2 ปี
     if (liquid(st) && R.B.length >= 500) calibAdd(C, R);
