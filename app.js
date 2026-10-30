@@ -839,7 +839,19 @@ const q=L.q,meta=L.meta;
   S.dbState=man||news?"ready":"off";S.cache.clear();S.bars.clear();S.loadedAt=Date.now();render();liveBadge();
 }
 // ราคาล่าสุดเปลี่ยนในหน้าเว็บโดยไม่โหลดใหม่ทั้งหน้า
-async function refreshQuotes(){const L=await getLive(),q=L.q;
+// ราคาหุ้นไทยตรงจาก TradingView ทั้งตลาดในคำขอเดียว ทุก 15 วินาทีเมื่อตลาดไทยเปิด
+// แหล่งฟรียังหน่วง 15 นาทีตามสิทธิ์ข้อมูลของตลาดฯ แต่ไม่ต้องรอระบบหลังบ้านส่งต่อ (ลดอีก 1–4 นาที)
+async function tvQuotesTH(){if(!S.universe?.length||document.hidden||!mktOpen("TH"))return null;
+  S._tvMap??=new Map(S.universe.filter(i=>i.m==="TH").map(i=>[i.s.replace(/\.BK$/,""),i.s]));
+  const body={markets:["thailand"],symbols:{query:{types:[]},tickers:[]},columns:["name","close","change","volume","open","high","low","last_bar_update_time"],range:[0,3000]};
+  try{const r=await fetch("https://scanner.tradingview.com/thailand/scan",{method:"POST",body:JSON.stringify(body)});if(!r.ok)return null;const j=await r.json(),out={};
+    for(const row of j.data||[]){const [nm,c,ch,v,o,h,l,ts]=row.d,k=S._tvMap.get(nm);if(!k||!(c>0)||!ts)continue;
+      out[k]={p:c,v,o,h,l,ts:Math.round(ts),src:"tv"};if(ch!=null){out[k].chg=+ch.toFixed(3);out[k].prev=+(c/(1+ch/100)).toFixed(4)}}
+    return out}catch{return null}}
+async function refreshQuotes(){const [L,tv]=await Promise.all([getLive(),tvQuotesTH()]);let q=L.q;
+  if(tv){const base=q&&(q.updated||0)>=(S.quotes?.updated||0)?q:S.quotes;if(base){q={...base,q:{...base.q}};let n=0;
+    for(const[k,x]of Object.entries(tv)){const o=q.q[k];if((o?.ts||0)<x.ts&&!(o?.p&&Math.abs(Math.log(x.p/o.p))>.35)){q.q[k]={...o,...x};n++}}
+    if(n)q.updated=Math.max(base.updated||0,Math.floor(Date.now()/1000))}}
   if(L.meta?.indices&&JSON.stringify(L.meta.indices)!==JSON.stringify(S.metaLive?.indices)){S.metaLive=L.meta;Object.assign(S.meta,L.meta.indices);if(route().v==="home"&&!document.querySelector("input:focus"))render()}
   if(!q||q.updated===S.quotes?.updated){liveBadge();return}
   const old=S.quotes?.q||{};S.quotes=q;S.cache.clear();S.bars.clear();
