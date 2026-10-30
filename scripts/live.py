@@ -3,7 +3,7 @@
 - นอกเวลาตลาด: อัปเดตข่าวทุก ~20 นาที (วันหยุดทุกชั่วโมง) เพราะข่าวออกตลอดเวลา
 ก่อนรอบใหญ่ทุกครั้งดึงไฟล์ที่งานรายคืนสร้าง (งบ รายชื่อหุ้น ราคาย้อนหลัง) มาใช้ ไม่เอาของเก่าไปทับของใหม่
 """
-import datetime as dt, os, subprocess, sys, time
+import datetime as dt, json, os, subprocess, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import update  # noqa: E402
@@ -45,9 +45,23 @@ def publish_site():
         print("publish failed:", r.stderr[-300:])
 
 
+OWN = {"quotes.json", "news.json", "meta.json", "archive_state.json"}  # ไฟล์ที่งานนี้เขียนเองตลอด (ของในเครื่องใหม่กว่าเสมอ)
+
+
 def sync_shared():
-    """ไฟล์ที่งานรายคืน (update.yml) สร้างใหม่ ดึงมาแทนของในเครื่องก่อนคำนวณรอบใหญ่"""
+    """ไฟล์ที่งานรายคืน (update.yml) สร้างใหม่ ดึงมาแทนของในเครื่องก่อนคำนวณรอบใหญ่และก่อนเผยแพร่
+    ถ้าบนเว็บมีผลคำนวณ (summary.json) ใหม่กว่าในเครื่อง ดึงไฟล์ผลทั้งชุดมาด้วย ไม่งั้นรอบข่าวจะเอาคะแนน/สัญญาณชุดเก่าไปทับ"""
     sh("git fetch -q origin gh-pages --depth=1 && git checkout origin/gh-pages -- data/fund.json data/universe.json && git reset -q")
+    try:
+        remote = json.loads(sh("git show origin/gh-pages:data/summary.json").stdout or "{}").get("updated") or 0
+        local = update.load("summary.json", {}).get("updated") or 0
+        if remote > local:
+            names = [n[5:] for n in sh("git ls-tree --name-only origin/gh-pages data/").stdout.split() if n.endswith(".json")]
+            keep = [f"data/{n}" for n in names if n not in OWN]
+            sh("git checkout origin/gh-pages -- " + " ".join(keep) + " && git reset -q")
+            print("ใช้ผลคำนวณชุดใหม่จากงานรายคืน", remote)
+    except Exception as e:
+        print("sync summary:", e)
     r = sh("git ls-remote origin refs/heads/hist")
     sha = r.stdout.split()[0] if r.stdout.strip() else None
     if sha and _hist_sha[0] and sha != _hist_sha[0]:
@@ -69,6 +83,7 @@ def main():
         # รอบใหญ่รันแยกอีก process ราคาจะได้อัปเดตทุก 2 นาทีต่อไม่สะดุด
         if big is not None and big.poll() is not None:
             print("รอบใหญ่เสร็จ", big.returncode)
+            sync_shared()
             publish_site()
             archive.push()
             big = None
