@@ -497,7 +497,7 @@ function posCard(R){const h=holds()[R.st.s];if(!(h?.q>0)||R.last==null||priceIss
 // TP หลายขั้น: โอกาสที่ราคาถึงแต่ละขั้นก่อนโดน SL ภายใน 20 วันทำการ จากทุกสัญญาณของระบบย้อนหลัง 5 ปี (research/smc.js TPL=1)
 // [ATR, โอกาสถึง %, วันเฉลี่ย] · risk = [ไม่ถึง TP1 %, โดน SL ถ้าถือรอ TP3 %, ขาดทุนเฉลี่ยเมื่อโดน SL %]
 // กรอบเวลาอื่น (research/smc.js TPL=1 กับ TF=W / HDIR=h1 TF=4H) · หน่วยเวลาเป็นจำนวนแท่ง
-const TP_LV_TF={W:{TH:{lv:[[1,75,5],[2,52,7],[3,38,10]],risk:[25,20,-20.5]},US:{lv:[[.8,82,3],[2,62,7],[3,48,9]],risk:[18,22,-26.9]}},
+const TP_LV_TF={"15m":{TH:{lv:[[1,79,3],[2,38,7],[3,23,10]],risk:[21,5,-4.1]},US:{lv:[[.8,72,3],[2,46,6],[3,29,7]],risk:[28,14,-3.7]}},W:{TH:{lv:[[1,75,5],[2,52,7],[3,38,10]],risk:[25,20,-20.5]},US:{lv:[[.8,82,3],[2,62,7],[3,48,9]],risk:[18,22,-26.9]}},
   "4H":{TH:{lv:[[1,78,3],[2,52,6],[3,33,8]],risk:[22,21,-8.3]},US:{lv:[[.8,82,3],[2,59,7],[3,41,9]],risk:[18,18,-12]}},
   "1H":{TH:{lv:[[1,83,3],[2,50,7],[3,29,9]],risk:[17,11,-5.7]},US:{lv:[[.8,80,4],[2,57,7],[3,40,9]],risk:[20,15,-7.7]}}};
 const TP_LV={TH:{lv:[[1,80,3],[2,58,6],[3,39,9]],risk:[20,28,-8.1]},US:{lv:[[.8,80,3],[2,57,7],[3,39,9]],risk:[20,26,-12.5]}};
@@ -509,8 +509,10 @@ function tpLadder(m,y,tf="D"){const T=(tf==="D"?TP_LV:TP_LV_TF[tf]||{})[m]||{lv:
 // แถบเลือกกรอบเวลา: จุดเข้าซื้อ/TP/SL และกราฟคำนวณใหม่ตามกรอบที่เลือก
 function tfBar(){return `<div class="tfs" role="group" aria-label="กรอบเวลา">${["15m","1H","4H","D","W"].map(t=>`<button type="button" class="chip" data-tf="${t}" aria-pressed="${S.tf===t}">${TF_LABEL[t]}</button>`).join("")}</div>`}
 // การ์ดแผนซื้อขายของกรอบเวลา X (ผลจาก analyze หรือ analyzeTF): สัญญาณ > แผนล่วงหน้า > แผนอ้างอิง
+// คำเตือนจากผลทดสอบของกรอบเวลา (research.yml): 15 นาทีกำไรต่อไม้แทบไม่เหลือหลังค่าคอม
+const TF_NOTE={"15m":{TH:"ผลทดสอบกรอบ 15 นาที (60 วัน): ชนะ 77–79% แต่กำไรเฉลี่ยแค่ ~0.1% ต่อไม้หลังค่าคอม ใช้ดูจังหวะเข้าประกอบกรอบวันดีกว่าใช้ซื้อขายเดี่ยว ๆ",US:"ผลทดสอบกรอบ 15 นาที (60 วัน): ชนะ ~72% และขาดทุนเล็กน้อยหลังค่าคอม ไม่แนะนำใช้ซื้อขายจริง ใช้ดูจังหวะเข้าเท่านั้น"}};
 function planTiles(X,last,tf){const m=X.st.m,P=rulesFor(m,tf),u=TF_UNIT[tf],dist=v=>pct((v/last-1)*100,1),fe0=y=>v=>pct((v/y.lp-1)*100,1);
-  const tile=(k,v,d,cl)=>`<div class="kt ${cl}"><div class="k">${k}</div><div class="v num">${v}</div><div class="d">${d}</div></div>`,bt=X.model?.oos?.n?`<div class="kt-note">ผลทดสอบหุ้นนี้กรอบ ${TF_LABEL[tf]}: ชนะ ${X.model.is.n?X.model.is.win.toFixed(0):"–"}% / ${X.model.oos.win.toFixed(0)}% · ${X.model.is.n+X.model.oos.n} ไม้ (ช่วงสร้าง / ช่วงทดสอบ)</div>`:"";
+  const note=TF_NOTE[tf]?.[m]?`<div class="kt-note tfw">⚠ ${TF_NOTE[tf][m]}</div>`:"",tile=(k,v,d,cl)=>`<div class="kt ${cl}"><div class="k">${k}</div><div class="v num">${v}</div><div class="d">${d}</div></div>`,bt=note+(X.model?.oos?.n?`<div class="kt-note">ผลทดสอบหุ้นนี้กรอบ ${TF_LABEL[tf]}: ชนะ ${X.model.is.n?X.model.is.win.toFixed(0):"–"}% / ${X.model.oos.win.toFixed(0)}% · ${X.model.is.n+X.model.oos.n} ไม้ (ช่วงสร้าง / ช่วงทดสอบ)</div>`:"");
   if(X.sys){const y=X.sys,fe=fe0(y);return tile("ตั้งซื้อที่ (สัญญาณระบบ)",fmt(y.lp),`${dist(y.lp)} · ค้างคำสั่งได้อีก ${y.left} ${u}`,"kt-en")+tile("เป้าขาย",fmt(y.tp),`${fe(y.tp)} จากราคาซื้อ · ถือไม่เกิน ${P.hold} ${u}`,"kt-tp")+tile("ตัดขาดทุน",fmt(y.sl),`${fe(y.sl)} จากราคาซื้อ`,"kt-sl")+tpLadder(m,y,tf)+bt}
   if(X.cond){const y=X.cond,fe=fe0(y);return tile("เกิดสัญญาณเมื่อปิด ≤",fmt(y.trig),`${dist(y.trig)} จากราคาตอนนี้ · ตั้งเตือนราคาไว้`,"kt-en")+tile("แล้วตั้งซื้อที่",fmt(y.lp),`${dist(y.lp)} · เป้าขาย ${fmt(y.tp)} (${fe(y.tp)})`,"kt-tp")+tile("ตัดขาดทุน",fmt(y.sl),`${fe(y.sl)} จากราคาซื้อ`,"kt-sl")+tpLadder(m,y,tf)+bt}
   const w=sysWait(X),y=X.ref;if(!y)return tile("ยังไม่มีสัญญาณซื้อ",esc(w[0]),esc(w[1]),"kt-en kt-wait");const fe=fe0(y);
