@@ -264,15 +264,27 @@ function liveMoodLine(mk){const L=liveMood(mk);if(!L)return "";const t=new Date(
   return `<span class="lm-dot ${L.ic>=0?"up":"down"}"></span>ตอนนี้ ${mk==="TH"?"SET":"S&P 500"} <b class="${L.ic>=0?"up":"down"}">${pct(L.ic,2)}</b> · ขึ้น <b>${L.up}</b> ลง <b>${L.dn}</b> จาก ${L.n} หุ้นใหญ่ · ราคา ${t} น.`}
 // วิเคราะห์ตลาดอัตโนมัติ (คำนวณทุกคืนจากหุ้นที่มีสภาพคล่องทั้งตลาด เก็บประวัติใน data/learn.json)
 function marketCard(mk){const H=S.learn?.market?.[mk];if(!H?.length)return "";const r=H.at(-1),w=H[Math.max(0,H.length-6)],dlt=r.a200-w.a200;
-  const reg=r.a200>=60?["ขาขึ้น","up"]:r.a200>=40?["ไซด์เวย์","warn"]:["ขาลง","down"],sn=k=>esc(SECTORS[k]?.th||k);
-  const spark=(()=>{const a=H.slice(-60).map(x=>x.a200);if(a.length<2)return "";const w0=160,h0=36,pts=a.map((v,i)=>`${(i/(a.length-1)*w0).toFixed(1)},${(h0-2-v/100*(h0-4)).toFixed(1)}`).join(" ");
-    return `<svg width="${w0}" height="${h0}" viewBox="0 0 ${w0} ${h0}" aria-hidden="true"><line x1="0" x2="${w0}" y1="${h0-2-.5*(h0-4)}" y2="${h0-2-.5*(h0-4)}" stroke="var(--line)" stroke-dasharray="3 3"/><polyline fill="none" stroke="var(--accent-2,var(--up))" stroke-width="2" points="${pts}"/></svg>`})();
-  return `<section class="card mcard"><div class="card-h"><div><h2>วิเคราะห์ตลาดอัตโนมัติ</h2><div class="sub-t">คำนวณใหม่ทุกคืนจาก ${r.n} หุ้นที่มีสภาพคล่อง · ข้อมูล ${thDate(r.d)} · สะสมแล้ว ${H.length} วัน</div></div><span class="pill ${reg[1]==="up"?"p-buy":reg[1]==="down"?"p-sell":"p-hold"}">ตลาด${reg[0]}</span></div>
-   <div class="mc-g"><div><div class="k">อยู่เหนือเส้น 200 วัน</div><div class="v num">${r.a200}%</div><div class="s">${H.length>1?`${dlt>=0?"+":""}${dlt} จุด จากสัปดาห์ก่อน`:"แนวโน้มระยะยาว"}</div>${spark}</div>
-    <div><div class="k">อยู่เหนือเส้น 50 วัน</div><div class="v num">${r.a50}%</div><div class="s">แนวโน้มระยะกลาง · เหนือ Supertrend ${r.st}%</div></div>
-    <div><div class="k">วันล่าสุด ขึ้น / ลง</div><div class="v num"><span class="up">${r.adv}</span> / <span class="down">${r.dec}</span></div><div class="s">ทำจุดสูงสุด 52 สัปดาห์ ${r.nh} · ต่ำสุด ${r.nl}</div></div>
-    <div><div class="k">ผลตอบแทนกลาง 20 วัน</div><div class="v num ${r.r20>=0?"up":"down"}">${pct(r.r20,1)}</div><div class="s">แกว่งเฉลี่ย ${r.atr}% ต่อวัน · สัญญาณซื้อ ${r.sig}</div></div></div>
-   <p class="mc-t"><b>กลุ่มแข็ง:</b> ${r.top.map(([k,v])=>`${sn(k)} ${pct(v,1)}`).join(" · ")} &nbsp; <b>กลุ่มอ่อน:</b> ${r.bot.map(([k,v])=>`${sn(k)} ${pct(v,1)}`).join(" · ")}</p></section>`}
+  const reg=r.a200>=60?["ขาขึ้น","up"]:r.a200>=40?["ไซด์เวย์","mid"]:["ขาลง","down"],sn=k=>esc(SECTORS[k]?.th||k),nm=mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ";
+  // สรุปเป็นประโยค: แนวโน้มยาว + กลาง + แรงซื้อขายวันล่าสุด + กลุ่มนำ/ตาม → ระบบควรทำอะไร
+  const mid=r.a50>=60?"ระยะกลางแข็งแรง":r.a50>=40?"ระยะกลางทรงตัว":"ระยะกลางอ่อนตัว",day=r.adv>r.dec*1.5?"วันล่าสุดแรงซื้อชนะชัด":r.dec>r.adv*1.5?"วันล่าสุดแรงขายชนะชัด":"วันล่าสุดแรงซื้อขายพอ ๆ กัน";
+  const act=reg[1]==="up"&&r.a50>=50?"ตลาดเอื้อให้ซื้อตามสัญญาณระบบ":reg[1]==="down"||r.a50<35?"ระวัง ซื้อเฉพาะสัญญาณระบบและคุมขนาดไม้":"เลือกหุ้นรายตัว ซื้อเฉพาะตามจุดตั้งซื้อ";
+  const text=`${nm}${reg[0]}: หุ้นใหญ่ ${r.a200}% อยู่เหนือเส้น 200 วัน ${mid} (${r.a50}% เหนือเส้น 50 วัน) ${day} · กลุ่มนำ ${sn(r.top[0]?.[0])} กลุ่มอ่อน ${sn(r.bot[0]?.[0])} → ${act}`;
+  const ring=(v,lab,sub)=>{const R=26,C=2*Math.PI*R,col=v>=60?"var(--up)":v>=40?"var(--warn)":"var(--down)";
+    return `<div class="mc-ring"><svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true"><circle cx="32" cy="32" r="${R}" fill="none" stroke="var(--line)" stroke-width="7"/><circle cx="32" cy="32" r="${R}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${(v/100*C).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 32 32)"/><text x="32" y="36" text-anchor="middle" class="mc-rt">${v}%</text></svg><div><b>${lab}</b><span>${sub}</span></div></div>`};
+  const br=r.adv+r.dec?Math.round(r.adv/(r.adv+r.dec)*100):50,mx=Math.max(1,...[...r.top,...r.bot].map(x=>Math.abs(x[1])));
+  const sbar=([k,v])=>`<div class="mc-s"><span>${sn(k)}</span><i><b class="${v>=0?"pos":"neg"}" style="width:${Math.abs(v)/mx*100}%"></b></i><em class="num ${v>=0?"up":"down"}">${pct(v,1)}</em></div>`;
+  const spark=(()=>{const a=H.slice(-60).map(x=>x.a200);if(a.length<3)return `<span class="mc-wait">กราฟพัฒนาการจะขึ้นเมื่อสะสมครบ 3 วัน</span>`;const w0=220,h0=44,pts=a.map((v,i)=>`${(i/(a.length-1)*w0).toFixed(1)},${(h0-3-v/100*(h0-6)).toFixed(1)}`).join(" ");
+    return `<svg width="100%" height="${h0}" viewBox="0 0 ${w0} ${h0}" preserveAspectRatio="none" aria-hidden="true"><line x1="0" x2="${w0}" y1="${h0/2}" y2="${h0/2}" stroke="var(--line)" stroke-dasharray="3 3"/><polyline fill="none" stroke="var(--accent-ink,var(--up))" stroke-width="2" points="${pts}"/></svg>`})();
+  return `<section class="card mcard"><div class="mc-h"><div><div class="eyebrow">วิเคราะห์ตลาดอัตโนมัติ · ${thDate(r.d)}</div><h2>${nm}ตอนนี้ <span class="mc-reg ${reg[1]}">${reg[0]}</span></h2></div>
+     <div class="mc-meta">คำนวณใหม่ทุกคืนจาก ${r.n} หุ้น<br>สะสมแล้ว ${H.length} วัน</div></div>
+   <p class="mc-sum">${text}</p>
+   <div class="mc-g">
+    ${ring(r.a200,"แนวโน้มระยะยาว",`อยู่เหนือเส้น 200 วัน${H.length>1?` · ${dlt>=0?"+":""}${dlt} จุด/สัปดาห์`:""}`)}
+    ${ring(r.a50,"แนวโน้มระยะกลาง",`อยู่เหนือเส้น 50 วัน · เหนือ Supertrend ${r.st}%`)}
+    <div class="mc-br"><b>แรงซื้อ / แรงขาย วันล่าสุด</b><div class="mc-bb"><i style="width:${br}%"></i></div><div class="mc-bl"><span class="up">ขึ้น ${r.adv}</span><span class="down">ลง ${r.dec}</span></div><span>สูงสุด 52 สัปดาห์ ${r.nh} · ต่ำสุด ${r.nl}</span></div>
+    <div class="mc-br"><b>ผลตอบแทนกลาง 20 วัน</b><div class="mc-big num ${r.r20>=0?"up":"down"}">${pct(r.r20,1)}</div><span>แกว่งเฉลี่ย ${r.atr}% ต่อวัน · สัญญาณซื้อ ${r.sig} ตัว</span></div>
+   </div>
+   <div class="mc-sec"><div><h3>กลุ่มแข็ง (20 วัน)</h3>${r.top.map(sbar).join("")}</div><div><h3>กลุ่มอ่อน (20 วัน)</h3>${r.bot.map(sbar).join("")}</div><div><h3>สัดส่วนเหนือเส้น 200 วัน (60 วัน)</h3>${spark}</div></div></section>`}
 // สถานะการเรียนรู้ของระบบ (หน้าความแม่นยำ)
 function learnCard(){const L=S.learn;if(!L)return "";const w=s=>Math.min(s.is.avg,s.oos.avg);
   const col=m=>{const t=L.tuned?.[m],ld=L.lead?.[m];return `<div class="sysm"><b>${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</b> ${t?`<span class="pill sm p-buy">ใช้กติกาที่เรียนรู้เอง ตั้งแต่ ${thDate(t.since)}</span>`:`<span class="pill sm p-hold">ใช้กติกาตั้งต้น</span>`}
@@ -503,6 +515,29 @@ async function loadIntra(sym){S.intra??={};if(S.intra[sym]!==undefined||S.intraL
   if(rec){S.intraRecent=rec;S.intraRecentAt=Date.now()}S.intraLoading.delete(sym);S.intra[sym]=a&&a.t?a:null;if(route().sym===sym&&!document.querySelector("input:focus"))render()}
 // ผลวิเคราะห์ของกรอบเวลาที่เลือก (รายวัน = analyze เดิม) · กรอบชั่วโมงต้องโหลดราคาก่อน คืน null ระหว่างรอ
 function chartR(st){const tf=S.tf;if(tf==="D")return analyze(st);if(tf!=="W"&&S.intra?.[st.s]===undefined){loadIntra(st.s);return null}return analyzeTF(st,tf)}
+// ภาพเดียวสำหรับตัดสินใจ: งบ (Fundamental) + กราฟ (Technical) + ข่าว/ปัจจัย (News) + ราคาเทียบมูลค่า (Valuation)
+// แต่ละด้าน 0–100 (50 = กลาง) แล้วสรุปว่าสอดคล้องกันหรือขัดกันตรงไหน และควรทำอะไรตามระบบ
+function decision(R){const V=valuation(R),P=[];const lv=v=>v>=60?1:v<=40?-1:0;
+  P.push({k:"fa",n:"งบการเงิน",v:R.fund.thin?null:R.fund.score,why:R.fund.thin?"ข้อมูลงบไม่พอ":R.f.fs?.yoyN!=null?`กำไรไตรมาสล่าสุด ${pct(R.f.fs.yoyN,0)} YoY`:`ผ่าน ${R.fund.rows.filter(r=>r.ok===1).length} จาก ${R.fund.rows.length} ข้อ`});
+  const sysTxt=R.sys?"มีสัญญาณซื้อตามระบบ":sysWait(R)[0];
+  P.push({k:"chart",n:"กราฟ / ระบบ",v:Math.round(R.techP),why:`${R.plan?.tone==="buy"?"แนวโน้มขาขึ้น":R.plan?.tone==="sell"?"แนวโน้มอ่อน":"แนวโน้มกลาง ๆ"} · ${sysTxt}`});
+  const nv=Math.round(Math.max(0,Math.min(100,R.ctxP)));
+  P.push({k:"news",n:"ข่าว / ปัจจัย",v:R.ns.n||R.fs?nv:null,why:R.ns.n?`ข่าว ${R.ns.n} ชิ้น โดยรวม${R.ns.s>.1?"เป็นบวก":R.ns.s<-.1?"เป็นลบ":"เป็นกลาง"} · แข็งกว่าตลาด ${R.rs.pctl??"–"}%`:`ยังไม่มีข่าวผูกกับหุ้นนี้ · แข็งกว่าตลาด ${R.rs.pctl??"–"}%`});
+  const vv=V.fair?Math.round(Math.max(0,Math.min(100,50+V.mos))):null;
+  P.push({k:"val",n:"ราคาเทียบมูลค่า",v:vv,why:V.fair?`มูลค่ากรณีฐาน ${fmt(V.fair.base)} · ราคา${V.mos>=0?"ต่ำกว่า":"สูงกว่า"} ${Math.abs(V.mos).toFixed(0)}%`:"ประเมินมูลค่าไม่ได้ (ข้อมูลไม่พอ)"});
+  const W={fa:.3,chart:.3,news:.15,val:.25},av=P.filter(x=>x.v!=null),tot=av.reduce((a,x)=>a+W[x.k],0),score=tot?Math.round(av.reduce((a,x)=>a+W[x.k]*x.v,0)/tot):null;
+  const g=k=>{const x=P.find(p=>p.k===k);return x.v==null?null:lv(x.v)},f=g("fa"),t=g("chart"),n=g("news"),v=g("val"),pos=av.filter(x=>lv(x.v)>0).length,neg=av.filter(x=>lv(x.v)<0).length;
+  const msg=neg===0&&pos>=3?["ทุกด้านสนับสนุน","p-buy2","งบ กราฟ ข่าว และราคาไปทางเดียวกัน ถ้ามีจุดตั้งซื้อตามระบบให้ทำตามแผน"]
+    :t>0&&v<0?["แนวโน้มดีแต่ราคาแพง","p-hold","กราฟเป็นบวกแต่ราคาสูงกว่ามูลค่า ซื้อเฉพาะตามจุดตั้งซื้อ ขนาดไม้เล็ก และตัดขาดทุนตามแผน"]
+    :(f>0||v>0)&&t<0?["ธุรกิจดี/ราคาถูก แต่กราฟยังไม่กลับตัว","p-hold","รอให้ระบบขึ้นสัญญาณก่อน อย่าซื้อเพราะถูกอย่างเดียว"]
+    :n<0&&pos>0?["มีข่าว/ปัจจัยกดดัน","p-hold","ด้านอื่นยังดีแต่ข่าวเป็นลบ ติดตามข่าวก่อนเพิ่มเงิน"]
+    :neg>=3?["หลายด้านเป็นลบ","p-sell","หลีกเลี่ยงหรือลดน้ำหนักจนกว่าภาพรวมจะดีขึ้น"]
+    :pos>neg?["ภาพรวมค่อนข้างดี","p-buy","มีด้านที่ยังไม่ชัด ใช้จุดเข้าตามระบบและคุมขนาดไม้"]:["ยังไม่ชัด","p-hold","ด้านต่าง ๆ ยังขัดกัน รอให้ชัดขึ้น"];
+  return{P,score,msg,V}}
+function decisionCard(R){const D=decision(R),bar=v=>v==null?`<span class="dc-na">ไม่มีข้อมูล</span>`:`<span class="dc-b"><i style="width:${v}%;background:${v>=60?"var(--up)":v<=40?"var(--down)":"var(--warn)"}"></i></span><b class="num">${v}</b>`;
+  const y=R.sys;return `<section class="card dcard"><div class="card-h"><div><h2>ภาพรวม 4 ด้านเพื่อตัดสินใจ</h2><div class="sub-t">รวมงบการเงิน กราฟ/ระบบซื้อขาย ข่าว/ปัจจัย และราคาเทียบมูลค่าไว้ในที่เดียว · 50 = กลาง</div></div><span class="pill ${D.msg[1]}">${D.msg[0]}</span></div>
+   <div class="dc-g">${D.P.map(x=>`<button class="dc-r" data-tab="${x.k}"><span class="dc-n">${x.n}</span>${bar(x.v)}<span class="dc-w">${esc(x.why)}</span></button>`).join("")}</div>
+   <p class="dc-m"><b>สรุป${D.score!=null?` (${D.score}/100)`:""}:</b> ${D.msg[2]}${y?` · ตั้งซื้อ <b class="num">${fmt(y.lp)}</b> TP <b class="num up">${fmt(y.tp)}</b> SL <b class="num down">${fmt(y.sl)}</b>`:""}</p></section>`}
 function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),fromE=v=>pct((v/P.entry-1)*100,1),W=R.why,c=cur(R.st.m),N=R.ns;
   const tile=(k,v,d,cl)=>`<div class="kt ${cl}"><div class="k">${k}</div><div class="v num">${v}</div><div class="d">${d}</div></div>`;
   return `<section class="vh">
@@ -513,6 +548,7 @@ function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),fromE=v=>pct((v/
         return `<div class="kt-note">${miss?`หุ้นนี้ยังไม่มีราคารายชั่วโมง (มีเฉพาะหุ้นสหรัฐฯ และหุ้นไทยมูลค่าตลาด ≥ 5 พันล้านบาท) ดูกรอบ "วัน" แทน`:"กำลังโหลดราคารายชั่วโมง…"}</div>`})()}
       <details class="vcalc"><summary>ควรซื้อกี่หุ้น</summary><div class="calc" style="margin-top:8px"><label class="field">เงินลงทุน (${c})<input id="capIn" type="number" min="0" step="1000" value="${lsGet("cap")||100000}"></label><label class="field">ยอมเสี่ยงต่อไม้ (%)<input id="riskIn" type="number" min="0.1" max="10" step="0.1" value="${lsGet("risk")||1}"></label></div><dl id="calcOut" class="kv" style="margin-top:8px"></dl></details></div>
   </section>
+  ${decisionCard(R)}
   <section class="card"><div class="card-h"><h2>กราฟ <span class="muted" style="font-size:13px;font-weight:500">กรอบ ${TF_LABEL[S.tf]}</span></h2>${tfBar()}<button class="btn ghost sm" data-tab="chart">อินดิเคเตอร์ทั้งหมด →</button></div><div class="chartbox" id="cMain"></div>
     <div class="legend"><span style="--c:var(--c1)">EMA 20</span><span style="--c:var(--c2)">EMA 50</span><span style="--c:var(--up)">Supertrend (เขียวขึ้น/แดงลง) · เส้นแนวโน้ม (ประ)</span><span style="--c:var(--accent)">เข้าซื้อ</span><span style="--c:var(--up)">TP</span><span style="--c:var(--down)">SL</span></div></section>
   ${posCard(R)}
@@ -1103,6 +1139,18 @@ function vMore(){const MI={accuracy:"target",data:"data",method:"book",factors:"
   <p class="foot" style="margin:12px 0 0">ติดตั้งเป็นแอป: บน iPhone กด แชร์ → เพิ่มไปยังหน้าจอโฮม · บน Android/Chrome กด ⋮ → ติดตั้งแอป · รายการโปรด ไฟล์ราคา และงบที่กรอกเองบันทึกในเครื่องนี้เท่านั้น</p></section>`}
 /* ---------- data health ---------- */
 // ผลตรวจคุณภาพข้อมูลจากขั้นตอนดึงข้อมูล (scripts/sd/health.py)
+// ตรวจ 4 ด้านทุกคืน: ข้อมูลถูกต้อง · การวิเคราะห์ใช้ได้จริง · ใช้งานได้ทุกหน้า · ตัดสินใจจากภาพเดียว
+function qualityCard(){if(S.qual===undefined){S.qual=null;Promise.all([J("data/quality.json"),J("data/ux.json")]).then(([q,u])=>{S.qual={q,u};if(route().v==="data")render()})}
+  const Q=S.qual?.q,U=S.qual?.u,H=S.health;if(!Q&&!U)return "";
+  const st=ok=>ok?`<span class="pill sm p-buy">ผ่าน</span>`:`<span class="pill sm p-hold">ต้องดู</span>`,fr=t=>t?`ตรวจล่าสุด ${new Date(t*1000).toLocaleString(LOC(),{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}`:"";
+  const d=Q?.data,a=Q?.analysis,peR=d?.peN?d.peBad/d.peN*100:0,sysTxt=a?["TH","US"].map(m=>{const x=a.sys[m];return x?.oos!=null?`${m==="TH"?"ไทย":"สหรัฐฯ"} ชนะ ${x.is?.toFixed(0)}/${x.oos.toFixed(0)}%${x.fwdClosed?` · ผลจริง ${x.fwdClosed} ไม้ ชนะ ${x.fwdWin.toFixed(0)}%`:""}`:""}).filter(Boolean).join(" · "):"";
+  const rows=[
+    ["1. ข้อมูลถูกต้องและอัปเดต",(!H||!H.bad)&&peR<8,`${H?`ตรวจข้อมูล ${H.checks?.length||0} ข้อ ผิดร้ายแรง ${H.bad||0} · ต้องดู ${H.warn||0}`:""}${d?` · P/E จากงบเราเทียบ Yahoo ต่างเกิน 60%: ${d.peBad} จาก ${d.peN} ตัว${d.peList?.length?` (${d.peList.slice(0,5).map(x=>esc(x[0])).join(", ")})`:""}`:""}`],
+    ["2. วิเคราะห์ได้จริง",a&&a.all4>=50,a?`หุ้นที่มีครบ 4 ด้าน ${a.all4}% (งบ ${a.fund}% · มูลค่า ${a.val}% · ข่าว ${a.news}%) · ระบบซื้อขาย ${sysTxt}`:"รอผลรอบแรก"],
+    ["3. ใช้งานง่าย ทุกปุ่มทุกหน้าทำงาน",U&&!U.issues?.length,U?`เปิดจริง ${U.pages} หน้า/ปุ่ม ทั้งมือถือและคอม · ปัญหา ${U.issues.length} · เปิดครั้งแรก ${(U.firstLoad.mobile/1000).toFixed(1)} วิ (มือถือ) ${(U.firstLoad.desktop/1000).toFixed(1)} วิ (คอม)${U.issues.length?` · ${U.issues.slice(0,3).map(x=>esc(x.r+" "+(x.err[0]||(x.ow>2?"ล้นจอ":x.bad?"ตัวเลขเสีย":"ไม่แสดงผล")))).join(" | ")}`:""}`:"รอการตรวจรอบคืนนี้"],
+    ["4. รวมงบ + กราฟ + ข่าว + มูลค่าเป็นภาพเดียว",a&&a.all4>=50,a?`ทุกหน้าหุ้นมีแผง "ภาพรวม 4 ด้านเพื่อตัดสินใจ" · ข้อมูลครบทั้ง 4 ด้าน ${a.all4}% ของหุ้นที่มีสภาพคล่อง (ส่วนที่ขาดมักเป็นข่าวหรืองบของหุ้นเล็ก)`:""]];
+  return `<section class="card"><div class="card-h"><div><h2>ตรวจคุณภาพ 4 ด้าน (อัตโนมัติทุกคืน)</h2><div class="sub-t">${fr(Q?.updated)}</div></div></div>
+   <div class="qlist">${rows.map(([t,ok,x])=>`<div class="qrow"><div class="qh"><b>${t}</b>${st(ok)}</div><div class="qd">${x}</div></div>`).join("")}</div></section>`}
 function healthCard(){if(S.health===undefined){S.health=null;J("data/health.json").then(h=>{S.health=h||false;if(route().v==="data")render()});return ""}
   const H=S.health;if(!H)return "";const dot={ok:`<span class="up">●</span>`,warn:`<span class="warn">●</span>`,bad:`<span class="down">●</span>`};
   return `<section class="card"><div class="card-h"><h2>ตรวจคุณภาพข้อมูลอัตโนมัติ</h2><span class="pill ${H.bad?"p-sell2":H.warn?"p-hold":"p-buy"}">${H.bad?`ผิดปกติ ${H.bad} ข้อ`:H.warn?`ควรดู ${H.warn} ข้อ`:"ผ่านทุกข้อ"}</span></div>
@@ -1116,6 +1164,7 @@ function vData(){
   const staleF=S.factors.filter(f=>!f.live&&f.asOf&&ageDays(f.asOf)>30);
   const ok=v=>`<span class="up">●</span>`,bad=`<span class="down">●</span>`,mid=`<span class="warn">●</span>`;
   return `<div><h1>สถานะข้อมูล</h1><p class="muted" style="margin:4px 0 0">${M?`ดึงข้อมูลรอบล่าสุด ${new Date(M.updated*1000).toLocaleString(LOC())} (${ago(M.updated)}) ใช้เวลา ${M.seconds} วินาที · งบการเงินอัปเดต ${M.fundUpdated?thDate(M.fundUpdated):"–"}`:"ยังไม่มีข้อมูลจริง เว็บกำลังใช้ข้อมูลจำลอง"}</p></div>
+  ${qualityCard()}
   ${healthCard()}
   <section class="card"><h2 style="margin-bottom:8px">ข้อมูลที่ยังขาด</h2>${Object.keys(miss).length||staleF.length?`<ul class="misslist">${Object.entries(miss).sort((a,b)=>b[1].length-a[1].length).map(([k,v])=>`<li><b>${esc(k)}</b> <span class="muted">${v.length} หุ้น: ${v.slice(0,12).join(", ")}${v.length>12?" …":""}</span></li>`).join("")}${staleF.map(f=>`<li><b>${esc(f.short||f.name)}</b> <span class="muted">ข้อมูลเก่า ${Math.round(ageDays(f.asOf))} วัน (${thDate(f.asOf)}) ต้องอัปเดตด้วยมือใน manual.json</span></li>`).join("")}</ul>`:`<p class="up" style="margin:0">ข้อมูลครบทุกส่วน</p>`}
    <p class="foot" style="margin:10px 0 0">แหล่งข้อมูลฟรีไม่มี NPL ของธนาคาร, PMI จีน, ดอกเบี้ย ธปท. และ bond yield ไทยแบบอัตโนมัติ ส่วนนี้อยู่ใน manual.json ซึ่งแก้ไขได้ใน GitHub</p></section>

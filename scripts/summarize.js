@@ -7,8 +7,8 @@ const load = (f, d) => { try { return JSON.parse(fs.readFileSync(path.join(ROOT,
 const ctx = { console };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, "core.js"), "utf8") +
-  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars,liquid,calibNew,calibAdd,calibDone,barsOf,stockBySym,indicators,VOTES,sma,uniOf,rulesFor,costOf};", ctx);
-const { S, analyze, summarize, allStocks, buildFactors, mergeNews, hasBars, liquid, calibNew, calibAdd, calibDone, barsOf, stockBySym, rulesFor, costOf } = ctx.__core;
+  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars,liquid,calibNew,calibAdd,calibDone,barsOf,stockBySym,indicators,VOTES,sma,uniOf,rulesFor,costOf,valuation};", ctx);
+const { S, analyze, summarize, allStocks, buildFactors, mergeNews, hasBars, liquid, calibNew, calibAdd, calibDone, barsOf, stockBySym, rulesFor, costOf, valuation, uniOf } = ctx.__core;
 
 const uni = load("data/universe.json", { items: [] }), fund = load("data/fund.json", {}), macro = load("data/macro.json", {});
 const news = load("data/news.json", { items: [] }), man = load("manual.json", {}), quotes = load("data/quotes.json", null);
@@ -56,6 +56,15 @@ for (const f of fs.existsSync(fdir) ? fs.readdirSync(fdir).filter(f => f.endsWit
   S.cache.clear();
 }
 const t0 = Date.now(), out = {}, C = calibNew(), MS = {};
+// ตรวจคุณภาพทุกรอบ: ความครบของ 4 ด้าน (งบ กราฟ ข่าว มูลค่า) และ P/E จากงบของเราเทียบ P/E ของ Yahoo (จับงบหรือจำนวนหุ้นผิด)
+const QS = { n: 0, fund: 0, val: 0, news: 0, all4: 0, peN: 0, peBad: [] };
+function qstat(R) {
+  QS.n++; const f = !R.fund.thin, n = R.ns.n > 0; let v = false;
+  try { v = !!valuation(R).fair } catch {}
+  QS.fund += f; QS.val += v; QS.news += n; QS.all4 += f && v && n;
+  const u = uniOf(R.st.s) || {}, ni = R.f?.fs?.niT, sh = u.sh;
+  if (ni > 0 && sh > 0 && u.pe > 0 && u.pe < 100) { const our = R.last / (ni / sh); QS.peN++; if (Math.abs(Math.log(our / u.pe)) > Math.log(1.6)) QS.peBad.push([R.st.s, +our.toFixed(1), +u.pe.toFixed(1)]) }
+}
 // ภาพรวมตลาดรายวัน: เก็บค่าจากหุ้นที่มีสภาพคล่องแต่ละตัวระหว่างวิเคราะห์
 function mstat(R) {
   const B = R.B, I = R.I, n = B.length - 1; if (n < 260) return;
@@ -69,7 +78,7 @@ for (const st of allStocks()) {
   try {
     const R = analyze(st);
     out[st.s] = summarize(R); ok++;
-    if (liquid(st)) mstat(R);
+    if (liquid(st)) { mstat(R); qstat(R) }
     // ทดสอบความแม่นยำเฉพาะหุ้นที่มีสภาพคล่องและประวัติราคาอย่างน้อย 2 ปี
     if (liquid(st) && R.B.length >= 500) calibAdd(C, R);
   } catch (e) { fail++; if (fail < 5) console.error(st.s, e.message); }
@@ -89,6 +98,13 @@ cal.fwdSys = forwardSys();
 fs.writeFileSync(path.join(DATA, "calib.json"), JSON.stringify(cal));
 console.log(`calib: ${C.stocks} หุ้น`);
 learnStep();
+{ // data/quality.json: ผลตรวจด้านข้อมูลและการวิเคราะห์ (ด้านการใช้งานมาจาก scripts/ux_check.js)
+  const pc = x => QS.n ? Math.round(x / QS.n * 100) : 0, bm = cal.baseM || {}, fw = cal.fwdSys?.M || {};
+  fs.writeFileSync(path.join(DATA, "quality.json"), JSON.stringify({ updated: Math.floor(Date.now() / 1000), n: QS.n,
+    data: { peN: QS.peN, peBad: QS.peBad.length, peList: QS.peBad.sort((a, b) => Math.abs(Math.log(b[1] / b[2])) - Math.abs(Math.log(a[1] / a[2]))).slice(0, 12) },
+    analysis: { fund: pc(QS.fund), val: pc(QS.val), news: pc(QS.news), all4: pc(QS.all4),
+      sys: Object.fromEntries(["TH", "US"].map(m => [m, { is: bm[m]?.is?.win, oos: bm[m]?.oos?.win, avg: bm[m]?.oos?.avg, fwdClosed: fw[m]?.closed || 0, fwdWin: fw[m]?.closed ? fw[m].win / fw[m].closed * 100 : null }])) } }));
+}
 
 // ---------- ระบบเรียนรู้เองทุกคืน ----------
 // 1) ปรับกติกาเอง: จาก 72 แบบที่ทดสอบทุกคืน ถ้ามีแบบที่ชนะ ≥ 80% ทั้งช่วงสร้างและช่วงทดสอบ และกำไรต่อไม้ (ช่วงที่แย่กว่า) ดีกว่าแบบปัจจุบัน ≥ 0.1%

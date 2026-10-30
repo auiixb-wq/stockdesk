@@ -37,6 +37,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FULL: ${{ github.event.inputs.full || (github.event.schedule == '37 21 * * 1-5' && '1') || '0' }}
         run: python scripts/update.py
+      - name: Check the live site (nightly)
+        if: ${{ github.event.inputs.full == '1' || github.event.schedule == '37 21 * * 1-5' }}
+        continue-on-error: true
+        run: |
+          npm i --no-save --silent playwright@1.48.2 && npx playwright install --with-deps chromium > /dev/null 2>&1
+          node scripts/ux_check.js
       - name: Publish site with data
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
