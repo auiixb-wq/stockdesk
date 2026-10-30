@@ -3,11 +3,16 @@ on:
   schedule:
     # รอบใหญ่ดึงงบการเงินใหม่ วันละครั้งหลังตลาดสหรัฐฯ ปิด (ช่วงตลาดเปิดใช้งาน live.yml)
     - cron: "37 21 * * 1-5"
+    # รอบสัญญาณหลังตลาดไทยปิด (17:07 น.) ดึงราคาปิดรายวันใหม่ คำนวณสัญญาณใหม่ ไม่ดึงงบ
+    - cron: "7 10 * * 1-5"
   workflow_dispatch:
     inputs:
       full:
         description: "ดึงงบการเงินใหม่ด้วย (1 = ใช่)"
         default: "1"
+      hist:
+        description: "ดึงราคาปิดรายวันใหม่และคำนวณสัญญาณ (1 = ใช่)"
+        default: "0"
 permissions:
   contents: write
 concurrency:
@@ -37,6 +42,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           FULL: ${{ github.event.inputs.full || (github.event.schedule == '37 21 * * 1-5' && '1') || '0' }}
+          HIST: ${{ ((github.event.schedule == '7 10 * * 1-5' || github.event.inputs.hist == '1') && '1') || '0' }}
         run: python scripts/update.py
       - name: Check the live site (nightly)
         if: ${{ github.event.inputs.full == '1' || github.event.schedule == '37 21 * * 1-5' }}

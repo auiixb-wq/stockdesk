@@ -72,6 +72,11 @@ def main():
     idx = step("strip", market_strip)
     step("summarize", summarize)
     health = step("health", health_report)
+    # รอบสัญญาณ (วันละ 2 รอบ): หลังตลาดไทยปิด = HIST, หลังตลาดสหรัฐฯ ปิด = FULL · หน้าเว็บแสดงเวลารอบล่าสุด
+    if os.path.exists(os.path.join(DATA, ".hist_new")):
+        sr = load("signals_round.json", {})
+        sr["HIST" if os.environ.get("HIST") == "1" else "FULL"] = int(time.time())
+        save("signals_round.json", sr)
     old_meta = load("meta.json", {})
     meta = {
         "updated": int(time.time()), "full": os.environ.get("FULL") == "1",

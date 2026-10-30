@@ -186,7 +186,8 @@ def fetch_hist(uni):
     """ราคาย้อนหลังรายวันของทุกหุ้น เขียนแยกไฟล์ data/hist/<symbol>.json (วันละครั้ง)"""
     d0 = os.path.join(DATA, "hist")
     os.makedirs(d0, exist_ok=True)
-    full = os.environ.get("FULL") == "1" or len(os.listdir(d0)) < len(uni["items"]) * .5
+    # วันละ 2 รอบ: หลังตลาดไทยปิด (HIST=1) และหลังตลาดสหรัฐฯ ปิด (FULL=1) สัญญาณซื้อคิดจากราคาปิดชุดนี้
+    full = os.environ.get("FULL") == "1" or os.environ.get("HIST") == "1" or len(os.listdir(d0)) < len(uni["items"]) * .5
     if not full:
         return
     open(os.path.join(DATA, ".hist_new"), "w").close()  # บอก publish.sh ให้อัปเดต branch hist
