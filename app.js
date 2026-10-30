@@ -855,7 +855,10 @@ function liveBadge(){const el=$("#live");if(!el)return;const u=S.quotes?.updated
   // เวลาของราคาจริง (ไม่ใช่เวลาที่อัปเดตไฟล์): ราคาล่าสุดของตลาดที่ดูอยู่
   const mk=S.mkt==="US"?"US":"TH",mo=mktOpen(mk);let pt=0;for(const[k,x]of Object.entries(S.quotes?.q||{}))if(x?.ts>pt&&stockBySym(k)?.m===mk)pt=x.ts;pt=pt||u;
   const lag=Math.max(0,Math.round((Date.now()/1000-pt)/60)),ok=mo&&lag<=20;
-  el.innerHTML=`<span class="dot${ok?" pulse":""}" style="--c:${ok?"var(--up)":mo?"var(--warn)":"var(--ink-2)"}"></span>${mo?`ราคา${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} ณ`:"ตลาดปิด · ราคาล่าสุด"} ${new Date(pt*1000).toLocaleTimeString(LOC(),{hour:"2-digit",minute:"2-digit"})}${mo?` · ช้า ${lag} นาที${mk==="TH"?" (แหล่งฟรีหน่วง 15 นาที)":""}`:""}`}
+  // ข้อความสั้น (เวลา · ช้ากี่นาที) รายละเอียดอยู่ใน tooltip
+  const hm=new Date(pt*1000).toLocaleTimeString(LOC(),{hour:"2-digit",minute:"2-digit"});
+  el.title=`ราคา${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}ล่าสุด ${hm}${mo?` · ช้า ${lag} นาที${mk==="TH"?" เพราะแหล่งราคาฟรีของหุ้นไทยหน่วง 15 นาที":""}`:" · ตลาดปิด"}`;
+  el.innerHTML=`<span class="dot${ok?" pulse":""}" style="--c:${ok?"var(--up)":mo?"var(--warn)":"var(--ink-2)"}"></span>${mo?`${hm} · ช้า ${lag} นาที`:`ปิด · ${hm}`}`}
 function applyTheme(m){const r=document.documentElement;if(m==="light"||m==="dark")r.setAttribute("data-theme",m);else r.removeAttribute("data-theme");lsSet("theme",m);
   const b=$("#themeBtn");if(b){b.innerHTML=svgI(m==="light"?"sun":m==="dark"?"moon":"auto",19);b.title=m==="light"?"โหมดสว่าง":m==="dark"?"โหมดมืด":"ตามระบบ";b.setAttribute("aria-label","สลับโหมดสี: ตอนนี้"+b.title)}}
 /* ---------- watchlist ---------- */
