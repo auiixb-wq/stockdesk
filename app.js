@@ -147,7 +147,7 @@ const mn=(v,m)=>v==null?"–":(Math.abs(v)>=1e9?(v/1e9).toLocaleString("en-US",{
 const gp=v=>v==null?`<span class="muted">–</span>`:`<span class="${cls(v)}">${pct(v,1)}</span>`;
 function earnTag(R){const y=R.lite?R.fq?.[1]:R.f?.fs?.yoyN;return y==null?"":` · <span class="${cls(y)}">กำไร YoY ${pct(y,0)}</span>`}
 async function loadFin(sym){if(S.fin[sym]!==undefined||S.finLoading?.has(sym))return;(S.finLoading??=new Set()).add(sym);
-  const d=await J(HIST+"fin/"+encodeURIComponent(sym)+".json");S.finLoading.delete(sym);S.fin[sym]=d&&(d.q||d.a)?d:null;S.cache.delete(sym);
+  const d=await J(HIST+"fin/"+encodeURIComponent(sym)+".json");S.finLoading.delete(sym);S.fin[sym]=d&&(d.q||d.a)&&!d.suspect?d:null;if(d?.suspect)(S.finBad??={})[sym]=d.suspect;S.cache.delete(sym);
   if(route().sym===sym&&!document.querySelector("input:focus"))render()}
 function barMini(F,key,m,col){const q=F.q,n=q.d.length,i0=Math.max(0,n-8),vals=q[key].slice(i0),labs=q.d.slice(i0);if(!vals.some(v=>v!=null))return `<p class="muted">ไม่มีข้อมูล</p>`;
   const W=320,H=150,pb=34,pt=18,mx=Math.max(0,...vals.map(v=>v??0)),mn0=Math.min(0,...vals.map(v=>v??0)),rg=(mx-mn0)||1,y=v=>pt+(mx-v)/rg*(H-pt-pb),bw=W/vals.length;
@@ -667,7 +667,7 @@ async function toggleFav(sym){const list=S.watch.includes(sym)?S.watch.filter(x=
 /* ---------- routing & events ---------- */
 function route(){const h=location.hash.slice(1);if(h.startsWith("s-"))return{v:"stock",sym:h.slice(2).toUpperCase()};return{v:NAV.includes(h)?h:"home"}}
 let curRange=126;
-function render(){
+function render(){queueMicrotask(renderTicker);
   const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mkt===S.mkt));document.documentElement.dataset.mkt=S.mkt;document.querySelector('meta[name="theme-color"]')?.setAttribute("content",S.mkt==="US"?"#0F1E3D":"#11261B");document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
   killCharts();
   $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="sync"?vSync():vHome()}</div>`;
@@ -1095,7 +1095,26 @@ function vAccuracy(){
 S.watch=lsGet("watch")||[];S.mkt=["TH","US"].includes(lsGet("mkt"))?lsGet("mkt"):"TH";S.px=lsGet("px")||{};S.fa=lsGet("fa")||{};if(lsGet("rulesV")!==5){try{localStorage.removeItem("rules")}catch{}lsSet("rulesV",5)}Object.assign(RULES,lsGet("rules")||{});
 applyTheme(lsGet("theme")||"system");
 render();loadAll();syInit();
-setInterval(refreshQuotes,15000);
+/* ---------- แถบข่าววิ่ง: ประกาศงบวันนี้ · ขึ้น/ลงแรงวันนี้ · ข่าวระดับ 1 ล่าสุด (อัปเดตพร้อมราคาทุก 15 วินาที) ---------- */
+const EARN_RE=/\b(?:Q[1-4]|first|second|third|fourth)[- ]quarter (?:results|earnings|profit|revenue)|\bQ[1-4](?: 20\d\d)?\)? (?:earnings|results)|earnings (?:call|beat|miss|results|report|top|surprise)|beats? (?:estimates|expectations)|ผลประกอบการ|งบไตรมาส|กำไรสุทธิ(?:ไตรมาส|งวด|\s?[1-4]Q)|[1-4]Q\d\d|ไตรมาส\s?[1-4]\s?\/?\s?(?:25|20)\d\d/i;
+const dayIn=(m,ms)=>new Intl.DateTimeFormat("en-CA",{timeZone:m==="TH"?"Asia/Bangkok":"America/New_York"}).format(new Date(ms));
+const TK_MC={TH:5e9,US:2e9};
+function tickerHTML(){const now=Date.now(),q=S.quotes?.q||{},mk=S.mkt==="US"?["US","TH"]:["TH","US"],U=S.universe||[],g=[];
+  const a=s=>`<a href="#s-${esc(s)}">${esc(dsym(s))}</a>`,mv=(s,c)=>`<a href="#s-${esc(s)}">${esc(dsym(s))} <span class="${c>0?"up":"down"}">${pct(c,1)}</span></a>`;
+  for(const m of mk){const today=dayIn(m,now),L=m==="TH"?"ไทย":"US";
+    const ern=new Set(U.filter(i=>i.m===m&&i.ed&&dayIn(m,i.ed*1000)===today).sort((x,y)=>(y.mc||0)-(x.mc||0)).map(i=>i.s));
+    for(const x of S.news||[])if(x.market===m&&now/1000-(+x.ts||0)<86400&&EARN_RE.test((x.title||"")+" "+(x.titleTh||"")))for(const t of x.tickers||[])if(stockBySym(t)?.m===m)ern.add(t);
+    if(ern.size)g.push(`<b>ประกาศงบวันนี้ (${L})</b> ${[...ern].slice(0,12).map(a).join(" ")}${ern.size>12?` <i>+${ern.size-12}</i>`:""}`);
+    const mv0=U.filter(i=>i.m===m&&(i.mc||0)>=TK_MC[m]).map(i=>[i.s,q[i.s]]).filter(([,x])=>x?.chg!=null&&x.ts&&dayIn(m,x.ts*1000)===today);
+    const up=mv0.filter(([,x])=>x.chg>=3).sort((x,y)=>y[1].chg-x[1].chg).slice(0,6),dn=mv0.filter(([,x])=>x.chg<=-3).sort((x,y)=>x[1].chg-y[1].chg).slice(0,6);
+    if(up.length)g.push(`<b>▲ ขึ้นแรงวันนี้ (${L})</b> ${up.map(([s,x])=>mv(s,x.chg)).join(" ")}`);
+    if(dn.length)g.push(`<b>▼ ลงแรงวันนี้ (${L})</b> ${dn.map(([s,x])=>mv(s,x.chg)).join(" ")}`)}
+  const sig=Object.entries(S.summary||{}).filter(([,v])=>v.sy&&!v.sy[5]).length;if(sig)g.push(`<b>สัญญาณซื้อ</b> <a href="#signals">${sig} ตัว ดูแผน →</a>`);
+  for(const x of (S.news||[]).filter(x=>(x.tier||3)<=1&&now/1000-(+x.ts||0)<6*3600).slice(0,3))g.push(`<b>ข่าว</b> <a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">${esc((x.titleTh||x.title||"").slice(0,90))}</a> <i>${esc(x.source||"")}</i>`);
+  return g.map(x=>`<span class="tk-g">${x}</span>`).join("")}
+function renderTicker(){const el=document.getElementById("tick"),inn=document.getElementById("tickIn");if(!el)return;const h=tickerHTML();if(h===S.tickH)return;S.tickH=h;
+  el.hidden=!h;if(!h)return;inn.innerHTML=h+`<span class="tk-dup" aria-hidden="true">${h}</span>`;inn.style.animationDuration=Math.max(30,Math.round(inn.scrollWidth/2/60))+"s"}
+setInterval(refreshQuotes,15000);setInterval(renderTicker,15000);
 setInterval(()=>{if(!document.hidden&&!document.querySelector("details[open],input:focus,select:focus"))loadAll()},15*60000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-(S.loadedAt||0)>5*60000)loadAll()});
 setInterval(liveBadge,30000);

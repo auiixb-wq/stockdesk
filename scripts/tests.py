@@ -1,6 +1,6 @@
 """ทดสอบส่วนสำคัญแบบไม่ต่อเน็ต รันก่อนดึงข้อมูลทุกครั้ง (python scripts/tests.py) ถ้าไม่ผ่านจะหยุดก่อนเผยแพร่ข้อมูลผิด
 แต่ละข้อมาจากบั๊กที่เคยเกิดจริง"""
-import json, os, sys, tempfile, time
+import datetime, json, os, sys, tempfile, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sd.common as C  # noqa: E402
@@ -107,6 +107,16 @@ with tempfile.TemporaryDirectory() as d:
     check("คลังข้อมูลต่อท้าย", ok1 and (n1, n2, p1, p2) == (2, 1, 2, 1) and len(files) == 3 and commits == "2", (ok1, n1, n2, p1, p2, files, commits))
     for k in ("ARCHIVE_URL", "ARCHIVE_WORKDIR"):
         os.environ.pop(k)
+
+# งบที่ Yahoo ให้เป็นสกุลที่ซื้อขายอยู่แล้ว: ห้ามแปลงซ้ำ · กำไรเกินมูลค่าบริษัท = ผิดหน่วย
+from sd import fin as FN, finaudit as FA  # noqa: E402
+u = {"eps": 10.0, "sh": 1e6, "mc": 2e8, "fcur": "USD", "cur": "THB"}
+qraw = {"d": ["2026-03-31", "2026-06-30", "2026-09-30", "2026-12-31"], "ni": [2.5e6] * 4, "rev": [3e7] * 4}  # ตรงกับ EPS 10 แล้ว
+qconv = {k: (v if k == "d" else [x * 33 for x in v]) for k, v in qraw.items()}
+qreal = {k: (v if k == "d" else [x / 33 for x in v]) for k, v in qraw.items()}  # รายงานเป็น USD จริง แปลงแล้วจะตรง
+check("ไม่แปลงสกุลเงินซ้ำ", FN.raw_already(qconv, u, 33) and not FN.raw_already(qraw, u, 33), (FN.raw_already(qconv, u, 33), FN.raw_already(qraw, u, 33)))
+iss = [c for c, _ in FA.check("X", {"q": qconv, "a": {}}, u, datetime.date(2027, 1, 1))]
+check("จับงบผิดหน่วย", "pe" in iss and not [c for c, _ in FA.check("X", {"q": qraw, "a": {}, "fx": 1}, u, datetime.date(2027, 1, 1))], iss)
 
 print("ผ่านทั้งหมด" if not fails else "ไม่ผ่าน:\n- " + "\n- ".join(fails))
 sys.exit(1 if fails else 0)

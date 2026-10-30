@@ -1,6 +1,7 @@
 """ตรวจคุณภาพข้อมูลก่อนเผยแพร่: กันราคาที่ผิดบริษัทออก และสรุปผลตรวจลง data/health.json ให้หน้า "สถานะข้อมูล" แสดง"""
 import json, math, os, time
 
+from . import finaudit
 from .common import DATA, ERRORS, load, save
 
 QUARANTINE = []  # ราคาที่ถูกกันออกในรอบนี้ [(รหัส, ราคา, ราคาที่ควรเป็น)]
@@ -67,6 +68,14 @@ def report():
                 except Exception:
                     pass
         add("fx", "งบที่รายงานคนละสกุลเงินถูกแปลงแล้ว", not bad, f"{len(need)} บริษัทรายงานคนละสกุล · ยังไม่แปลง {len(bad)}" + (f" ({', '.join(bad[:8])})" if bad else ""), warn=True)
+        n_aud, aud = finaudit.audit(fin_dir, uni)
+        by = {}
+        for k2, ps in aud.items():
+            for c, _ in ps:
+                by.setdefault(c, []).append(k2)
+        add("finaudit", "งบการเงินสอดคล้องกับราคาและจำนวนหุ้น", len(aud) <= n_aud * .03,
+            f"ตรวจ {n_aud} หุ้น · ผิดปกติ {len(aud)}" + "".join(f" · {finaudit.LABEL.get(c, c)} {len(v)} ({', '.join(v[:5])})" for c, v in sorted(by.items(), key=lambda x: -len(x[1]))), warn=True)
+        save("fin_audit.json", {"updated": int(now), "n": n_aud, "issues": aud})
         nfin = len([f for f in os.listdir(fin_dir) if f.endswith(".json")])
         add("fin", "งบการเงิน", nfin >= len(uni) * .5, f"มีงบ {nfin} จาก {len(uni)} หุ้น", warn=True)
 

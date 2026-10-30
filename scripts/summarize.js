@@ -32,7 +32,7 @@ for (const f of fs.existsSync(hdir) ? fs.readdirSync(hdir).filter(f => f.endsWit
 S.prices = load("data/prices.json", {});
 const fdir = path.join(hdir, "fin");
 for (const f of fs.existsSync(fdir) ? fs.readdirSync(fdir).filter(f => f.endsWith(".json")) : []) {
-  try { S.fin[f.replace(/\.json$/, "")] = JSON.parse(fs.readFileSync(path.join(fdir, f), "utf8")); } catch {}
+  try { const j = JSON.parse(fs.readFileSync(path.join(fdir, f), "utf8")); if (!j.suspect) S.fin[f.replace(/\.json$/, "")] = j; } catch {}  // งบผิดหน่วย (suspect) ไม่นำมาคิด
 }
 
 // เกณฑ์ความแข็งเทียบตลาดรายวัน (ผลตอบแทน 63 วันที่เปอร์เซ็นไทล์ 50–90 ของหุ้นที่มีสภาพคล่องในตลาดเดียวกัน)

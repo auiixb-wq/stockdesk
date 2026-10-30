@@ -1,7 +1,8 @@
 """งบการเงิน (แปลงเป็นสกุลเงินที่หุ้นซื้อขาย) และอัตราส่วนพื้นฐาน"""
-import json, time, datetime as dt, os
+import math, json, time, datetime as dt, os
 
 import yfinance as yf
+from . import finaudit
 from .common import CFG, DATA, ERRORS, NOW, load, num, save, ysym
 
 
@@ -51,6 +52,61 @@ def stmt(frames, maps, keep):
                         break
             out[k] = [num(row[d], 4) if row is not None and d in row.index else None for d in dates]
     return out
+
+
+def _ttm_ratio(q, u):
+    """กำไร 4 ไตรมาสล่าสุด ÷ จำนวนหุ้น เทียบกับ EPS ย้อนหลังจาก Yahoo (สกุลเงินที่ซื้อขาย) ≈ 1 ถ้าหน่วยถูก"""
+    ni = [x for x in (q.get("ni") or []) if x is not None][-4:]
+    if len(ni) < 4 or not u.get("eps") or not u.get("sh"):
+        return None
+    r = sum(ni) / u["sh"] / u["eps"]
+    return r if r > 0 else None
+
+
+def raw_already(q, u, fx):
+    """หลังแปลงแล้ว ถ้าตัวเลขก่อนแปลงตรงกับ EPS ในสกุลที่ซื้อขายมากกว่าชัดเจน (ใกล้กว่า 3 เท่าขึ้นไป) แปลว่าไม่ต้องแปลง"""
+    rc = _ttm_ratio(q, u)
+    if not rc or not fx or fx == 1:
+        return False
+    rr = rc / fx
+    return abs(math.log(rr)) + math.log(3) < abs(math.log(rc))
+
+
+def repair_fx(uni):
+    """ซ่อมไฟล์งบเดิมที่แปลงสกุลเงินซ้ำ (ทำทุกรอบ เร็ว ไม่ต้องดึงใหม่)"""
+    d0, U, fixed = os.path.join(DATA, "hist", "fin"), {i["s"]: i for i in uni["items"]}, []
+    if not os.path.isdir(d0):
+        return fixed
+    for s, u in U.items():
+        f = os.path.join(d0, s + ".json")
+        if not os.path.exists(f):
+            continue
+        try:
+            j = json.load(open(f))
+        except Exception:
+            continue
+        r, ch = j.get("fx"), False
+        if r and r != 1 and raw_already(j.get("q") or {}, u, r):
+            ch = True
+            for tb in (j.get("q") or {}, j.get("a") or {}):
+                for k, v in tb.items():
+                    if k != "d":
+                        tb[k] = [None if x is None else num(x / r, 4) for x in v]
+            j.update({"fx": 1, "fcur": j.get("cur"), "fxraw": j.get("fcur")})
+        # ตัวเลขผิดหน่วยแน่นอน (เช่นกำไรเกินมูลค่าบริษัท): ทำเครื่องหมายไว้ หน้าเว็บจะไม่นำงบนี้มาคิดคะแนน
+        bad = [t for c, t in finaudit.check(s, j, u, NOW.date()) if c in finaudit.UNIT_BAD]
+        if (bad[0] if bad else None) != j.get("suspect"):
+            ch = True
+            j.pop("suspect", None)
+            if bad:
+                j["suspect"] = bad[0]
+        if ch:
+            json.dump(j, open(f, "w"), separators=(",", ":"))
+            fixed.append(s)
+    if fixed:
+        open(os.path.join(DATA, ".hist_new"), "w").close()
+        print("fin repaired/flagged:", fixed)
+    return fixed
 
 
 def fetch_fin(uni):
@@ -103,6 +159,12 @@ def fetch_fin(uni):
                     for tb in (q, a):
                         tb["eps"] = [None] * len(tb.get("d", []))
                 extra = {"fx": r, "fcur": fc, "cur": pc}
+                if raw_already(q, i, r):  # Yahoo ให้ตัวเลขเป็นสกุลเงินที่ซื้อขายอยู่แล้ว (เช่น PTTEP, BANPU, VALE) แปลงซ้ำจะผิดหลายสิบเท่า
+                    for tb in (q, a):
+                        for k, v in tb.items():
+                            if k != "d":
+                                tb[k] = [None if x is None else num(x / r, 4) for x in v]
+                    extra = {"fx": 1, "fcur": pc, "cur": pc, "fxraw": fc}
             with open(os.path.join(d0, i["s"] + ".json"), "w") as f:
                 json.dump({"v": 2, "at": NOW.strftime("%Y-%m-%d"), "q": q, "a": a, **extra}, f, separators=(",", ":"))
             ok += 1

@@ -196,7 +196,8 @@ function stats(tr){const n=tr.length;if(!n)return{n:0};
 // ---------- งบการเงินจริง: ตัวชี้วัดจากงบรายไตรมาส (TTM = รวม 4 ไตรมาสล่าสุด) ----------
 const gr=(a,b)=>a==null||b==null||b===0?null:(a-b)/Math.abs(b)*100;
 function finStats(F){if(!F||!(F.q?.d?.length||F.a?.d?.length))return null;
-  const q=F.q||{d:[]},n=q.d.length,v=(k,i)=>i>=0?q[k]?.[i]??null:null,sum=(k,a,b)=>{if(a<0)return null;let t=0;for(let i=a;i<b;i++){const x=v(k,i);if(x==null)return null;t+=x}return t};
+  // Yahoo มักเพิ่มคอลัมน์ไตรมาสใหม่ก่อนลงตัวเลขครบ: ตัดไตรมาสท้ายที่ไม่มีทั้งรายได้และกำไรออก ไม่งั้นยอด 4 ไตรมาส (TTM) หายทั้งชุด
+  const q=F.q||{d:[]};let n=q.d.length;while(n>1&&q.rev?.[n-1]==null&&q.ni?.[n-1]==null)n--;const v=(k,i)=>i>=0?q[k]?.[i]??null:null,sum=(k,a,b)=>{if(a<0)return null;let t=0;for(let i=a;i<b;i++){const x=v(k,i);if(x==null)return null;t+=x}return t};
   const a=F.a||{d:[]},an=a.d.length,av=(k,i)=>i>=0?a[k]?.[i]??null:null,L=n-1;
   const rq=v("rev",L),nq=v("ni",L),revT=n>=4?sum("rev",n-4,n):null,revP=n>=8?sum("rev",n-8,n-4):null,niT=n>=4?sum("ni",n-4,n):null,niP=n>=8?sum("ni",n-8,n-4):null;
   const revTT=revT??av("rev",an-1),niTT=niT??av("ni",an-1);
