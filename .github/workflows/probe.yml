@@ -1,0 +1,21 @@
+name: probe
+# ทดสอบแหล่งราคาหุ้นไทยว่าล่าช้ากี่นาที (ใช้ตรวจเมื่อเพิ่มแหล่งใหม่) ผลอยู่ที่ branch probe
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe
+        run: |
+          python3 scripts/probe_th.py > probe.txt 2>&1 || true
+          cat probe.txt
+      - name: Publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir _p && cp probe.txt _p/ && cd _p && git init -q -b probe && git add -A
+          git -c user.name="stockdesk-bot" -c user.email="actions@users.noreply.github.com" commit -qm probe
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" probe

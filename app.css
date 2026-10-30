@@ -557,3 +557,20 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .card-h .tfs{margin:0 auto 0 12px}
 .sgrid.one{grid-template-columns:1fr}
 .kt .d{max-width:52%;justify-self:end;text-align:right}
+
+/* นาฬิกาหน้าแรก */
+.clk{border-radius:var(--r-md);padding:14px 16px;background:linear-gradient(145deg,rgba(255,255,255,.10),rgba(255,255,255,.03));border:1px solid rgba(255,255,255,.12);color:var(--deep-ink)}
+.clk-main{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.clk-d{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:44px;font-weight:600;letter-spacing:-1px;line-height:1;color:var(--accent);text-shadow:0 0 18px color-mix(in srgb,var(--accent) 45%,transparent)}
+.clk-d b{font-weight:600;animation:clkb 1s steps(1) infinite}.clk-d small{font-size:18px;margin-left:4px;color:var(--deep-2);letter-spacing:0}
+@keyframes clkb{50%{opacity:.25}}
+.clk-z{font-size:12.5px;color:var(--deep-2)}
+.clk-sub{margin-top:6px;font-size:15px;color:var(--deep-ink)}.clk-sub .num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-weight:600}
+.clk-sts{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:10px;font-size:12px;color:var(--deep-2)}
+.clk-st i{display:inline-block;width:7px;height:7px;border-radius:50%;background:#FF8A8E;margin-right:5px;vertical-align:1px}.clk-st.on i{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+@media (max-width:420px){.clk-d{font-size:38px}}
+/* ท้ายหน้า */
+.site-foot{max-width:1120px;margin:28px auto 0;padding:18px 16px 26px;border-top:1px solid var(--line);text-align:center;font-size:12.5px;color:var(--ink-2)}
+.site-foot b{color:var(--ink);font-weight:600}
+@media (max-width:820px){.site-foot{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
+@media (max-width:820px){main{padding-bottom:0!important}}

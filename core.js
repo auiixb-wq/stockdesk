@@ -95,8 +95,10 @@ function fmt(v,m,d){if(v==null||!isFinite(v))return "–";const dec=d??2;return 
 const pct=(v,d=2)=>v==null||!isFinite(v)?"–":(v>0?"+":"")+v.toFixed(d)+"%";
 const rr=v=>v==null||!isFinite(v)?"–":(v>0?"+":"")+v.toFixed(2)+"R";
 const cls=v=>v>0?"up":v<0?"down":"muted";
-const thDate=iso=>{try{return new Intl.DateTimeFormat("th-TH",{day:"numeric",month:"short",year:"2-digit"}).format(new Date(iso+(iso.length===10?"T00:00:00":"")))}catch{return iso}};
-const thMonth=iso=>{try{return new Intl.DateTimeFormat("th-TH",{month:"short",year:"2-digit"}).format(new Date(iso.slice(0,7)+"-01T00:00:00"))}catch{return iso}};
+// รูปแบบวันที่ตามภาษาที่เลือก (ไทย = พ.ศ.)
+const LOC=()=>S.lang==="en"?"en-GB":"th-TH";
+const thDate=iso=>{try{return new Intl.DateTimeFormat(LOC(),{day:"numeric",month:"short",year:"2-digit"}).format(new Date(iso+(iso.length===10?"T00:00:00":"")))}catch{return iso}};
+const thMonth=iso=>{try{return new Intl.DateTimeFormat(LOC(),{month:"short",year:"2-digit"}).format(new Date(iso.slice(0,7)+"-01T00:00:00"))}catch{return iso}};
 function toast(msg){const t=document.createElement("div");t.className="toast";t.setAttribute("role","status");t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2800)}
 const lsGet=k=>{try{return JSON.parse(localStorage.getItem(k)||"null")}catch{return null}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch{}if(typeof S!=="undefined")S.onSave?.(k)};
