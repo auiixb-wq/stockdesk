@@ -59,8 +59,12 @@ const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,slCap:.08,hold:20,adx:25,rs:70,di
 // ผลทดสอบ: สัปดาห์ (5 ปี) ไทย TP1/SL3 ชนะ 71/75% · สหรัฐฯ TP0.8/SL3 ชนะ 80/82% แต่แพ้เฉลี่ย −20 ถึง −27%
 //          4 ชม. (ราคารายชั่วโมง 730 วัน) กติกาเดียวกับรายวัน: ไทยชนะ 80/77% (+0.62/+0.29%) · สหรัฐฯ 83/80% (+0.70/+0.52%)
 //          1 ชม.: ไทยชนะ 83/83% (+0.27/+0.33%) · สหรัฐฯ 79/83% (+0.10/+0.34%) · Supertrend ไม่ช่วยในกรอบชั่วโมง จึงปิดไว้
+// รอบ 9 (research TFX: แต่ละกรอบหาแบบของตัวเอง ทางออกเป็น % ถือข้ามวันได้ · hold = จำนวนแท่ง):
+//   4 ชม. ไทย TP 5% / SL 5% ถือ 5 วัน: ชนะ 55/59% กำไร +0.51/+0.55% · สหรัฐฯ TP 1.5% / SL 5% ถือ 10 วัน: ชนะ 77/74% +0.33/+0.26%
+//   1 ชม. สหรัฐฯ TP 5% / SL 5% ถือ 10 วัน: ชนะ 56/54% +0.57/+0.47% · ไทย TP 1% / SL 5% ถือ 3 วัน: +0.05/+0.12% (อ่อน)
+//   15 นาที: ไม่มีแบบไหนกำไรหลังค่าคอมทั้งสองตลาด
 // กติกาตามกรอบเวลา (ทับค่าของรายวัน) หน่วย ATR ของแท่งกรอบนั้น · ค่าที่ผ่านการทดสอบใน research/smc.js (TF=W / HDIR=h1 TF=4H)
-const TF_RULES={W:{TH:{tp:1,sl:3,slCap:null,hold:20,warm:60},US:{tp:.8,sl:3,slCap:null,hold:20,vol:5.6,warm:60}},"4H":{TH:{st:false},US:{vol:1.8}},"1H":{TH:{st:false},US:{vol:.95}},"15m":{TH:{st:false},US:{vol:.5}}};
+const TF_RULES={W:{TH:{tp:1,sl:3,slCap:null,hold:20,warm:60},US:{tp:.8,sl:3,slCap:null,hold:20,vol:5.6,warm:60}},"4H":{TH:{st:false,tpP:.05,slP:.05,hold:10},US:{vol:1.8,tpP:.015,slP:.05,hold:20}},"1H":{TH:{st:false,tpP:.01,slP:.05,hold:18},US:{vol:.95,tpP:.05,slP:.05,hold:70}},"15m":{TH:{st:false},US:{vol:.5}}};
 const TF_LABEL={"15m":"15 นาที","1H":"1 ชม.","4H":"4 ชม.",D:"วัน",W:"สัปดาห์"},TF_UNIT={"15m":"แท่ง 15 นาที","1H":"ชั่วโมง","4H":"แท่ง 4 ชม.",D:"วันทำการ",W:"สัปดาห์"};
 // S.tuned = กติกาที่ระบบเรียนรู้เองจากการทดสอบรายคืน (data/learn.json) ใช้เฉพาะแบบเน้นอัตราชนะ และเฉพาะกรอบรายวัน
 const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(RULES.preset!=="edge"&&S.tuned?.[m]?.rules||{}),...(tf!=="D"&&TF_RULES[tf]?.[m]||{})});
@@ -78,9 +82,11 @@ function barLive(m,t){try{const p=new Intl.DateTimeFormat("en-CA",{timeZone:m===
   return t===`${g("year")}-${g("month")}-${g("day")}`&&+g("hour")*60+ +g("minute")<(m==="TH"?1000:960)}catch{return false}}
 const sysTrig=(a,I,i,P)=>a[i]>=P.thr&&(a[i-1]<P.thr||(P.dip!=null&&(r2Of(I)[i]??99)<P.dip));
 // จุดตัดขาดทุน = ราคาซื้อ − sl×ATR แต่ไม่ห่างเกิน slCap (ไทย 8% / สหรัฐฯ 12%) — รอบ 6: ยังชนะ 80%+ ไม้ที่เจ็บหนักลดลงมาก
-const slOf=(en,atr,P)=>P.slCap?Math.max(en-P.sl*atr,en*(1-P.slCap)):en-P.sl*atr;
+const slOf=(en,atr,P)=>P.slP?en*(1-P.slP):P.slCap?Math.max(en-P.sl*atr,en*(1-P.slCap)):en-P.sl*atr;
 // ปัดราคาจุดตัดขาดทุนตามช่องราคา: ถ้าชนเพดาน % ปัดเข้าหาราคาซื้อ เพื่อไม่ให้เกินเพดาน
-const slR=(en,atr,P,m)=>{const v=slOf(en,atr,P);return rt(v,m,P.slCap&&v>en-P.sl*atr?"ceil":"floor")};
+const slR=(en,atr,P,m)=>{const v=slOf(en,atr,P);return rt(v,m,P.slP||P.slCap&&v>en-P.sl*atr?"ceil":"floor")};
+// เป้าขาย: กรอบเล็กบางกรอบใช้ % ของราคาซื้อ (tpP) แทนเท่าของ ATR
+const tpOf=(lp,at,P)=>P.tpP?lp*(1+P.tpP):lp+P.tp*at;
 const sigOK=(I,i,rsA,P)=>(P.wk===false||I.wk[i]>=0)&&rsPass(rsA,i)&&(P.adx==null||(I.adx[i]??0)>P.adx)&&volOK(I,i,P)&&(!P.st||I.sd[i]===1);
 
 /* ---------- state ---------- */
@@ -201,7 +207,7 @@ function simulate(B,I,sig,from,to,m,P=RULES){
   for(let i=Math.max(from,P.warm);i<to-1;i++){
     if(!sig(i))continue;const atr=I.atr[i];if(!atr)continue;
     let e=i+1,en=B[e].o;if(P.lim){const lp=B[i].c-P.lim*atr;e=-1;for(let d=i+1;d<=Math.min(to-1,i+(P.ld||1));d++)if(B[d].l<=lp){e=d;break}if(e<0)continue;en=Math.min(B[e].o,lp)}
-    const sl=slOf(en,atr,P),tp=P.tp?en+P.tp*atr:Infinity,lim=Math.min(to,e+P.hold);let xp=null,xi=null;
+    const sl=slOf(en,atr,P),tp=P.tpP||P.tp?tpOf(en,atr,P):Infinity,lim=Math.min(to,e+P.hold);let xp=null,xi=null;
     for(let j=e;j<lim;j++){const b=B[j];
       if(j>e&&b.o<=sl){xp=b.o;xi=j;break}
       if(b.l<=sl){xp=sl;xi=j;break}
@@ -223,14 +229,14 @@ function stats(tr){const n=tr.length;if(!n)return{n:0};
 function sysPlan(st,B,I,arr,rsA,RP,live){const n=B.length-1,end=live?n-1:n;
   const sys=(()=>{const a=arr,ld=RP.ld||1;for(let j=end;j>=Math.max(1,end-ld+1);j--){if(!(sysTrig(a,I,j,RP)&&sigOK(I,j,rsA,RP)))continue;
     const at=I.atr[j];if(!at)return null;const lp=B[j].c-RP.lim*at;let hit=false;for(let d=j+1;d<=n;d++)if(B[d].l<=lp){if(d<n||!live)return null;hit=true}
-    return{d:B[j].t,lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:slR(lp,at,RP,st.m),left:ld-(end-j),hit}}return null})();
+    return{d:B[j].t,lp:rt(lp,st.m),tp:rt(tpOf(lp,at,RP),st.m,"floor"),sl:slR(lp,at,RP,st.m),left:ld-(end-j),hit}}return null})();
   const sw=[Math.round(arr[end]),Math.round(r2Of(I)[end]??50),(I.wk[end]>=0?0:1)|(rsPass(rsA,end)?0:2)|(RP.adx==null||(I.adx[end]??0)>RP.adx?0:4)|(volOK(I,end,RP)?0:8)|(!RP.st||I.sd[end]===1?0:16)];
   // แผนล่วงหน้า (หุ้นผ่านตัวกรอง คะแนน ≥ 40 แต่ยังไม่ย่อพอ): ถ้าราคาปิดแท่งถัดไป ≤ trig จะเกิดสัญญาณตามระบบ แล้วตั้งซื้อ lp
   const cond=(()=>{if(sys||sw[2]||RP.dip==null||arr[end]<RP.thr)return null;const at=I.atr[end];if(!at)return null;
     const x=rsiTrigger(I.c,end,2,RP.dip);if(!(x>0))return null;const trig=rt(x-tick(x)*.5,st.m,"floor"),lp=trig-RP.lim*at;if(!(lp>0))return null;
-    return{trig,lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:slR(lp,at,RP,st.m)}})();
+    return{trig,lp:rt(lp,st.m),tp:rt(tpOf(lp,at,RP),st.m,"floor"),sl:slR(lp,at,RP,st.m)}})();
   // แผนอ้างอิง (ยังไม่มีสัญญาณ): ถ้าผ่านเงื่อนไขตอนนี้ จะตั้งซื้อ/ขาย/ตัดขาดทุนที่ราคาเหล่านี้ (คิดจากราคาปิดล่าสุด)
-  const ref=(()=>{const at=I.atr[end];if(!at)return null;const lp=B[end].c-RP.lim*at;return lp>0?{lp:rt(lp,st.m),tp:rt(lp+RP.tp*at,st.m,"floor"),sl:slR(lp,at,RP,st.m)}:null})();
+  const ref=(()=>{const at=I.atr[end];if(!at)return null;const lp=B[end].c-RP.lim*at;return lp>0?{lp:rt(lp,st.m),tp:rt(tpOf(lp,at,RP),st.m,"floor"),sl:slR(lp,at,RP,st.m)}:null})();
   return{live,end,sys,sw,cond,ref}}
 // ---------- กรอบเวลาอื่น (1 ชม. / 4 ชม. / สัปดาห์) ----------
 // แท่งยังไม่ปิด: สัปดาห์นี้ยังไม่จบ · แท่งชั่วโมงที่ยังไม่ครบเวลา
