@@ -619,3 +619,10 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .qlist{display:grid;gap:8px}.qrow{padding:12px 14px;border-radius:var(--r-md);background:var(--surface-2)}.qh{display:flex;justify-content:space-between;gap:10px;align-items:center}.qd{font-size:12.5px;color:var(--ink-2);margin-top:4px;line-height:1.55}
 .chip-l{font-size:12.5px;color:var(--ink-2);align-self:center;margin-right:2px}
 .kt-note.tfw{color:#FFC27A;font-size:12px}
+/* กราฟในการ์ดสรุป (คอลัมน์ซ้าย ใต้คะแนน) · พื้นสีการ์ดปกติให้สีกราฟอ่านง่ายทั้งโหมดสว่าง/มืด */
+.vh-l{display:flex;flex-direction:column;min-width:0}
+.vchart{margin-top:14px;background:var(--surface);color:var(--ink);border-radius:var(--r-md,14px);padding:10px 10px 8px;flex:1;display:flex;flex-direction:column;min-width:0}
+.vchart-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:6px}
+.vchart-h .tfs{margin:0}.vchart-h .btn{margin-left:auto}
+.vchart .chartbox{flex:1;min-height:300px}
+.vchart .legend{margin-top:6px}

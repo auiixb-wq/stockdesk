@@ -558,11 +558,11 @@ function decisionCard(R){const D=decision(R),bar=v=>v==null?`<span class="dc-na"
    <p class="dc-m"><b>สรุป${D.score!=null?` (${D.score}/100)`:""}:</b> ${D.msg[2]}${y?` · ตั้งซื้อ <b class="num">${fmt(y.lp)}</b> TP <b class="num up">${fmt(y.tp)}</b> SL <b class="num down">${fmt(y.sl)}</b>`:""}</p></section>`}
 function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),fromE=v=>pct((v/P.entry-1)*100,1),W=R.why,c=cur(R.st.m),N=R.ns;
   const tile=(k,v,d,cl)=>`<div class="kt ${cl}"><div class="k">${k}</div><div class="v num">${v}</div><div class="d">${d}</div></div>`;
-  return `<section class="card"><div class="card-h"><h2>กราฟ <span class="muted" style="font-size:13px;font-weight:500">กรอบ ${TF_LABEL[S.tf]}</span></h2>${tfBar()}<button class="btn ghost sm" data-tab="chart">อินดิเคเตอร์ทั้งหมด →</button></div><div class="chartbox" id="cMain"></div>
-    <div class="legend"><span style="--c:var(--c1)">EMA 20</span><span style="--c:var(--c2)">EMA 50</span><span style="--c:var(--up)">Supertrend (เขียวขึ้น/แดงลง) · เส้นแนวโน้ม (ประ)</span><span style="--c:var(--accent)">เข้าซื้อ</span><span style="--c:var(--up)">TP</span><span style="--c:var(--down)">SL</span></div></section>
-  <section class="vh">
+  return `<section class="vh">
     <div class="vh-l"><div class="eyebrow" style="color:var(--deep-2)">สรุปในประโยคเดียว</div><div class="vword">${R.v[0]}</div><p class="vline">${esc(headline(R))}</p>${gauge(R.overall)}
-      <div class="vmeta"><span>คะแนน <b class="num">${R.overall}</b>/100</span><span><span class="dot" style="--c:${R.conf.c==="var(--ink-2)"?"var(--deep-2)":R.conf.c}"></span>ความน่าเชื่อถือ ${R.conf.t}</span></div></div>
+      <div class="vmeta"><span>คะแนน <b class="num">${R.overall}</b>/100</span><span><span class="dot" style="--c:${R.conf.c==="var(--ink-2)"?"var(--deep-2)":R.conf.c}"></span>ความน่าเชื่อถือ ${R.conf.t}</span></div>
+      <div class="vchart"><div class="vchart-h"><b>กราฟ</b> <span class="muted">กรอบ ${TF_LABEL[S.tf]}</span>${tfBar()}<button class="btn ghost sm" data-tab="chart">อินดิเคเตอร์ทั้งหมด →</button></div><div class="chartbox" id="cMain"></div>
+      <div class="legend"><span style="--c:var(--c1)">EMA 20</span><span style="--c:var(--c2)">EMA 50</span><span style="--c:var(--up)">Supertrend · เส้นแนวโน้ม</span><span style="--c:var(--accent)">เข้าซื้อ</span><span style="--c:var(--up)">TP</span><span style="--c:var(--down)">SL</span></div></div></div>
     <div class="vh-r">${(()=>{if(S.tf==="D")return planTiles(R,R.last,"D");const X=chartR(R.st);
         if(X)return planTiles(X,R.last,S.tf);const miss=(S.tf==="15m"?S.intra15:S.intra)?.[R.st.s]===null||S.tf==="W";
         return `<div class="kt-note">${miss?`หุ้นนี้ยังไม่มีราคารายชั่วโมง (มีเฉพาะหุ้นสหรัฐฯ และหุ้นไทยมูลค่าตลาด ≥ 5 พันล้านบาท) ดูกรอบ "วัน" แทน`:"กำลังโหลดราคารายชั่วโมง…"}</div>`})()}

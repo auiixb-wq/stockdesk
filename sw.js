@@ -1,5 +1,5 @@
 // แคชหน้าเว็บไว้เปิดได้แม้เน็ตหลุด: ไฟล์ข้อมูลใช้ของใหม่ก่อน ถ้าโหลดไม่ได้ค่อยใช้ของในแคช
-const CACHE = "stockdesk-v66";
+const CACHE = "stockdesk-v67";
 const SHELL = ["./", "index.html", "app.css", "app.js", "core.js", "manifest.webmanifest", "icon.svg", "manual.json", "i18n.js", "i18n-en.js", "vendor/lightweight-charts-4.1.3.js"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(k => Promise.all(k.filter(x => x !== CACHE).map(x => caches.delete(x)))).then(() => self.clients.claim())); });
