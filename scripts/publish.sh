@@ -19,3 +19,10 @@ if [ -f data/.hist_new ] && [ -d data/hist ]; then
   git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" hist
   cd .. && rm -f data/.hist_new
 fi
+# ราคารายชั่วโมง 6 เดือน (data/intra) แยกไว้ที่ branch intra ส่งเมื่อดึงชุดใหม่
+if [ -f data/.intra_new ] && [ -d data/intra ]; then
+  rm -rf _intra && cp -r data/intra _intra && cd _intra && git init -q -b intra && git add -A
+  git -c user.name="stockdesk-bot" -c user.email="actions@users.noreply.github.com" commit -qm "intra $(date -u +%F)"
+  git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" intra
+  cd .. && rm -f data/.intra_new
+fi

@@ -9,7 +9,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sd.common import ROOT, DATA, NOW, ERRORS, load, save  # noqa: E402,F401
 from sd.universe import fetch_universe, fetch_hist  # noqa: E402
 from sd.prices import fetch_prices, fetch_quotes, market_strip, QUOTE_T  # noqa: E402,F401
-from sd.fin import fetch_fin, fetch_fund, repair_fx  # noqa: E402
+from sd.fin import fetch_fin, fetch_fund, repair_fx
+from sd.intra import fetch_intra, fetch_intra_recent  # noqa: E402
 from sd.macro import fetch_macro  # noqa: E402
 from sd.news import fetch_news  # noqa: E402
 from sd.health import report as health_report  # noqa: E402
@@ -57,6 +58,8 @@ def main():
     prices, pstatus = step("prices", fetch_prices)
     uni = step("universe", fetch_universe)
     step("hist", fetch_hist, uni)
+    step("intra", fetch_intra, uni)
+    step("intraR", fetch_intra_recent, uni)
     step("finfx", repair_fx, uni)
     step("fin", fetch_fin, uni)
     quotes = step("quotes", fetch_quotes, prices)

@@ -129,7 +129,14 @@ function sma(a,p){const o=Array(a.length).fill(null);let s=0,bad=0;// ผลร�
 function rsi(c,p=14){const o=Array(c.length).fill(null);if(c.length<=p)return o;let g=0,l=0;for(let i=1;i<=p;i++){const d=c[i]-c[i-1];d>0?g+=d:l-=d}g/=p;l/=p;o[p]=l===0?100:100-100/(1+g/l);for(let i=p+1;i<c.length;i++){const d=c[i]-c[i-1];g=(g*(p-1)+Math.max(d,0))/p;l=(l*(p-1)+Math.max(-d,0))/p;o[i]=l===0?100:100-100/(1+g/l)}return o}
 function pivots(a,k,low){const o=new Uint8Array(a.length);for(let j=k;j<a.length-k;j++){let ok=true;for(let t=j-k;t<=j+k;t++){if(t!==j&&(low?a[t]<=a[j]:a[t]>=a[j])){ok=false;break}}if(ok)o[j]=1}return o}
 // แนวโน้มรายสัปดาห์ ใช้สถานะของสัปดาห์ที่ปิดไปแล้วเท่านั้น (ไม่แอบดูอนาคต)
-function weekly(B){const wk=[];let key=null;B.forEach((b,i)=>{const d=new Date(b.t+"T00:00:00Z"),mon=new Date(d-((d.getUTCDay()+6)%7)*864e5).toISOString().slice(0,10);if(mon!==key){wk.push({c:b.c,last:i});key=mon}else{wk.at(-1).c=b.c;wk.at(-1).last=i}});
+// รวมแท่ง: W = รายสัปดาห์จากรายวัน (เวลาแท่ง = วันสุดท้ายของสัปดาห์) · 4H = จากรายชั่วโมง วันละ 2 แท่ง (แท่งที่ 1–4 และ 5 ขึ้นไปของวัน)
+function resample(B,tf){const out=[];let key=null,k=0,day=null;
+  for(const b of B){const d=String(b.t).slice(0,10);let g;
+    if(tf==="W"){const x=new Date(d+"T00:00:00Z");g=new Date(x-((x.getUTCDay()+6)%7)*864e5).toISOString().slice(0,10)}
+    else{if(d!==day){day=d;k=0}else k++;g=d+"|"+(k<4?0:1)}
+    if(g!==key){out.push({t:b.t,o:b.o,h:b.h,l:b.l,c:b.c,v:b.v||0,t0:b.t});key=g}else{const o=out.at(-1);o.h=Math.max(o.h,b.h);o.l=Math.min(o.l,b.l);o.c=b.c;o.v+=b.v||0;o.t=tf==="W"?b.t:o.t0}}
+  return out}
+function weekly(B){const wk=[];let key=null;B.forEach((b,i)=>{const d=new Date(String(b.t).slice(0,10)+"T00:00:00Z"),mon=new Date(d-((d.getUTCDay()+6)%7)*864e5).toISOString().slice(0,10);if(mon!==key){wk.push({c:b.c,last:i});key=mon}else{wk.at(-1).c=b.c;wk.at(-1).last=i}});
   const wc=wk.map(w=>w.c),e10=ema(wc,10),e30=ema(wc,30),st=wk.map((w,j)=>e30[j]==null?0:w.c>e10[j]&&e10[j]>e30[j]?1:w.c<e10[j]&&e10[j]<e30[j]?-1:0);
   const out=Array(B.length).fill(0);wk.forEach((w,j)=>{const s=j?wk[j-1].last+1:0;for(let i=s;i<=w.last;i++)out[i]=j?st[j-1]:0});return out}
 // Supertrend (ATR 10 × 3): เส้นตามแนวโน้ม อยู่ใต้ราคาเมื่อขาขึ้น (sd=1) เหนือราคาเมื่อขาลง (sd=-1) ใช้ราคาปิดที่รู้แล้วเท่านั้น

@@ -1,17 +1,19 @@
 // ทดสอบกลยุทธ์ Smart Money Concepts + อินดิเคเตอร์ยอดนิยม เทียบกับระบบปัจจุบัน ในรอบเดียว
 // node research/smc.js <res> <root> <TH|US> [กลยุทธ์,คั่นด้วยจุลภาค]
 // เกณฑ์: ชนะ ≥ 80% ทั้งช่วงสร้าง (ก่อน 2024-04-01) และช่วงทดสอบ, ช่วงทดสอบ ≥ 80 ไม้, เรียงตามกำไรต่อไม้ของช่วงที่แย่กว่า
-const fs = require("fs"), vm = require("vm"), [R, ROOT, MK, ONLY] = process.argv.slice(2), SPLIT = "2024-04-01";
+const fs = require("fs"), vm = require("vm"), [R, ROOT, MK, ONLY] = process.argv.slice(2), SPLIT = process.env.SPLIT || "2024-04-01";
+// กรอบเวลาอื่น: HDIR=โฟลเดอร์ราคา (เช่น h1 = รายชั่วโมง) · TF=4H/W รวมแท่ง · WARM=แท่งอุ่นเครื่อง · VOLMIN=เกณฑ์แกว่งสหรัฐฯ (% ต่อแท่ง)
+const HDIR = process.env.HDIR || "hist", TF = process.env.TF || "", WARM = +(process.env.WARM || 210), VOLMIN = +(process.env.VOLMIN || 2.5), MINB = +(process.env.MINB || 500);
 const ctx = { console }; vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(ROOT + "/core.js", "utf8") + ";globalThis.__c={S,indicators,VOTES,sma,rsi,trendLine};", ctx);
+vm.runInContext(fs.readFileSync(ROOT + "/core.js", "utf8") + ";globalThis.__c={S,indicators,VOTES,sma,rsi,trendLine,resample};", ctx);
 const { S, indicators, VOTES, sma, rsi, trendLine } = ctx.__c; S.inNode = true;
 const COST = MK === "TH" ? .0017 : .0010;
 const U = Object.fromEntries(JSON.parse(fs.readFileSync(R + "/universe.json")).items.map(i => [i.s, i]));
 const st = [], rsBy = {};
-for (const f of fs.readdirSync(R + "/hist").filter(f => f.endsWith(".json"))) {
+for (const f of fs.readdirSync(R + "/" + HDIR).filter(f => f.endsWith(".json"))) {
   const s = f.slice(0, -5), u = U[s]; if (!u || u.m !== MK || /-P[A-Z]*$/.test(s)) continue; if (MK === "TH" && (u.mc || 0) < +(process.env.MCMIN || 5e9)) continue;
-  let j; try { j = JSON.parse(fs.readFileSync(R + "/hist/" + f)) } catch { continue }
-  const B = j.t.map((t, i) => ({ t, o: j.o[i], h: j.h[i], l: j.l[i], c: j.c[i], v: j.v?.[i] ?? 0 })).filter(b => b.c > 0 && b.o > 0 && b.h >= b.l); if (B.length < 500) continue;
+  let j; try { j = JSON.parse(fs.readFileSync(R + "/" + HDIR + "/" + f)) } catch { continue }
+  const B = j.t.map((t, i) => ({ t, o: j.o[i], h: j.h[i], l: j.l[i], c: j.c[i], v: j.v?.[i] ?? 0 })).filter(b => b.c > 0 && b.o > 0 && b.h >= b.l); const Bt = TF ? ctx.__c.resample(B, TF) : B; B.length = 0; B.push(...Bt); if (B.length < MINB) continue;
   st.push({ s, B }); B.forEach((b, i) => { if (i >= 63) (rsBy[b.t] ??= []).push(b.c / B[i - 63].c - 1) });
 }
 for (const k in rsBy) rsBy[k].sort((a, b) => a - b);
@@ -75,8 +77,8 @@ for (const [nm, k, d] of [["B1_1", 1, 1], ["B1.5_3", 1.5, 3]]) for (const v of [
   STRAT[`${nm}${fn}_v${v}`] = (x, i) => BASEF(rs, adx)(x, i) && vol(x, i) >= v ? { kind: "limit", px: x.B[i].c - k * atr(x, i), days: d } : null;
 for (const [nm, k, d] of [["B1_1", 1, 1], ["B1.5_3", 1.5, 3]]) STRAT[`${nm}L`] = (x, i) => BASEF(60, 20)(x, i) ? { kind: "limit", px: x.B[i].c - k * atr(x, i), days: d } : null;
 // รอบ 5: เพิ่มจำนวนไม้โดยคงคุณภาพ — ทริกเกอร์แบบ "ย่อในขาขึ้น" แทน/เสริมการข้าม 40
-const FILT = (x, i) => x.I.wk[i] >= 0 && x.rs[i] >= (MK === "TH" ? 70 : 80) && x.I.adx[i] > (MK === "TH" ? 25 : 20) && (MK === "TH" || vol(x, i) >= 2.5);
-const [LK, LD] = MK === "TH" ? [1, 1] : [1.5, 3];
+const FILT = (x, i) => x.I.wk[i] >= 0 && x.rs[i] >= (MK === "TH" ? 70 : 80) && x.I.adx[i] > (MK === "TH" ? 25 : 20) && (MK === "TH" || vol(x, i) >= VOLMIN);
+const [LK, LD] = process.env.LK ? [+process.env.LK, +(process.env.LD || 1)] : MK === "TH" ? [1, 1] : [1.5, 3];
 const LIM = (x, i) => ({ kind: "limit", px: x.B[i].c - LK * atr(x, i), days: LD });
 const TRIG = {
   X40: (x, i) => x.sc[i - 1] < 40 && x.sc[i] >= 40,
@@ -110,7 +112,7 @@ function run(name) {
   const res = EXITS.map(() => ({ is: [], oos: [] }));
   for (const x of st) {
     const B = x.B, n = B.length; const busy = EXITS.map(() => 0);
-    for (let i = 210; i < n - 1; i++) {
+    for (let i = WARM; i < n - 1; i++) {
       const sg = STRAT[name](x, i); if (!sg) continue;
       const a = atr(x, i);
       // หาวันที่ได้ราคา
@@ -182,7 +184,7 @@ if (process.env.DESK) {
     const res = { is: [], oos: [], all: [] };
     for (const x of st) {
       const B = x.B, n = B.length; let busy = 0; const past = [];  // ผลไม้ก่อนหน้าของหุ้นตัวนี้ [วันปิด, ผล]
-      for (let i = 210; i < n - 1; i++) {
+      for (let i = WARM; i < n - 1; i++) {
         const sg = sig(x, i); if (!sg) continue; const a = atr(x, i);
         let e = -1, en = 0; for (let d = i + 1; d <= Math.min(n - 1, i + sg.days); d++) if (B[d].l <= sg.px) { e = d; en = Math.min(B[d].o, sg.px); break }
         if (e < 0 || e < busy) continue;
@@ -234,7 +236,7 @@ if (process.env.DESK) {
 if (process.env.TPL) {
   const P = MK === "TH" ? { sl: 5, cap: .08, hold: 20 } : { sl: 5, cap: .12, hold: 20 }, K = [MK === "TH" ? 1 : .8, 1.5, 2, 3], hit = K.map(() => 0), days = K.map(() => 0); let n = 0, sl = 0, slr = 0;
   for (const x of st) { const B = x.B, nn = B.length; let busy = 0;
-    for (let i = 210; i < nn - 1; i++) { const sg = STRAT.T_U3(x, i); if (!sg) continue; const a = atr(x, i);
+    for (let i = WARM; i < nn - 1; i++) { const sg = STRAT.T_U3(x, i); if (!sg) continue; const a = atr(x, i);
       let e = -1, en = 0; for (let d = i + 1; d <= Math.min(nn - 1, i + sg.days); d++) if (B[d].l <= sg.px) { e = d; en = Math.min(B[d].o, sg.px); break }
       if (e < 0 || e < busy || e + P.hold > nn) continue; n++; const stop = Math.max(en - P.sl * a, en * (1 - P.cap)), got = K.map(() => false); let out = false;
       for (let j = e; j < e + P.hold; j++) { const b = B[j]; if (b.l <= stop) { out = true; sl++; slr += Math.min(stop, j > e ? b.o : stop) / en - 1; break } if (j === e) continue; K.forEach((k, q) => { if (!got[q] && b.h >= en + k * a) { got[q] = true; hit[q]++; days[q] += j - e } }) }
@@ -246,7 +248,7 @@ if (process.env.TPL) {
 // แผนล่วงหน้า: วันที่ผ่านตัวกรอง คะแนน ≥ 40 แต่ RSI2 ยังไม่ < 20 → ถ้าวันถัดไปปิดต่ำกว่าราคาที่คำนวณ สัญญาณเกิดจริงกี่ %
 if (process.env.COND) {
   let n = 0, hit = 0, sig = 0;
-  for (const x of st) for (let i = 210; i < x.B.length - 1; i++) {
+  for (const x of st) for (let i = WARM; i < x.B.length - 1; i++) {
     if (!(FILT(x, i) && x.sc[i] >= 40 && x.r2[i] >= 20)) continue; n++;
     if (x.r2[i + 1] < 20) { hit++; if (x.sc[i + 1] >= 40 && FILT(x, i + 1)) sig++ }
   }

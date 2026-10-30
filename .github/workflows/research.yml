@@ -1,0 +1,35 @@
+name: research
+# ทดสอบกลยุทธ์ย้อนหลังในกรอบเวลาสั้น (1 ชม. / 4 ชม.) ด้วยราคารายชั่วโมง 730 วัน ผลอยู่ที่ branch research (results.txt)
+on:
+  workflow_dispatch:
+    inputs:
+      args:
+        description: "ชุดทดสอบ (เว้นว่าง = มาตรฐาน)"
+        default: ""
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pip install -r requirements.txt
+      - name: Data
+        run: |
+          mkdir -p res
+          git fetch origin gh-pages --depth=1 && git show origin/gh-pages:data/universe.json > res/universe.json
+          python3 research/intra_fetch.py res
+      - name: Backtest
+        run: bash research/intra_run.sh res > results.txt 2>&1 || true
+      - name: Publish results
+        run: |
+          mkdir _r && cp results.txt _r/ && cd _r && git init -q -b research && git add -A
+          git -c user.name="stockdesk-bot" -c user.email="actions@users.noreply.github.com" commit -qm "research $(date -u +%FT%TZ)"
+          git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" research
