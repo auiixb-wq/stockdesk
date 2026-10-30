@@ -13,7 +13,7 @@ const st = [], rsBy = {};
 for (const f of fs.readdirSync(R + "/" + HDIR).filter(f => f.endsWith(".json"))) {
   const s = f.slice(0, -5), u = U[s]; if (!u || u.m !== MK || /-P[A-Z]*$/.test(s)) continue; if (MK === "TH" && (u.mc || 0) < +(process.env.MCMIN || 5e9)) continue;
   let j; try { j = JSON.parse(fs.readFileSync(R + "/" + HDIR + "/" + f)) } catch { continue }
-  const B = j.t.map((t, i) => ({ t, o: j.o[i], h: j.h[i], l: j.l[i], c: j.c[i], v: j.v?.[i] ?? 0 })).filter(b => b.c > 0 && b.o > 0 && b.h >= b.l); const Bt = TF ? ctx.__c.resample(B, TF) : B; B.length = 0; B.push(...Bt); if (B.length < MINB) continue;
+  const B = j.t.map((t, i) => ({ t, o: j.o[i], h: j.h[i], l: j.l[i], c: j.c[i], v: j.v?.[i] ?? 0 })).filter(b => b.c > 0 && b.o > 0 && b.h >= b.l); if (TF) { const Bt = ctx.__c.resample(B, TF); B.length = 0; B.push(...Bt) } if (B.length < MINB) continue;
   st.push({ s, B }); B.forEach((b, i) => { if (i >= 63) (rsBy[b.t] ??= []).push(b.c / B[i - 63].c - 1) });
 }
 for (const k in rsBy) rsBy[k].sort((a, b) => a - b);
@@ -244,11 +244,11 @@ if (process.env.DESK) {
 }
 // TP หลายขั้น: จากทุกสัญญาณ T_U3 (SL ตามระบบ มีเพดาน) ถึง +k ATR ก่อนโดน SL ภายในกี่ % · TPL=1
 if (process.env.TPL) {
-  const P = MK === "TH" ? { sl: 5, cap: .08, hold: 20 } : { sl: 5, cap: .12, hold: 20 }, K = [MK === "TH" ? 1 : .8, 1.5, 2, 3], hit = K.map(() => 0), days = K.map(() => 0); let n = 0, sl = 0, slr = 0;
+  const P = { sl: +(process.env.TPLSL || 5), cap: process.env.TPLCAP != null ? +process.env.TPLCAP : MK === "TH" ? .08 : .12, hold: 20 }, K = [+(process.env.TPLTP || (MK === "TH" ? 1 : .8)), 1.5, 2, 3], hit = K.map(() => 0), days = K.map(() => 0); let n = 0, sl = 0, slr = 0;
   for (const x of st) { const B = x.B, nn = B.length; let busy = 0;
     for (let i = WARM; i < nn - 1; i++) { const sg = STRAT.T_U3(x, i); if (!sg) continue; const a = atr(x, i);
       let e = -1, en = 0; for (let d = i + 1; d <= Math.min(nn - 1, i + sg.days); d++) if (B[d].l <= sg.px) { e = d; en = Math.min(B[d].o, sg.px); break }
-      if (e < 0 || e < busy || e + P.hold > nn) continue; n++; const stop = Math.max(en - P.sl * a, en * (1 - P.cap)), got = K.map(() => false); let out = false;
+      if (e < 0 || e < busy || e + P.hold > nn) continue; n++; const stop = Math.max(en - P.sl * a, P.cap ? en * (1 - P.cap) : 0), got = K.map(() => false); let out = false;
       for (let j = e; j < e + P.hold; j++) { const b = B[j]; if (b.l <= stop) { out = true; sl++; slr += Math.min(stop, j > e ? b.o : stop) / en - 1; break } if (j === e) continue; K.forEach((k, q) => { if (!got[q] && b.h >= en + k * a) { got[q] = true; hit[q]++; days[q] += j - e } }) }
       busy = e + 1; }
   }
