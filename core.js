@@ -342,7 +342,7 @@ function sysVerdict(x,tone,lv,sig){if(sig)return lv>=3?["ซื้อตาม�
   if(tone==="sell"||x<35)return x<35?["หลีกเลี่ยง","p-sell2"]:["ยังไม่ควรเข้า","p-sell"];return tone==="buy"?["แนวโน้มดี · รอราคาย่อ","p-hold"]:x>=45?["รอสัญญาณ","p-hold"]:["ระวัง","p-sell"]}
 // ระบบรออะไรอยู่ (หุ้นที่ยังไม่มีสัญญาณ) → [ข้อความสั้น, รายละเอียด, ใกล้เกิดสัญญาณไหม]
 function sysWait(R){const w=R.sw;if(!w)return["รอสัญญาณ","",false];const [sc,r2,f]=w,P=rulesFor(R.st.m,R.tf||"D"),miss=[];
-  if(f&1)miss.push("แนวโน้มรายสัปดาห์ยังไม่ขึ้น");if(f&2)miss.push(`ยังไม่แข็งกว่าตลาด (ต้องอยู่กลุ่มบน ${100-P.rs}%)`);if(f&4)miss.push(`แนวโน้มยังไม่ชัด (ADX ≤ ${P.adx})`);if(f&8)miss.push(`หุ้นแกว่งน้อยกว่า ${P.vol}% ต่อวัน`);if(f&16)miss.push("ราคายังต่ำกว่าเส้น Supertrend (ขาลง)");
+  if(f&1)miss.push("แนวโน้มรายสัปดาห์ยังไม่ขึ้น");if(f&2)miss.push(`ยังไม่แข็งกว่าตลาด (ต้องอยู่กลุ่มบน ${100-P.rs}%)`);if(f&4)miss.push(`แนวโน้มยังไม่ชัด (ADX ≤ ${P.adx})`);if(f&8)miss.push(`หุ้นแกว่งน้อยกว่า ${P.vol}% ต่อ${R.tf&&R.tf!=="D"?"แท่ง":"วัน"}`);if(f&16)miss.push("ราคายังต่ำกว่าเส้น Supertrend (ขาลง)");
   if(miss.length)return[`ยังไม่ผ่าน: ${miss[0].replace(/ \(.*\)$/,"")}`,"ยังไม่ผ่านตัวกรอง: "+miss.join(" · "),false];
   if(sc<P.thr)return[`รอคะแนน ≥ ${P.thr} (ตอนนี้ ${sc})`,`ผ่านตัวกรองแล้ว · สัญญาณจะเกิดเมื่อคะแนนเทคนิคข้าม ${P.thr} (ตอนนี้ ${sc})`,sc>=P.thr-8];
   return[`รอราคาย่อ (RSI2 ${r2})`,`ผ่านตัวกรองและคะแนน ${sc} ≥ ${P.thr} แล้ว · สัญญาณจะเกิดเมื่อราคาย่อจน RSI(2) < ${P.dip} (ตอนนี้ ${r2})`,true]}
