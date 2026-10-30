@@ -25,6 +25,7 @@ jobs:
         run: |
           mkdir -p res
           git fetch origin gh-pages --depth=1 && git show origin/gh-pages:data/universe.json > res/universe.json
+          git fetch origin hist --depth=1 && mkdir -p res/hist && git --work-tree=res/hist checkout origin/hist -- . && git reset -q
           python3 research/intra_fetch.py res
       - name: Backtest
         run: bash research/intra_run.sh res > results.txt 2>&1 || true

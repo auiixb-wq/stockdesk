@@ -17,11 +17,21 @@ for (const f of fs.readdirSync(R + "/" + HDIR).filter(f => f.endsWith(".json")))
   st.push({ s, B }); B.forEach((b, i) => { if (i >= 63) (rsBy[b.t] ??= []).push(b.c / B[i - 63].c - 1) });
 }
 for (const k in rsBy) rsBy[k].sort((a, b) => a - b);
+// กรอบเวลาสั้น: "แข็งกว่าตลาด" ใช้ผลตอบแทน 63 วันของราคารายวัน (เหมือนหน้าเว็บ) ของวันทำการก่อนหน้า ไม่แอบดูวันนี้
+const RSD = {};
+if (HDIR !== "hist" && fs.existsSync(R + "/hist")) {
+  const by = {}, per = {};
+  for (const x of st) { let j; try { j = JSON.parse(fs.readFileSync(R + "/hist/" + x.s + ".json")) } catch { continue }
+    per[x.s] = j; j.t.forEach((t, i) => { if (i >= 63 && j.c[i] > 0 && j.c[i - 63] > 0) (by[t] ??= []).push(j.c[i] / j.c[i - 63] - 1) }) }
+  for (const k in by) by[k].sort((a, b) => a - b);
+  for (const [sy, j] of Object.entries(per)) { const m = new Map(); j.t.forEach((t, i) => { const a = by[t]; if (i < 63 || !a || a.length < 30) return; const v = j.c[i] / j.c[i - 63] - 1; let lo = 0, hi = a.length; while (lo < hi) { const md = (lo + hi) >> 1; if (a[md] < v) lo = md + 1; else hi = md } m.set(t, lo / (a.length - 1) * 100) }); RSD[sy] = { m, d: j.t } }
+}
 const pct = (t, v) => { const a = rsBy[t]; if (!a || a.length < 30) return 50; let lo = 0, hi = a.length; while (lo < hi) { const md = (lo + hi) >> 1; if (a[md] < v) lo = md + 1; else hi = md } return lo / (a.length - 1) * 100 };
 const W = { e200: 1, mtf: 1.2, adx: 1, obv: .7, rsi: 1 }, K = 3;
 for (const x of st) {
   const B = x.B, I = indicators(B), c = I.c, n = B.length; x.I = I;
   x.rs = c.map((v, i) => i >= 63 ? pct(B[i].t, v / c[i - 63] - 1) : null);
+  if (RSD[x.s]) { const D = RSD[x.s], d = D.d; let k = 0; x.rs = B.map(b => { const day = String(b.t).slice(0, 10); while (k < d.length && d[k] < day) k++; const prev = d[k - 1]; return prev ? D.m.get(prev) ?? null : null }) }
   x.r2 = rsi(c, 2); x.s5 = sma(c, 5);
   x.sc = c.map((_, i) => { if (!i) return 0; let a = 0, w = 0; for (const v of VOTES) { const r = v.f(I, i, false); if (r && W[v.id]) { a += W[v.id] * r.v; w += W[v.id] * 2 } } return w ? a / w * 100 : 0 });
   // จุดกลับตัว (swing) ยืนยันแล้วหลัง K แท่ง: ณ วัน i รู้เฉพาะ pivot ที่ j ≤ i-K
