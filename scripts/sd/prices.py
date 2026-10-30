@@ -104,6 +104,16 @@ def market_open(m):
     return 175 <= x <= 580 if m == "TH" else 805 <= x <= 1210
 
 
+def yahoo_meta(sym):
+    """ราคาล่าสุดของดัชนี/หุ้นจาก Yahoo chart API: ราคา, % เปลี่ยนจากปิดวันก่อน, วันที่และเวลาของราคา"""
+    url = "https://query1.finance.yahoo.com/v8/finance/chart/" + urllib.parse.quote(sym) + "?interval=1m&range=1d"
+    m = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=15).read())["chart"]["result"][0]["meta"]
+    p, prev, t = m["regularMarketPrice"], m.get("chartPreviousClose") or m.get("previousClose"), m["regularMarketTime"]
+    tz = dt.timezone(dt.timedelta(seconds=m.get("gmtoffset") or 0))
+    return {"v": round(p, 2), "chg": round((p / prev - 1) * 100, 2) if prev else None,
+            "date": dt.datetime.fromtimestamp(t, tz).strftime("%Y-%m-%d"), "ts": int(t), "src": "Yahoo"}
+
+
 def cnbc_quote(sym):
     """สำรองจาก CNBC เช่น .SETI = ดัชนี SET"""
     url = ("https://quote.cnbc.com/quote-html-webservice/restQuote/symbolType/symbol?symbols=" + urllib.parse.quote(sym)
@@ -146,6 +156,17 @@ def market_strip():
     out = {}
     for k, ys in CFG["indices"].items():
         try:
+            # ระหว่างวัน: ราคาล่าสุดจาก Yahoo chart (ล่าช้าราว 15 นาทีสำหรับ SET) ก่อน แหล่งรายวันด้านล่างบางทีให้ค่าเมื่อวาน
+            ym = None
+            for y in (ys if isinstance(ys, list) else [ys]):
+                try:
+                    ym = yahoo_meta(y)
+                    break
+                except Exception:
+                    ym = None
+            if ym:
+                out[k] = ym
+                continue
             d = None
             for y in (ys if isinstance(ys, list) else [ys]):  # ลองสัญลักษณ์สำรองตามลำดับ
                 try:

@@ -253,6 +253,15 @@ function clockHTML(){const a=clkParts("TH"),b=clkParts("US"),st=(x,l)=>`<span cl
   return `<div class="clk-main"><span class="clk-d num">${a.hh}<b>:</b>${a.mm}<small>${a.ss}</small></span><span class="clk-z">กรุงเทพฯ</span></div>
   <div class="clk-sub"><span class="num">${b.hh}:${b.mm}</span> <span class="clk-z">นิวยอร์ก</span></div><div class="clk-sts">${st(a,"SET")}${st(b,"NYSE")}</div>`}
 setInterval(()=>{const el=document.getElementById("clk");if(el&&!document.hidden){el.innerHTML=clockHTML();if(S.lang==="en")i18nApply(el)}},1000);
+// สภาพตลาดตอนนี้จากราคาระหว่างวัน: ดัชนี + จำนวนหุ้นขึ้น/ลง (หุ้นใหญ่ที่มีราคาวันนี้) · null ถ้ายังไม่มีราคาของวันนี้
+function liveMood(mk){const q=S.quotes?.q||{},today=dayIn(mk,Date.now()),big=mk==="TH"?5e9:2e9;
+  const xs=(S.universe||[]).filter(i=>i.m===mk&&(i.mc||0)>=big).map(i=>q[i.s]).filter(x=>x?.chg!=null&&x.ts&&dayIn(mk,x.ts*1000)===today);if(xs.length<20)return null;
+  const up=xs.filter(x=>x.chg>.1).length,dn=xs.filter(x=>x.chg<-.1).length,br=up/((up+dn)||1)*100,avg=xs.reduce((a,x)=>a+x.chg,0)/xs.length;
+  const ix=(S.meta||{})[mk==="TH"?"set":"spx"],ic=ix&&ix.date===today&&ix.chg!=null?ix.chg:avg,last=Math.max(...xs.map(x=>x.ts));
+  const lab=ic<=-1.2||br<=28?["แย่","ตลาดลงแรง หุ้นส่วนใหญ่ร่วง ระวังการซื้อเพิ่ม"]:ic<=-.4||br<=42?["เริ่มแย่","แรงขายมากกว่าแรงซื้อ รอดูก่อนเข้าซื้อ"]:ic>=1||br>=68?["คึกคัก","หุ้นส่วนใหญ่ปรับขึ้น"]:ic>=.4||br>=57?["เริ่มดี","แรงซื้อมากกว่าแรงขาย"]:["ทรงตัว","ขึ้นลงไม่มาก ยังไม่มีทิศทางชัด"];
+  return{lab,up,dn,n:xs.length,ic,last}}
+function liveMoodLine(mk){const L=liveMood(mk);if(!L)return "";const t=new Date(L.last*1000).toLocaleTimeString(LOC(),{hour:"2-digit",minute:"2-digit",timeZone:mk==="TH"?"Asia/Bangkok":"America/New_York"});
+  return `<span class="lm-dot ${L.ic>=0?"up":"down"}"></span>ตอนนี้ ${mk==="TH"?"SET":"S&P 500"} <b class="${L.ic>=0?"up":"down"}">${pct(L.ic,2)}</b> · ขึ้น <b>${L.up}</b> ลง <b>${L.dn}</b> จาก ${L.n} หุ้นใหญ่ · ราคา ${t} น.`}
 function vHome(){
   const all=allStocks().filter(s=>s.m===S.mkt&&liquid(s)).map(info).filter(R=>R.overall!=null),m=S.meta||{},MK=S.mkt;
   const avg=all.reduce((a,r)=>a+r.overall,0)/all.length;
@@ -261,7 +270,7 @@ function vHome(){
   const top=[...all].filter(R=>(R.conf?.lv||0)>=2).sort((a,b)=>b.overall-a.overall).slice(0,8);
   const byChg=[...all].sort((a,b)=>b.chg-a.chg),gain=byChg.slice(0,4),lose=byChg.slice(-4).reverse();
   const fav=all.filter(R=>S.watch.includes(R.st.s));
-  const idx=(k,label)=>{const x=m[k];return `<div class="itile"><div class="il">${label}</div>${x?`<div class="iv num">${fmt(x.v)}</div><div class="ic"><span class="${x.chg>=0?"c-up":"c-dn"}">${x.chg>=0?"▲":"▼"} ${Math.abs(x.chg).toFixed(2)}%</span><span>ปิด ${thDate(x.date)}</span></div>`:`<div class="iv">–</div><div class="ic">รอข้อมูล</div>`}</div>`};
+  const idx=(k,label)=>{const x=m[k];return `<div class="itile"><div class="il">${label}</div>${x?`<div class="iv num">${fmt(x.v)}</div><div class="ic"><span class="${x.chg>=0?"c-up":"c-dn"}">${x.chg>=0?"▲":"▼"} ${Math.abs(x.chg).toFixed(2)}%</span><span>${(()=>{const mk=k==="set"?"TH":"US",live=x.date===dayIn(mk,Date.now())&&clkParts(mk).open;return live?`ล่าสุด ${x.ts?new Date(x.ts*1000).toLocaleTimeString(LOC(),{hour:"2-digit",minute:"2-digit",timeZone:"Asia/Bangkok"})+" น.":""} · ตลาดเปิด`:"ปิด "+thDate(x.date)})()}</span></div>`:`<div class="iv">–</div><div class="ic">รอข้อมูล</div>`}</div>`};
   const mini=R=>`<a class="mini" href="#s-${esc(R.st.s)}">${logo(R.st.s)}<span class="ms"><b>${esc(dsym(R.st.s))}</b><span class="muted" data-q="${esc(R.st.s)}">${cur(R.st.m)}${fmt(R.last)}</span></span>${chgPill(R.chg,R.st.s)}</a>`;
   const card=R=>{const P=R.plan;return `<a class="scard" href="#s-${esc(R.st.s)}"><div class="sc-h">${logo(R.st.s)}<div style="min-width:0;flex:1"><div class="sym">${esc(dsym(R.st.s))} <span class="mk">${R.st.m}</span></div><div class="nm">${esc(R.st.n)}</div></div><span class="sc-score num" style="--c:${R.overall>=58?"var(--up)":R.overall<45?"var(--down)":"var(--warn)"}">${R.overall}</span></div>
     <div class="sc-p"><span class="num" data-q="${esc(R.st.s)}">${cur(R.st.m)}${fmt(R.last)}</span>${chgPill(R.chg,R.st.s)}</div><div class="sc-sp">${sparkArea(R,240,56)}</div>
@@ -271,7 +280,7 @@ function vHome(){
   const news=sortedNews().filter(x=>!x.market||x.market==="ALL"||x.market===MK).slice(0,3);
   const pbNow=all.filter(R=>R.pb.now),pbNear=all.filter(R=>!R.pb.now&&R.pb.near).sort((a,b)=>a.pb.r2-b.pb.r2).slice(0,4);
   return `<section class="hx">
-    <div class="hx-l"><div class="hx-date">${todayTh()}</div><h1 class="hx-t">${greet()}<br><span>${MK==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}วันนี้ <em>${mood[0]}</em></span></h1><p class="hx-s">${mood[1]} · จาก ${all.length} หุ้นที่ติดตาม</p>
+    <div class="hx-l"><div class="hx-date">${todayTh()}</div><h1 class="hx-t">${greet()}<br><span>${MK==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}วันนี้ <em id="moodw">${(liveMood(MK)?.lab||mood)[0]}</em></span></h1><p class="hx-s" id="moods">${(liveMood(MK)?.lab||mood)[1]} · จาก ${all.length} หุ้นที่ติดตาม</p><p class="lmood" id="lmood">${liveMoodLine(MK)}</p>
       <div class="mood"><div class="mbar"><i style="flex:${buy};background:var(--accent)"></i><i style="flex:${near};background:var(--deep-2)"></i><i style="flex:${hold};background:#FF8A8E"></i></div><div class="mlab"><span><b>${buy}</b> สัญญาณซื้อ</span><span><b>${near}</b> ใกล้เกิดสัญญาณ</span><span><b>${hold}</b> ยังไม่ผ่านเกณฑ์</span></div></div>
       <div class="mbig" role="group" aria-label="เลือกตลาด"><button type="button" data-mkt="TH" aria-pressed="${MK==="TH"}">หุ้นไทย</button><button type="button" data-mkt="US" aria-pressed="${MK==="US"}">หุ้นสหรัฐฯ</button></div><div class="chips" style="margin-top:10px">${mktChip(MK)}</div></div>
     <div class="hx-r"><div class="clk" id="clk" aria-live="off">${clockHTML()}</div>${MK==="TH"?idx("set","SET Index")+idx("gold","ทองคำ (US$/ออนซ์)"):idx("spx","S&P 500")+idx("ndx","Nasdaq")}</div>
@@ -834,6 +843,7 @@ async function refreshQuotes(){const L=await getLive(),q=L.q;
   if(L.meta?.indices&&JSON.stringify(L.meta.indices)!==JSON.stringify(S.metaLive?.indices)){S.metaLive=L.meta;Object.assign(S.meta,L.meta.indices);if(route().v==="home"&&!document.querySelector("input:focus"))render()}
   if(!q||q.updated===S.quotes?.updated){liveBadge();return}
   const old=S.quotes?.q||{};S.quotes=q;S.cache.clear();S.bars.clear();
+  {const L=liveMood(S.mkt),w=$("#moodw"),d=$("#moods"),l=$("#lmood");if(L&&w){w.textContent=L.lab[0];if(d)d.firstChild.nodeValue=L.lab[1]+" · ";if(l)l.innerHTML=liveMoodLine(S.mkt)}}
   document.querySelectorAll("[data-q]").forEach(el=>{const sym=el.dataset.q,x=q.q[sym];if(!x||x.p==null)return;const st=stockBySym(sym);el.textContent=cur(st?.m)+fmt(x.p);
     const o=old[sym];if(o&&o.p!==x.p){el.classList.remove("flash-up","flash-dn");void el.offsetWidth;el.classList.add(x.p>o.p?"flash-up":"flash-dn")}});
   document.querySelectorAll("[data-qc]").forEach(el=>{const x=q.q[el.dataset.qc];if(!x||x.chg==null)return;el.textContent=pct(x.chg);el.className="cp "+(x.chg>0?"cp-up":x.chg<0?"cp-dn":"")});
@@ -1147,8 +1157,8 @@ S.lang=lsGet("lang")==="en"?"en":"th";i18nStart(S.lang);{const b=$("#langBtn");i
 render();loadAll();syInit();
 /* ---------- แถบข่าววิ่ง: ประกาศงบวันนี้ · ขึ้น/ลงแรงวันนี้ · ข่าวระดับ 1 ล่าสุด (อัปเดตพร้อมราคาทุก 15 วินาที) ---------- */
 const EARN_RE=/\b(?:Q[1-4]|first|second|third|fourth)[- ]quarter (?:results|earnings|profit|revenue)|\bQ[1-4](?: 20\d\d)?\)? (?:earnings|results)|earnings (?:call|beat|miss|results|report|top|surprise)|beats? (?:estimates|expectations)|ผลประกอบการ|งบไตรมาส|กำไรสุทธิ(?:ไตรมาส|งวด|\s?[1-4]Q)|[1-4]Q\d\d|ไตรมาส\s?[1-4]\s?\/?\s?(?:25|20)\d\d/i;
-const dayIn=(m,ms)=>new Intl.DateTimeFormat("en-CA",{timeZone:m==="TH"?"Asia/Bangkok":"America/New_York"}).format(new Date(ms));
-const TK_MC={TH:5e9,US:2e9};
+function dayIn(m,ms){return new Intl.DateTimeFormat("en-CA",{timeZone:m==="TH"?"Asia/Bangkok":"America/New_York"}).format(new Date(ms))}
+var TK_MC={TH:5e9,US:2e9};
 function tickerHTML(){const now=Date.now(),q=S.quotes?.q||{},mk=S.mkt==="US"?["US","TH"]:["TH","US"],U=S.universe||[],g=[];
   const a=s=>`<a href="#s-${esc(s)}">${esc(dsym(s))}</a>`,mv=(s,c)=>`<a href="#s-${esc(s)}">${esc(dsym(s))} <span class="${c>0?"up":"down"}">${pct(c,1)}</span></a>`;
   for(const m of mk){const today=dayIn(m,now),L=m==="TH"?"ไทย":"US";

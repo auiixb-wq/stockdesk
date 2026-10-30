@@ -574,3 +574,5 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .site-foot b{color:var(--ink);font-weight:600}
 @media (max-width:820px){.site-foot{padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}}
 @media (max-width:820px){main{padding-bottom:0!important}}
+.lmood{margin:6px 0 0;font-size:13px;color:var(--deep-2)}.lmood b{color:var(--deep-ink)}.lmood b.up{color:var(--accent)}.lmood b.down{color:#FF8A8E}
+.lm-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px;animation:clkb 1.6s ease-in-out infinite}.lm-dot.up{background:var(--accent)}.lm-dot.down{background:#FF8A8E}
