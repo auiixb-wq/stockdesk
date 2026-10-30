@@ -204,7 +204,7 @@ if (process.env.TFX) {
         if (kind === "lim") { const lp = B[i].c - LK * atr(x, i); e = -1; for (let d = i + 1; d <= Math.min(n - 1, i + LD); d++) if (B[d].l <= lp) { e = d; en = Math.min(B[d].o, lp); break } if (e < 0) continue }
         EX.forEach((X, k) => {
           if (e < busy[k]) return;
-          const a = X.atr ? atr(x, i) : 0, tp = X.atr ? en + X.tp * a : en * (1 + X.tp); let sl = X.atr ? en - X.sl * a : en * (1 - X.sl), xp = null, xi = null;
+          const a = X.atr ? atr(x, i) : 0, tp = X.atr ? en + X.tp * a : en * (1 + X.tp); let sl = X.atr ? en - X.sl * a : en * (1 - X.sl), xp = null, xi = null; if (process.env.XCAP) sl = Math.max(sl, en * (1 - +process.env.XCAP));
           for (let j = e; j < Math.min(n, e + X.hold); j++) { const b = B[j];
             if (b.l <= sl) { xp = j > e ? Math.min(sl, b.o) : sl; xi = j; break }
             if (j === e && kind === "lim") continue;
@@ -306,7 +306,7 @@ if (process.env.DESK) {
 }
 // TP หลายขั้น: จากทุกสัญญาณ T_U3 (SL ตามระบบ มีเพดาน) ถึง +k ATR ก่อนโดน SL ภายในกี่ % · TPL=1
 if (process.env.TPL) {
-  const P = { sl: +(process.env.TPLSL || 5), cap: process.env.TPLCAP != null ? +process.env.TPLCAP : MK === "TH" ? .08 : .12, hold: 20 }, K = [+(process.env.TPLTP || (MK === "TH" ? 1 : .8)), 1.5, 2, 3], hit = K.map(() => 0), days = K.map(() => 0); let n = 0, sl = 0, slr = 0;
+  const P = { sl: +(process.env.TPLSL || 5), cap: process.env.TPLCAP != null ? +process.env.TPLCAP : MK === "TH" ? .08 : .12, hold: +(process.env.TPLHOLD || 20) }, K = process.env.TPLK ? process.env.TPLK.split(",").map(Number) : [+(process.env.TPLTP || (MK === "TH" ? 1 : .8)), 1.5, 2, 3], hit = K.map(() => 0), days = K.map(() => 0); let n = 0, sl = 0, slr = 0;
   for (const x of st) { const B = x.B, nn = B.length; let busy = 0;
     for (let i = WARM; i < nn - 1; i++) { const sg = STRAT.T_U3(x, i); if (!sg) continue; const a = atr(x, i);
       let e = -1, en = 0; for (let d = i + 1; d <= Math.min(nn - 1, i + sg.days); d++) if (B[d].l <= sg.px) { e = d; en = Math.min(B[d].o, sg.px); break }

@@ -54,8 +54,12 @@ const RULES={thr:40,split:.7,warm:60,wk:true,rs:70,adx:20,preset:"win"};
 // เน้นกำไรต่อไม้ สหรัฐฯ: TP 3 / SL 3 ATR · ชนะ 56–61% · กำไร +2.06% → +1.25%/ไม้ (ไทยไม่มีแบบที่ดีกว่าค่าเน้นอัตราชนะ จึงใช้ค่าเดียวกัน)
 // รอบ 8: หุ้นไทยต้องอยู่เหนือ Supertrend (ATR10×3) — ชนะ 82.5 → 83.5% · +1.36 → +1.43%/ไม้ · พอร์ต 5 ตัว 31.4 → 35.5%/ปี ลึกสุดเท่าเดิม
 //   (สหรัฐฯ ไม่ดีขึ้น 72.1 → 70.8%/ปี จึงไม่ใช้ · Supertrend เดี่ยว ๆ และทะลุเส้นแนวโน้ม ชนะแค่ 30–45% ไม่ผ่าน)
-const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,slCap:.08,hold:20,adx:25,rs:70,dip:20,st:true},US:{lim:1.5,ld:3,tp:.8,sl:5,slCap:.12,hold:20,adx:20,rs:80,vol:2.5,dip:20}},
-                 edge:{TH:{lim:1,ld:1,tp:1,sl:5,hold:20,adx:25,rs:70},US:{lim:1,ld:1,tp:3,sl:3,hold:30,adx:20,rs:70}}};
+// รอบ 10 (ผู้ใช้: ห้ามใช้ TP สั้นกว่า SL — เสี่ยงมากได้น้อย): ทดสอบใหม่เฉพาะทางออกที่ TP ≥ SL (research/smc.js TFX ATRX/RRX, 30 ต.ค. 69)
+//   ไทย:    TP 6 ATR / SL 3 ATR (ไม่เกิน −10%) ถือ 10 วัน + เหนือ Supertrend · ชนะ 62/58% · กำไร +1.40/+1.63%/ไม้ (เดิม TP1/SL5: +0.62/+1.35%)
+//   สหรัฐฯ: TP 8 ATR / SL 4 ATR (ไม่เกิน −15%) ถือ 40 วัน · ชนะ 54/51% · กำไร +3.58/+4.12%/ไม้ (เดิม TP0.8/SL5: +0.78/+1.05%)
+//   ชนะน้อยลงแต่ไม้ที่ชนะได้มากกว่าไม้ที่แพ้ราว 2 เท่า กำไรต่อไม้ดีขึ้นทั้งสองตลาดทั้งสองช่วง
+const MKT_RULES={win:{TH:{lim:1,ld:1,tp:6,sl:3,slCap:.10,hold:10,adx:25,rs:70,dip:20,st:true},US:{lim:1.5,ld:3,tp:8,sl:4,slCap:.15,hold:40,adx:20,rs:80,vol:2.5,dip:20}},
+                 edge:{TH:{lim:1,ld:1,tp:6,sl:3,slCap:.10,hold:10,adx:25,rs:70,dip:20,st:true},US:{lim:1.5,ld:3,tp:6,sl:4,hold:40,adx:20,rs:80,vol:2.5,dip:20}}};
 // ผลทดสอบ: สัปดาห์ (5 ปี) ไทย TP1/SL3 ชนะ 71/75% · สหรัฐฯ TP0.8/SL3 ชนะ 80/82% แต่แพ้เฉลี่ย −20 ถึง −27%
 //          4 ชม. (ราคารายชั่วโมง 730 วัน) กติกาเดียวกับรายวัน: ไทยชนะ 80/77% (+0.62/+0.29%) · สหรัฐฯ 83/80% (+0.70/+0.52%)
 //          1 ชม.: ไทยชนะ 83/83% (+0.27/+0.33%) · สหรัฐฯ 79/83% (+0.10/+0.34%) · Supertrend ไม่ช่วยในกรอบชั่วโมง จึงปิดไว้
@@ -64,7 +68,13 @@ const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,slCap:.08,hold:20,adx:25,rs:70,di
 //   1 ชม. สหรัฐฯ TP 5% / SL 5% ถือ 10 วัน: ชนะ 56/54% +0.57/+0.47% · ไทย TP 1% / SL 5% ถือ 3 วัน: +0.05/+0.12% (อ่อน)
 //   15 นาที: ไม่มีแบบไหนกำไรหลังค่าคอมทั้งสองตลาด
 // กติกาตามกรอบเวลา (ทับค่าของรายวัน) หน่วย ATR ของแท่งกรอบนั้น · ค่าที่ผ่านการทดสอบใน research/smc.js (TF=W / HDIR=h1 TF=4H)
-const TF_RULES={W:{TH:{tp:1,sl:3,slCap:null,hold:20,warm:60},US:{tp:.8,sl:3,slCap:null,hold:20,vol:5.6,warm:60}},"4H":{TH:{st:false,tpP:.05,slP:.05,hold:10},US:{vol:1.8,tpP:.015,slP:.05,hold:20}},"1H":{TH:{st:false,tpP:.01,slP:.05,hold:18},US:{vol:.95,tpP:.05,slP:.05,hold:70}},"15m":{TH:{st:false},US:{vol:.5}}};
+// รอบ 10 สัปดาห์: สหรัฐฯ TP 6 / SL 4 ATR สัปดาห์ (ไม่เกิน −15%) ถือ 8 สัปดาห์ ชนะ 56/51% +2.86/+2.69% · ไทย TP 8% / SL 8% ถือ 2 สัปดาห์ +0.26/+0.24% (บาง)
+// รอบ 10 กรอบเล็ก (research.yml set=tfx ATRX/RRX เฉพาะ TP ≥ SL): 4 ชม. ไทย TP8/SL4 ATR ถือ 5 วัน ชนะ 55/56% +0.90/+0.93% · สหรัฐฯ TP8/SL4 ATR ถือ 10 วัน 57/52% +2.25/+0.95%
+//   1 ชม. สหรัฐฯ + Supertrend TP6/SL4 ATR ถือ 10 วัน 49/49% +0.91/+0.94% · 1 ชม. ไทย ดีสุด +0.09% และ 15 นาทีทั้งสองตลาดขาดทุน → noTrade (ใช้แผนกรอบวัน)
+const TF_RULES={W:{TH:{tpP:.08,slP:.08,hold:2,warm:60},US:{tp:6,sl:4,slCap:.15,hold:8,warm:60}},
+  "4H":{TH:{st:false,tp:8,sl:4,slCap:null,hold:10},US:{vol:1.8,tp:8,sl:4,slCap:null,hold:20}},
+  "1H":{TH:{st:false,noTrade:true},US:{vol:.95,st:true,tp:6,sl:4,slCap:null,hold:70}},
+  "15m":{TH:{st:false,noTrade:true},US:{vol:.5,noTrade:true}}};
 const TF_LABEL={"15m":"15 นาที","1H":"1 ชม.","4H":"4 ชม.",D:"วัน",W:"สัปดาห์"},TF_UNIT={"15m":"แท่ง 15 นาที","1H":"ชั่วโมง","4H":"แท่ง 4 ชม.",D:"วันทำการ",W:"สัปดาห์"};
 // S.tuned = กติกาที่ระบบเรียนรู้เองจากการทดสอบรายคืน (data/learn.json) ใช้เฉพาะแบบเน้นอัตราชนะ และเฉพาะกรอบรายวัน
 const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(RULES.preset!=="edge"&&S.tuned?.[m]?.rules||{}),...(tf!=="D"&&TF_RULES[tf]?.[m]||{})});
@@ -377,8 +387,8 @@ function makePlan(st,I,score,rsNow=true,RP=rulesFor(st.m)){
   if(lo>hi)[lo,hi]=[hi,lo];
   // SL และ TP1 ใช้ระยะเดียวกับระบบที่ผ่านการทดสอบย้อนหลัง (RULES) TP2 คือแนวต้านถัดไปสำหรับคนที่อยากถือต่อ
   const entry=(lo+hi)/2,sl=slOf(entry,atr,RP),risk=entry-sl,tp1=entry+RP.tp*atr;
-  const r2=L.res.find(x=>x.p>tp1+.2*atr&&x.p<=entry+3*RP.tp*atr);const tp2=r2?r2.p:entry+2*RP.tp*atr;
-  const P={mode,tone,limit:tone==="buy"&&!!RP.lim,ld:RP.ld||1,hold:RP.hold,lo:rt(lo,m),hi:rt(hi,m),entry:rt(entry,m),sl:rt(sl,m,"floor"),tp1:rt(tp1,m,"floor"),tp2:rt(tp2,m,"floor"),atr,sup,res,L,tp2Src:r2?"แนวต้านถัดไป":"2 เท่าของ TP1"};
+  const r2=L.res.find(x=>x.p>tp1+.2*atr&&x.p<=entry+1.5*RP.tp*atr);const tp2=r2?r2.p:entry+1.5*RP.tp*atr;
+  const P={mode,tone,limit:tone==="buy"&&!!RP.lim,ld:RP.ld||1,hold:RP.hold,lo:rt(lo,m),hi:rt(hi,m),entry:rt(entry,m),sl:rt(sl,m,"floor"),tp1:rt(tp1,m,"floor"),tp2:rt(tp2,m,"floor"),atr,sup,res,L,tp2Src:r2?"แนวต้านถัดไป":"1.5 เท่าของระยะ TP1"};
   P.rr1=(P.tp1-P.entry)/(P.entry-P.sl);P.rr2=(P.tp2-P.entry)/(P.entry-P.sl);return P;
 }
 /* ---------- calibration: ทดสอบความแม่นยำกับหุ้นทั้งตลาด (รันใน GitHub Actions ทุกวัน แล้วหน้าเว็บแสดงผล) ---------- */
@@ -387,7 +397,8 @@ const pear=()=>({n:0,sx:0,sy:0,sxx:0,syy:0,sxy:0});
 function padd(p,x,y){p.n++;p.sx+=x;p.sy+=y;p.sxx+=x*x;p.syy+=y*y;p.sxy+=x*y}
 function pval(p){if(p.n<3)return 0;const cv=p.sxy-p.sx*p.sy/p.n,vx=p.sxx-p.sx*p.sx/p.n,vy=p.syy-p.sy*p.sy/p.n;return vx>0&&vy>0?cv/Math.sqrt(vx*vy):0}
 // ลองค่าอื่นแยกตามตลาด (จุดเข้าแบบตั้งซื้อและตัวกรองเหมือนค่าปัจจุบัน)
-const CALIB_GRID=(()=>{const g=[];for(const m of ["TH","US"])for(const thr of [30,40])for(const sl of [3,4,5])for(const tp of [.5,.6,.75,1,1.5,3])g.push({m,thr,sl,tp,wk:true,hold:tp>=3?30:tp<=.75?(m==="TH"?10:15):20});return g})();
+// ทุกแบบในตารางเรียนรู้ต้องมี TP ≥ SL (ได้ไม่น้อยกว่าเสีย)
+const CALIB_GRID=(()=>{const g=[];for(const m of ["TH","US"])for(const thr of [30,40])for(const sl of [2,3,4])for(const tp of [4,6,8])for(const hold of (m==="TH"?[10,20]:[20,40]))if(tp>=sl)g.push({m,thr,sl,tp,wk:true,hold});return g})();
 const CALIB_BINS=[[-101,-40,"ต่ำมาก (< −40)"],[-40,-10,"ต่ำ (−40 ถึง −10)"],[-10,20,"กลาง (−10 ถึง 20)"],[20,50,"สูง (20 ถึง 50)"],[50,101,"สูงมาก (> 50)"]];
 function calibNew(H=20){const agg=()=>CALIB_BINS.map(b=>({lab:b[2],lo:b[0],hi:b[1],n:0,sum:0,pos:0}));
   return{H,A:{is:agg(),oos:agg()},ic:VOTES.map(()=>({is:pear(),oos:pear()})),loo:VOTES.map(()=>({is:[],oos:[]})),base:{is:[],oos:[]},baseM:{},all:{is:pear(),oos:pear()},grid:CALIB_GRID.map(g=>({g,is:[],oos:[]})),pb:{is:[],oos:[]},stocks:0,real:0,from:null,to:null}}
@@ -419,8 +430,8 @@ function confidence(R){
   if(R.sample)return{lv:0,t:"ข้อมูลตัวอย่าง",c:"var(--ink-2)",why:"ยังไม่มีราคาจริง ผลทดสอบไม่มีความหมาย"};
   const a=stats(R.model.trades||[]),o=R.model.oos;
   if(!a.n||a.n<5)return{lv:1,t:"ต่ำ",c:"var(--down)",why:`ระบบเคยให้สัญญาณกับหุ้นนี้แค่ ${a.n||0} ครั้งใน 5 ปี น้อยเกินกว่าจะสรุปได้ (ดูผลรวมทั้งตลาดในหน้าความแม่นยำ)`};
-  if(a.win>=80&&a.avg>0&&a.pf>=1.3&&(!o.n||o.avg>0))return{lv:3,t:"สูง",c:"var(--up)",why:`ชนะ ${a.win.toFixed(0)}% ใน ${a.n} ไม้ กำไรเฉลี่ย ${pct(a.avg,2)} ต่อไม้`};
-  if(a.avg>0&&a.win>=65)return{lv:2,t:"ปานกลาง",c:"var(--warn)",why:`ชนะ ${a.win.toFixed(0)}% ใน ${a.n} ไม้ กำไรเฉลี่ย ${pct(a.avg,2)} ต่อไม้ ขอบความได้เปรียบยังบาง`};
+  if(a.win>=50&&a.avg>0&&a.pf>=1.5&&(!o.n||o.avg>0))return{lv:3,t:"สูง",c:"var(--up)",why:`ชนะ ${a.win.toFixed(0)}% ใน ${a.n} ไม้ กำไรเฉลี่ย ${pct(a.avg,2)} ต่อไม้`};
+  if(a.avg>0&&a.pf>=1.1)return{lv:2,t:"ปานกลาง",c:"var(--warn)",why:`ชนะ ${a.win.toFixed(0)}% ใน ${a.n} ไม้ กำไรเฉลี่ย ${pct(a.avg,2)} ต่อไม้ ขอบความได้เปรียบยังบาง`};
   return{lv:1,t:"ต่ำ",c:"var(--down)",why:`ระบบไม่ได้ผลกับหุ้นตัวนี้ (ชนะ ${a.win.toFixed(0)}% ใน ${a.n} ไม้ เฉลี่ย ${pct(a.avg,2)} ต่อไม้)`};
 }
 function analyze(st){

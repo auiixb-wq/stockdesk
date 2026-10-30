@@ -65,7 +65,7 @@ for (const [K, dir, rec] of [["intra", "intra", "intra_recent.json"], ["intra15"
 function tfPlans(st) {
   const o = {};
   for (const tf of ["15m", "1H"]) {
-    if (!(tf === "15m" ? S.intra15 : S.intra)?.[st.s]) continue;
+    if (!(tf === "15m" ? S.intra15 : S.intra)?.[st.s] || rulesFor(st.m, tf).noTrade) continue;
     try { const X = analyzeTF(st, tf); S.cache.delete(st.s + "@" + tf); if (!X) continue;
       o[tf] = X.sys ? [2, X.sys.lp, X.sys.tp, X.sys.sl] : X.cond ? [1, X.cond.lp, X.cond.tp, X.cond.sl, X.cond.trig] : X.ref ? [0, X.ref.lp, X.ref.tp, X.ref.sl] : undefined } catch {}
   }
@@ -124,8 +124,8 @@ learnStep();
 }
 
 // ---------- ระบบเรียนรู้เองทุกคืน ----------
-// 1) ปรับกติกาเอง: จาก 72 แบบที่ทดสอบทุกคืน ถ้ามีแบบที่ชนะ ≥ 80% ทั้งช่วงสร้างและช่วงทดสอบ และกำไรต่อไม้ (ช่วงที่แย่กว่า) ดีกว่าแบบปัจจุบัน ≥ 0.1%
-//    ติดกัน 5 คืน → ใช้แบบนั้นอัตโนมัติ · ถ้าใช้แล้วผลจริง (ติดตามไปข้างหน้า) ≥ 30 ไม้ชนะต่ำกว่า 70% → กลับไปใช้ค่าเดิม
+// 1) ปรับกติกาเอง: จากแบบที่ทดสอบทุกคืน (ทุกแบบ TP ≥ SL) ถ้ามีแบบที่ชนะ ≥ 45% และกำไรต่อไม้ (ช่วงที่แย่กว่า) ดีกว่าแบบปัจจุบัน ≥ 0.2%
+//    ติดกัน 5 คืน → ใช้แบบนั้นอัตโนมัติ · ถ้าใช้แล้วผลจริง (ติดตามไปข้างหน้า) ≥ 30 ไม้ขาดทุนเฉลี่ย → กลับไปใช้ค่าเดิม
 // 2) วิเคราะห์ตลาดรายวัน: แนวโน้ม ความกว้างของตลาด กลุ่มที่แข็ง/อ่อน และเก็บประวัติไว้ดูพัฒนาการ
 function learnStep() {
   if (cal.staleFrom) return;
@@ -134,7 +134,7 @@ function learnStep() {
   const ev = (m, kind, text) => { L.events.push({ d: today, m, kind, text }); L.events = L.events.slice(-60) };
   for (const m of ["TH", "US"]) {
     const cur = cal.baseM?.[m]; if (!cur?.is?.n || !cur?.oos?.n) continue;
-    const cand = (cal.grid || []).filter(r => r.g.m === m && r.is.n >= 80 && r.oos.n >= 50 && r.is.win >= 80 && r.oos.win >= 80 && worst(r) >= worst(cur) + .1)
+    const cand = (cal.grid || []).filter(r => r.g.m === m && r.is.n >= 80 && r.oos.n >= 50 && r.g.tp >= r.g.sl && r.is.win >= 45 && r.oos.win >= 45 && worst(r) >= worst(cur) + .2)
       .sort((a, b) => worst(b) - worst(a))[0];
     const key = cand ? `thr${cand.g.thr}·tp${cand.g.tp}·sl${cand.g.sl}·hold${cand.g.hold}` : null, prev = L.lead[m];
     if (L.lead[m]?.d !== today) L.lead[m] = key ? { key, days: prev?.key === key ? prev.days + 1 : 1, d: today, g: cand.g, is: cand.is, oos: cand.oos, cur: { is: cur.is, oos: cur.oos } } : { key: null, days: 0, d: today };
@@ -145,7 +145,7 @@ function learnStep() {
       ev(m, "adopt", `ใช้กติกาใหม่ ${key} หลังชนะแบบเดิมติดกัน ${ld.days} คืน · กำไรต่อไม้ ${worst(cur).toFixed(2)}% → ${worst(cand).toFixed(2)}%`);
     }
     const f = cal.fwdSys?.M?.[m], tu = L.tuned[m];
-    if (tu && f && f.closed >= 30 && f.win / f.closed < .7) { delete L.tuned[m]; ev(m, "revert", `กลับไปใช้ค่าเดิม เพราะผลจริง ${f.closed} ไม้ชนะแค่ ${(f.win / f.closed * 100).toFixed(0)}%`) }
+    if (tu && f && f.closed >= 30 && f.sum / f.closed < 0) { delete L.tuned[m]; ev(m, "revert", `กลับไปใช้ค่าเดิม เพราะผลจริง ${f.closed} ไม้ขาดทุนเฉลี่ย ${(f.sum / f.closed).toFixed(2)}% ต่อไม้`) }
   }
   // วิเคราะห์ตลาดรายวัน
   for (const [m, xs] of Object.entries(MS)) {
