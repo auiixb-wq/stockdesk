@@ -550,3 +550,10 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .tk-g{display:inline-block;padding:0 22px 0 0;color:var(--ink-2)}.tk-g b{color:var(--ink);font-weight:600;margin-right:4px}.tk-g a{color:var(--ink);text-decoration:none;margin-right:8px}.tk-g a:hover{text-decoration:underline}.tk-g i{font-style:normal;color:var(--ink-2)}
 .tk-g+.tk-g::before,.tk-dup::before{content:"•";color:var(--line);margin-right:22px}
 @keyframes tk{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* กรอบเวลา */
+.tfs{display:inline-flex;gap:4px;flex-wrap:wrap;margin:0 0 8px}.tfs .chip{padding:4px 10px;font-size:12.5px}
+.vh-r .tfs .chip{background:rgba(255,255,255,.08);color:var(--deep-ink);border-color:transparent}.vh-r .tfs .chip[aria-pressed=true]{background:var(--accent);color:var(--accent-ink)}
+.card-h .tfs{margin:0 auto 0 12px}
+.sgrid.one{grid-template-columns:1fr}
+.kt .d{max-width:52%;justify-self:end;text-align:right}

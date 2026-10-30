@@ -26,10 +26,12 @@ jobs:
           mkdir -p res
           git fetch origin gh-pages --depth=1 && git show origin/gh-pages:data/universe.json > res/universe.json
           git fetch origin hist --depth=1 && mkdir -p res/hist && git --work-tree=res/hist checkout origin/hist -- . && git reset -q
-          python3 research/intra_fetch.py res
+          python3 research/intra_fetch.py res 2>&1 | tail -20 > fetch.txt; cat fetch.txt
       - name: Backtest
-        run: bash research/intra_run.sh res > results.txt 2>&1 || true
+        run: bash research/intra_run.sh res > results.txt 2>&1 || true; cat fetch.txt >> results.txt
       - name: Publish results
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir _r && cp results.txt _r/ && cd _r && git init -q -b research && git add -A
           git -c user.name="stockdesk-bot" -c user.email="actions@users.noreply.github.com" commit -qm "research $(date -u +%FT%TZ)"

@@ -19,7 +19,7 @@ for (const f of fs.readdirSync(R + "/" + HDIR).filter(f => f.endsWith(".json")))
 for (const k in rsBy) rsBy[k].sort((a, b) => a - b);
 // กรอบเวลาสั้น: "แข็งกว่าตลาด" ใช้ผลตอบแทน 63 วันของราคารายวัน (เหมือนหน้าเว็บ) ของวันทำการก่อนหน้า ไม่แอบดูวันนี้
 const RSD = {};
-if (HDIR !== "hist" && fs.existsSync(R + "/hist")) {
+if ((TF || HDIR !== "hist") && fs.existsSync(R + "/hist")) {
   const by = {}, per = {};
   for (const x of st) { let j; try { j = JSON.parse(fs.readFileSync(R + "/hist/" + x.s + ".json")) } catch { continue }
     per[x.s] = j; j.t.forEach((t, i) => { if (i >= 63 && j.c[i] > 0 && j.c[i - 63] > 0) (by[t] ??= []).push(j.c[i] / j.c[i - 63] - 1) }) }
