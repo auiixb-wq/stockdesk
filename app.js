@@ -843,10 +843,12 @@ const q=L.q,meta=L.meta;
 // แหล่งฟรียังหน่วง 15 นาทีตามสิทธิ์ข้อมูลของตลาดฯ แต่ไม่ต้องรอระบบหลังบ้านส่งต่อ (ลดอีก 1–4 นาที)
 async function tvQuotesTH(){if(!S.universe?.length||document.hidden||!mktOpen("TH"))return null;
   S._tvMap??=new Map(S.universe.filter(i=>i.m==="TH").map(i=>[i.s.replace(/\.BK$/,""),i.s]));
-  const body={markets:["thailand"],symbols:{query:{types:[]},tickers:[]},columns:["name","close","change","volume","open","high","low","last_bar_update_time"],range:[0,3000]};
+  const body={markets:["thailand"],symbols:{query:{types:[]},tickers:[]},columns:["name","close","change","volume","open","high","low","last_bar_update_time","update_mode"],range:[0,3000]};
   try{const r=await fetch("https://scanner.tradingview.com/thailand/scan",{method:"POST",body:JSON.stringify(body)});if(!r.ok)return null;const j=await r.json(),out={};
-    for(const row of j.data||[]){const [nm,c,ch,v,o,h,l,ts]=row.d,k=S._tvMap.get(nm);if(!k||!(c>0)||!ts)continue;
-      out[k]={p:c,v,o,h,l,ts:Math.round(ts),src:"tv"};if(ch!=null){out[k].chg=+ch.toFixed(3);out[k].prev=+(c/(1+ch/100)).toFixed(4)}}
+    for(const row of j.data||[]){const [nm,c,ch,v,o,h,l,t0,mode]=row.d,k=S._tvMap.get(nm);if(!k||!(c>0)||!t0)continue;
+      // เวลาในข้อมูลคือเวลาที่ TradingView ได้รับ ราคาแบบหน่วง (delayed_streaming_900) จริง ๆ คือราคาเมื่อ 900 วินาทีก่อน
+      const lag=+(/delayed_streaming_(\d+)/.exec(mode||"")?.[1]||0),ts=Math.round(t0)-lag;
+      out[k]={p:c,v,o,h,l,ts,src:"tv"};if(ch!=null){out[k].chg=+ch.toFixed(3);out[k].prev=+(c/(1+ch/100)).toFixed(4)}}
     return out}catch{return null}}
 async function refreshQuotes(){const [L,tv]=await Promise.all([getLive(),tvQuotesTH()]);let q=L.q;
   if(tv){const base=q&&(q.updated||0)>=(S.quotes?.updated||0)?q:S.quotes;if(base){q={...base,q:{...base.q}};let n=0;
