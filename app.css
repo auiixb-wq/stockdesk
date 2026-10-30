@@ -546,8 +546,7 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 
 /* แถบข่าววิ่ง */
 .tick{overflow:hidden;border-top:1px solid var(--line);font-size:12.5px;line-height:30px;height:30px;white-space:nowrap;-webkit-mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent);mask-image:linear-gradient(90deg,transparent,#000 24px,#000 calc(100% - 24px),transparent)}
-.tk-in{display:inline-block;animation:tk 60s linear infinite}.tick:hover .tk-in,.tick:focus-within .tk-in{animation-play-state:paused}
+.tk-in{display:inline-block;animation:tk 60s linear infinite}@media (hover:hover){.tick:hover .tk-in{animation-play-state:paused}}
 .tk-g{display:inline-block;padding:0 22px 0 0;color:var(--ink-2)}.tk-g b{color:var(--ink);font-weight:600;margin-right:4px}.tk-g a{color:var(--ink);text-decoration:none;margin-right:8px}.tk-g a:hover{text-decoration:underline}.tk-g i{font-style:normal;color:var(--ink-2)}
 .tk-g+.tk-g::before,.tk-dup::before{content:"•";color:var(--line);margin-right:22px}
 @keyframes tk{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-@media (prefers-reduced-motion:reduce){.tk-in{animation:none}.tick{overflow-x:auto}.tk-dup{display:none}}

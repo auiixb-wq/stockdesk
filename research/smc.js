@@ -3,8 +3,8 @@
 // เกณฑ์: ชนะ ≥ 80% ทั้งช่วงสร้าง (ก่อน 2024-04-01) และช่วงทดสอบ, ช่วงทดสอบ ≥ 80 ไม้, เรียงตามกำไรต่อไม้ของช่วงที่แย่กว่า
 const fs = require("fs"), vm = require("vm"), [R, ROOT, MK, ONLY] = process.argv.slice(2), SPLIT = "2024-04-01";
 const ctx = { console }; vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(ROOT + "/core.js", "utf8") + ";globalThis.__c={S,indicators,VOTES,sma,rsi};", ctx);
-const { S, indicators, VOTES, sma, rsi } = ctx.__c; S.inNode = true;
+vm.runInContext(fs.readFileSync(ROOT + "/core.js", "utf8") + ";globalThis.__c={S,indicators,VOTES,sma,rsi,trendLine};", ctx);
+const { S, indicators, VOTES, sma, rsi, trendLine } = ctx.__c; S.inNode = true;
 const COST = MK === "TH" ? .0017 : .0010;
 const U = Object.fromEntries(JSON.parse(fs.readFileSync(R + "/universe.json")).items.map(i => [i.s, i]));
 const st = [], rsBy = {};
@@ -90,10 +90,20 @@ const TRIG = {
 for (const [k, f] of Object.entries(TRIG)) STRAT["T_" + k] = (x, i) => FILT(x, i) && f(x, i) ? LIM(x, i) : null;
 STRAT.T_U2 = (x, i) => FILT(x, i) && (TRIG.X40(x, i) || TRIG.P2(x, i)) ? LIM(x, i) : null;
 STRAT.T_U3 = (x, i) => FILT(x, i) && (TRIG.X40(x, i) || TRIG.P3(x, i)) ? LIM(x, i) : null;
+// รอบ 8: Supertrend และเส้นแนวโน้ม
+STRAT.ST_F = (x, i) => x.I.sd[i] === 1 ? STRAT.T_U3(x, i) : null;                                   // ระบบเดิม + ต้องอยู่เหนือ Supertrend
+STRAT.ST_X = (x, i) => x.I.sd[i - 1] === -1 && x.I.sd[i] === 1 && x.I.wk[i] >= 0 ? { kind: "open" } : null;  // Supertrend เพิ่งกลับเป็นขาขึ้น
+STRAT.ST_XF = (x, i) => STRAT.ST_X(x, i) && x.rs[i] >= 70 ? { kind: "open" } : null;
+const TLB = (x, i) => { const t = trendLine(x.I.h, x.I.ph, i, 3, false); if (!t || i - t.j2 > 60) return false; return x.B[i].c > t.at(i) && x.B[i - 1].c <= t.at(i - 1) };
+STRAT.TL_B = (x, i) => x.I.wk[i] >= 0 && TLB(x, i) ? { kind: "open" } : null;                       // ทะลุเส้นแนวต้านขาลง
+STRAT.TL_BF = (x, i) => FILT(x, i) && TLB(x, i) ? { kind: "open" } : null;
+const TLS = (x, i) => { const t = trendLine(x.I.l, x.I.pl, i, 3, true); if (!t) return false; const v = t.at(i), a = atr(x, i); return x.B[i].l <= v + .3 * a && x.B[i].c > v };
+STRAT.TL_S = (x, i) => FILT(x, i) && x.sc[i] >= 40 && TLS(x, i) ? { kind: "open" } : null;          // ย่อแตะเส้นแนวรับขาขึ้นแล้วเด้ง
 // ---- จุดออกที่ลอง ----
 const EXITS = [];
 if (process.env.RR) { for (const tp of [.8, 1, 1.5, 2]) for (const sl of [1.5, 2, 3, 5]) for (const cap of [0, .08, .12]) EXITS.push({ tp, sl, hold: 20, cap }) }
 else for (const tp of [.6, .8, 1, 1.5, 2, "sh", "s5"]) for (const sl of [2, 3, 5, "st"]) for (const hold of [10, 20]) EXITS.push({ tp, sl, hold });
+if (process.env.NEWI) { EXITS.push({ tp: 1, sl: 5, hold: 20, cap: MK === "TH" ? .08 : .12 }, { tp: .8, sl: 5, hold: 20, cap: MK === "TH" ? .08 : .12 }); for (const sl of [2, 3, 5]) EXITS.push({ tp: "stx", sl, hold: 60 }) }
 
 let TRADES = null;
 function run(name) {
@@ -123,6 +133,7 @@ function run(name) {
           if (j === e && sg.kind === "limit") continue;
           if (tpp != null && b.h >= tpp) { xp = Math.max(tpp, b.o); xi = j; break }
           if (X.tp === "s5" && x.s5[j] != null && b.c > x.s5[j]) { xp = b.c; xi = j; break }
+          if (X.tp === "stx" && x.I.sd[j] === -1) { xp = b.c; xi = j; break }  // ออกเมื่อ Supertrend กลับเป็นขาลง
         }
         if (xp == null) { xi = Math.min(n - 1, e + X.hold - 1); xp = B[xi].c }
         busy[k] = xi + 1;
@@ -274,6 +285,13 @@ if (process.env.PORT) {
   process.exit(0);
 }
 const names = ONLY ? ONLY.split(",") : Object.keys(STRAT);
+if (process.env.NEWI) {  // ทุกจุดออก: แสดงแบบที่ดีที่สุด 3 แบบ (ตามกำไรต่อไม้ช่วงทดสอบ) + จุดออกของระบบ + ออกตาม Supertrend
+  for (const nm of names) { const rows = run(nm), sh = r => `TP${r.X.tp} SL${r.X.sl}${r.X.cap ? "cap" : ""} ถือ${r.X.hold} | ${r.is.n}/${r.oos.n}ไม้ ชนะ ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% เฉลี่ย ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}%`;
+    console.log(`\n${MK} ${nm}`);
+    for (const r of rows.filter(r => r.oos.n >= 30).sort((a, b) => Math.min(b.is.avg, b.oos.avg) - Math.min(a.is.avg, a.oos.avg)).slice(0, 3)) console.log("  ดีสุด  " + sh(r));
+    for (const r of rows.filter(r => r.X.cap || r.X.tp === "stx")) console.log("  " + (r.X.cap ? "ระบบ  " : "ST ออก") + " " + sh(r)) }
+  process.exit(0);
+}
 if (process.env.RR) {
   for (const nm of names) { console.log(`${MK} ${nm}: TP / SL / เพดาน | ชนะ สร้าง/ทดสอบ | เฉลี่ย/ไม้ สร้าง/ทดสอบ | ชนะเฉลี่ย | แพ้เฉลี่ย | แย่สุด | แพ้เกิน 10%`);
     for (const r of run(nm)) console.log(`  TP${r.X.tp} SL${r.X.sl} cap${r.X.cap ? r.X.cap * 100 + "%" : "-"} | ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% | ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}% | +${r.aw.toFixed(1)}% | ${r.al.toFixed(1)}% | ${r.worst.toFixed(0)}% | ${r.big.toFixed(1)}% ของไม้`) }

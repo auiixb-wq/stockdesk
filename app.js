@@ -458,7 +458,7 @@ function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),fromE=v=>pct((v/
   ${pbCard(R)}
   <div class="sgrid">
     <section class="card"><div class="card-h"><h2>กราฟ 6 เดือน</h2><button class="btn ghost sm" data-tab="chart">ดูอินดิเคเตอร์ทั้งหมด →</button></div><div class="chartbox sm" id="cMain"></div>
-      <div class="legend"><span style="--c:var(--c1)">EMA 20</span><span style="--c:var(--c2)">EMA 50</span><span style="--c:var(--accent)">ซื้อ</span><span style="--c:var(--up)">ขายทำกำไร</span><span style="--c:var(--down)">ตัดขาดทุน</span></div></section>
+      <div class="legend"><span style="--c:var(--c1)">EMA 20</span><span style="--c:var(--c2)">EMA 50</span><span style="--c:var(--up)">Supertrend / เส้นแนวโน้ม</span><span style="--c:var(--accent)">ซื้อ</span><span style="--c:var(--up)">ขายทำกำไร</span><span style="--c:var(--down)">ตัดขาดทุน</span></div></section>
     <section class="card why1"><h2 style="margin-bottom:10px">ทำไมถึงได้ผลนี้</h2>
       <div class="pro"><h3><span class="up">●</span> ข้อดี</h3><ul>${W.pros.slice(0,4).map(([t,x])=>`<li><span><span class="tag">${t}</span>${esc(x)}</span></li>`).join("")||`<li><span class="muted">ยังไม่มีจุดเด่น</span></li>`}</ul></div>
       <div class="con"><h3><span class="down">●</span> ข้อควรระวัง</h3><ul>${W.cons.slice(0,4).map(([t,x])=>`<li><span><span class="tag">${t}</span>${esc(x)}</span></li>`).join("")||`<li><span class="muted">ไม่พบความเสี่ยงเด่น</span></li>`}</ul></div>
@@ -476,7 +476,7 @@ function pbCard(R){const p=R.pb,c=R.last,atr=R.plan.atr,a=p.all,m=R.st.m;
   ${p.now?`<p style="margin:12px 0 0"><b>แผน:</b> ซื้อที่ราคาเปิดวันทำการถัดไป · ขายเมื่อราคาปิดเหนือ SMA10 (ตอนนี้ ${cur(m)}${fmt(p.s5)}) · ตัดขาดทุนถ้าต่ำกว่าประมาณ ${cur(m)}${fmt(rt(c-3*atr,m,"floor"))}</p>`:""}</section>`}
 function tChart(R){const M=R.model;return `<section class="card"><div class="card-h"><h2>กราฟราคา</h2><div class="chips" id="rng">${[["3M",63],["6M",126],["1Y",252],["ทั้งหมด",0]].map(([l,v])=>`<button class="chip" data-r="${v}" aria-pressed="false">${l}</button>`).join("")}<button class="chip" id="markBtn" aria-pressed="${S.marks}">จุดซื้อขายย้อนหลัง</button></div></div>
       <div class="chartbox" id="cMain"></div><div class="subc" id="cRsi"><span class="sublabel">RSI 14</span></div><div class="subc" id="cMacd"><span class="sublabel">ADX 14 · +DI / −DI</span></div>
-      <div class="legend"><span style="--c:var(--c1)">EMA 20</span><span style="--c:var(--c2)">EMA 50</span><span style="--c:var(--c3)">EMA 200</span><span style="--c:var(--ink-2)">แนวรับ / แนวต้าน</span><span style="--c:var(--accent)">จุดเข้า</span><span style="--c:var(--up)">TP</span><span style="--c:var(--down)">SL</span></div></section>
+      <div class="legend"><span style="--c:var(--c1)">EMA 20</span><span style="--c:var(--c2)">EMA 50</span><span style="--c:var(--c3)">EMA 200</span><span style="--c:var(--up)">Supertrend (เขียวขึ้น/แดงลง)</span><span style="--c:var(--ink-2)">เส้นแนวโน้ม (ประ)</span><span style="--c:var(--ink-2)">แนวรับ / แนวต้าน</span><span style="--c:var(--accent)">จุดเข้า</span><span style="--c:var(--up)">TP</span><span style="--c:var(--down)">SL</span></div></section>
     <section class="card"><div class="card-h"><div><h2>อินดิเคเตอร์ ${R.tech.rows.length} ตัวบอกอะไร</h2><div class="sub-t">น้ำหนัก: ${M.name}</div></div><span class="pill ${R.tech.score>=20?"p-buy":R.tech.score<=-20?"p-sell":"p-hold"}">คะแนนเทคนิค ${Math.round(R.techP)}/100</span></div>
       <div style="max-width:420px;margin-bottom:12px">${tally(R.tech.rows)}</div>
       <div class="ilist">${R.tech.rows.map(r=>`<details class="ii"><summary><span class="light" style="--c:${r.v>0?"var(--up)":r.v<0?"var(--down)":"var(--ink-2)"}"></span><span class="in"><b>${r.name}</b><span class="muted">${r.why}</span></span><span class="vote ${cls(r.v)}">${r.v>0?"ซื้อ":r.v<0?"ขาย":"กลาง"}</span></summary><div class="id"><div><span class="muted">คืออะไร:</span> ${r.mean}</div><div><span class="muted">ค่าล่าสุด:</span> <span class="num">${r.val}</span> · <span class="muted">น้ำหนัก</span> <span class="num">${r.w.toFixed(2)}</span>${r.w!==r.w0?` (${r.w>r.w0?"เพิ่ม":"ลด"}จาก ${r.w0} ตามผลทดสอบ)`:""}</div></div></details>`).join("")}</div>
@@ -524,10 +524,13 @@ function importBox(st){return `<div class="drop" id="drop">ลากไฟล์
   <p class="foot" style="margin:8px 0 0">ราคาย้อนหลังรายวันจาก Yahoo Finance (Historical Data → Download), Investing.com หรือ TradingView (Export chart data) ต้องมีคอลัมน์ Date, Open, High, Low, Close และควรมี Volume แนะนำอย่างน้อย 2–5 ปี${st&&S.px[st.s]?` · <button class="btn ghost sm" id="pxReset">ลบข้อมูลที่นำเข้า</button>`:""}</p>`}
 
 /* ---------- charts ---------- */
+// ไลบรารีกราฟเก็บไว้ในเว็บเอง (vendor/) ไม่พึ่งเว็บภายนอก · ถ้ายังโหลดไม่เสร็จให้รอแล้ววาดใหม่ ถ้าไม่สำเร็จลองจาก CDN สำรอง
+function loadChartLib(){return loadChartLib.p??=new Promise(ok=>{let k=0;const t=setInterval(()=>{if(window.LightweightCharts||++k>40){clearInterval(t);if(window.LightweightCharts)return ok();
+  const sc=document.createElement("script");sc.src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js";sc.onload=sc.onerror=()=>ok();document.head.appendChild(sc)}},150)})}
 function killCharts(){S.charts.forEach(c=>{try{c.remove()}catch{}});S.charts=[]}
 function tok(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
 function drawCharts(R,range){
-  killCharts();if(!window.LightweightCharts){const el=$("#cMain");if(el)el.innerHTML=`<div class="empty">โหลดไลบรารีกราฟไม่สำเร็จ ลองรีเฟรชหน้า</div>`;return}
+  killCharts();if(!window.LightweightCharts){loadChartLib().then(()=>{if(window.LightweightCharts&&document.getElementById("cMain"))drawCharts(R,range)});const el=$("#cMain");if(el)el.innerHTML=`<div class="empty">กำลังโหลดกราฟ…</div>`;return}
   const LC=window.LightweightCharts,ink2=tok("--ink-2"),line=tok("--line"),up=tok("--up"),dn=tok("--down"),acc=tok("--accent");
   const base={autoSize:true,layout:{background:{type:"solid",color:"transparent"},textColor:ink2,fontFamily:"IBM Plex Mono, monospace",fontSize:11},grid:{vertLines:{color:"transparent"},horzLines:{color:line}},rightPriceScale:{borderVisible:false,minimumWidth:64},timeScale:{borderVisible:false},crosshair:{mode:0}};
   const T=R.B.map(b=>b.t),ser=a=>a.map((v,i)=>v==null?{time:T[i]}:{time:T[i],value:v});
@@ -539,6 +542,10 @@ function drawCharts(R,range){
   vol.setData(R.B.map((b,i)=>({time:b.t,value:b.v,color:(i&&b.c<R.B[i-1].c?dn:up)+"55"})));
   const ln=(a,color,w=1.5,style=0)=>{const s=main.addLineSeries({color,lineWidth:w,lineStyle:style,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});s.setData(ser(a));return s};
   ln(R.I.e20,tok("--c1"));ln(R.I.e50,tok("--c2"));ln(R.I.e200,tok("--c3"));
+  // Supertrend: เขียวใต้ราคา = ขาขึ้น · แดงเหนือราคา = ขาลง · เส้นแนวโน้มจากจุดกลับตัว 2 จุดล่าสุด (ประ)
+  if(R.I.st){const sd=R.I.sd,segs=[];for(let i=0;i<sd.length;i++)if(R.I.st[i]!=null){if(!segs.length||sd[i]!==sd[i-1])segs.push({d:sd[i],a:[]});segs.at(-1).a.push({time:T[i],value:R.I.st[i]})}
+    for(const g of segs.slice(-80)){const s=main.addLineSeries({color:g.d===1?up:dn,lineWidth:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});s.setData(g.a)}}
+  {const n=R.B.length-1;for(const [t,c] of [[trendLine(R.I.l,R.I.pl,n,3,true),up],[trendLine(R.I.h,R.I.ph,n,3,false),dn]])if(t){const s=main.addLineSeries({color:c,lineWidth:1.5,lineStyle:2,priceLineVisible:false,lastValueVisible:false,crosshairMarkerVisible:false});s.setData([{time:T[t.j1],value:t.p1},{time:T[n],value:t.at(n)}])}}
   const P=R.plan,pl=(price,color,title,style=0)=>cs.createPriceLine({price,color,lineWidth:1,lineStyle:style,axisLabelVisible:true,title});
   pl(P.entry,acc,"เข้า",0);pl(P.tp1,up,"TP1",2);pl(P.tp2,up,"TP2",2);pl(P.sl,dn,"SL",2);
   if(P.L.sup[0])pl(P.L.sup[0].p,ink2,"แนวรับ",3);if(P.L.res[0])pl(P.L.res[0].p,ink2,"แนวต้าน",3);
@@ -956,7 +963,7 @@ function advisorCard(){const P=portfolio(),rows=P.rows.length?P.rows.map(r=>[r.s
      ${a.wrong.length?`<p class="foot" style="margin:8px 0 0"><b>มุมมองนี้ผิดถ้า:</b> ${a.wrong.map(esc).join(" · ")}</p>`:""}<a class="btn ghost sm" style="margin-top:8px" href="#s-${esc(a.st.s)}">ดูวิเคราะห์เต็ม →</a></details>`).join("")}</div></section>`}
 /* ---------- signals ---------- */
 // แผนพอร์ตตามระบบ: ถือพร้อมกันไม่เกิน 5 ตัว ตัวละ 1/5 ของเงินพอร์ต · เลือกสัญญาณที่หุ้นแข็งกว่าตลาดมากสุดก่อน (เหมือนการทดสอบพอร์ต)
-const SLOTS=5,PORT_BT={TH:"ไทย ~4 ปี: เงิน 100,000 → 308,140 (31.4%/ปี) · ลดลงลึกสุด 9.8%",US:"สหรัฐฯ ~4 ปี: เงิน 100,000 → 953,658 (72.1%/ปี) · ลดลงลึกสุด 19.7%"};
+const SLOTS=5,PORT_BT={TH:"ไทย ~4 ปี: เงิน 100,000 → 350,096 (35.5%/ปี) · ลดลงลึกสุด 9.8%",US:"สหรัฐฯ ~4 ปี: เงิน 100,000 → 953,658 (72.1%/ปี) · ลดลงลึกสุด 19.7%"};
 function vSignals(){const mk=S.mkt==="US"?"US":"TH",cap=+(lsGet("cap"+mk)||(mk==="TH"?100000:10000)),h=holds(),lot=mk==="TH"?100:1,P=rulesFor(mk),bm=S.calibData?.baseM?.[mk];
   const held=Object.keys(h).filter(s=>h[s]?.q>0&&stockBySym(s)?.m===mk);
   const sig=allStocks().filter(st=>st.m===mk&&liquid(st)).map(info).filter(R=>R.sys&&!held.includes(R.st.s)).sort((a,b)=>(b.rs?.pctl??0)-(a.rs?.pctl??0));
@@ -1112,8 +1119,10 @@ function tickerHTML(){const now=Date.now(),q=S.quotes?.q||{},mk=S.mkt==="US"?["U
   const sig=Object.entries(S.summary||{}).filter(([,v])=>v.sy&&!v.sy[5]).length;if(sig)g.push(`<b>สัญญาณซื้อ</b> <a href="#signals">${sig} ตัว ดูแผน →</a>`);
   for(const x of (S.news||[]).filter(x=>(x.tier||3)<=1&&now/1000-(+x.ts||0)<6*3600).slice(0,3))g.push(`<b>ข่าว</b> <a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">${esc((x.titleTh||x.title||"").slice(0,90))}</a> <i>${esc(x.source||"")}</i>`);
   return g.map(x=>`<span class="tk-g">${x}</span>`).join("")}
+// วิ่งตลอดเวลา: เนื้อหาใหม่จะสลับเข้าเมื่อวิ่งครบรอบ (ไม่กระตุกกลับไปเริ่มใหม่ทุก 15 วินาที)
 function renderTicker(){const el=document.getElementById("tick"),inn=document.getElementById("tickIn");if(!el)return;const h=tickerHTML();if(h===S.tickH)return;S.tickH=h;
-  el.hidden=!h;if(!h)return;inn.innerHTML=h+`<span class="tk-dup" aria-hidden="true">${h}</span>`;inn.style.animationDuration=Math.max(30,Math.round(inn.scrollWidth/2/60))+"s"}
+  const put=()=>{el.hidden=!S.tickH;if(!S.tickH)return;inn.innerHTML=S.tickH+`<span class="tk-dup" aria-hidden="true">${S.tickH}</span>`;inn.style.animationDuration=Math.max(30,Math.round(inn.scrollWidth/2/45))+"s"};
+  if(el.hidden||!inn.innerHTML)put();else if(!S.tickWait){S.tickWait=1;inn.addEventListener("animationiteration",()=>{S.tickWait=0;put()},{once:true})}}
 setInterval(refreshQuotes,15000);setInterval(renderTicker,15000);
 setInterval(()=>{if(!document.hidden&&!document.querySelector("details[open],input:focus,select:focus"))loadAll()},15*60000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-(S.loadedAt||0)>5*60000)loadAll()});

@@ -52,7 +52,9 @@ const RULES={thr:40,split:.7,warm:60,wk:true,rs:70,adx:20,preset:"win"};
 //   สหรัฐฯ: แข็งกว่าตลาด 80% · แกว่ง ATR ≥ 2.5% ของราคา · ตั้งซื้อ −1.5 ATR ค้าง 3 วัน · TP 0.8 ATR ถือ 20 วัน
 //           ชนะทุกปี 80–90% · 5 ปี +1.47%/ไม้ (เดิม +0.83%) · พอร์ต 10 ตัว 51%/ปี ลึกสุด 14% (รอบ 4: กรองแกว่งแรงกว่านี้ไม้น้อยจนพอร์ตแย่ลง)
 // เน้นกำไรต่อไม้ สหรัฐฯ: TP 3 / SL 3 ATR · ชนะ 56–61% · กำไร +2.06% → +1.25%/ไม้ (ไทยไม่มีแบบที่ดีกว่าค่าเน้นอัตราชนะ จึงใช้ค่าเดียวกัน)
-const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,slCap:.08,hold:20,adx:25,rs:70,dip:20},US:{lim:1.5,ld:3,tp:.8,sl:5,slCap:.12,hold:20,adx:20,rs:80,vol:2.5,dip:20}},
+// รอบ 8: หุ้นไทยต้องอยู่เหนือ Supertrend (ATR10×3) — ชนะ 82.5 → 83.5% · +1.36 → +1.43%/ไม้ · พอร์ต 5 ตัว 31.4 → 35.5%/ปี ลึกสุดเท่าเดิม
+//   (สหรัฐฯ ไม่ดีขึ้น 72.1 → 70.8%/ปี จึงไม่ใช้ · Supertrend เดี่ยว ๆ และทะลุเส้นแนวโน้ม ชนะแค่ 30–45% ไม่ผ่าน)
+const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,slCap:.08,hold:20,adx:25,rs:70,dip:20,st:true},US:{lim:1.5,ld:3,tp:.8,sl:5,slCap:.12,hold:20,adx:20,rs:80,vol:2.5,dip:20}},
                  edge:{TH:{lim:1,ld:1,tp:1,sl:5,hold:20,adx:25,rs:70},US:{lim:1,ld:1,tp:3,sl:3,hold:30,adx:20,rs:70}}};
 const rulesFor=m=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH)});
 const PRESETS={win:{preset:"win"},edge:{preset:"edge"}};const RULES0={...RULES};
@@ -72,7 +74,7 @@ const sysTrig=(a,I,i,P)=>a[i]>=P.thr&&(a[i-1]<P.thr||(P.dip!=null&&(r2Of(I)[i]??
 const slOf=(en,atr,P)=>P.slCap?Math.max(en-P.sl*atr,en*(1-P.slCap)):en-P.sl*atr;
 // ปัดราคาจุดตัดขาดทุนตามช่องราคา: ถ้าชนเพดาน % ปัดเข้าหาราคาซื้อ เพื่อไม่ให้เกินเพดาน
 const slR=(en,atr,P,m)=>{const v=slOf(en,atr,P);return rt(v,m,P.slCap&&v>en-P.sl*atr?"ceil":"floor")};
-const sigOK=(I,i,rsA,P)=>(P.wk===false||I.wk[i]>=0)&&rsPass(rsA,i)&&(P.adx==null||(I.adx[i]??0)>P.adx)&&volOK(I,i,P);
+const sigOK=(I,i,rsA,P)=>(P.wk===false||I.wk[i]>=0)&&rsPass(rsA,i)&&(P.adx==null||(I.adx[i]??0)>P.adx)&&volOK(I,i,P)&&(!P.st||I.sd[i]===1);
 
 /* ---------- state ---------- */
 const S={hist:{},fin:{},universe:[],summary:{},news:[],factors:[],meta:null,px:{},fa:{},watch:[],uid:null,db:null,dbState:"loading",mkt:"ALL",sort:"score",scr:"all",nf:"all",sec:null,cache:new Map(),bars:new Map(),charts:[],marks:true};
@@ -130,6 +132,15 @@ function pivots(a,k,low){const o=new Uint8Array(a.length);for(let j=k;j<a.length
 function weekly(B){const wk=[];let key=null;B.forEach((b,i)=>{const d=new Date(b.t+"T00:00:00Z"),mon=new Date(d-((d.getUTCDay()+6)%7)*864e5).toISOString().slice(0,10);if(mon!==key){wk.push({c:b.c,last:i});key=mon}else{wk.at(-1).c=b.c;wk.at(-1).last=i}});
   const wc=wk.map(w=>w.c),e10=ema(wc,10),e30=ema(wc,30),st=wk.map((w,j)=>e30[j]==null?0:w.c>e10[j]&&e10[j]>e30[j]?1:w.c<e10[j]&&e10[j]<e30[j]?-1:0);
   const out=Array(B.length).fill(0);wk.forEach((w,j)=>{const s=j?wk[j-1].last+1:0;for(let i=s;i<=w.last;i++)out[i]=j?st[j-1]:0});return out}
+// Supertrend (ATR 10 × 3): เส้นตามแนวโน้ม อยู่ใต้ราคาเมื่อขาขึ้น (sd=1) เหนือราคาเมื่อขาลง (sd=-1) ใช้ราคาปิดที่รู้แล้วเท่านั้น
+function supertrend(h,l,c,p=10,m=3){const n=c.length,tr=h.map((x,i)=>i?Math.max(x-l[i],Math.abs(x-c[i-1]),Math.abs(l[i]-c[i-1])):x-l[i]),a=rma(tr,p),st=Array(n).fill(null),sd=Array(n).fill(0);let ub=null,lb=null,d=1;
+  for(let i=0;i<n;i++){if(a[i]==null)continue;const mid=(h[i]+l[i])/2,u=mid+m*a[i],b=mid-m*a[i];
+    ub=ub==null||u<ub||c[i-1]>ub?u:ub;lb=lb==null||b>lb||c[i-1]<lb?b:lb;
+    if(d===1&&c[i]<lb)d=-1;else if(d===-1&&c[i]>ub)d=1;st[i]=d===1?lb:ub;sd[i]=d}
+  return{st,sd}}
+// เส้นแนวโน้ม: ต่อจุดกลับตัว 2 จุดล่าสุดที่ยืนยันแล้ว (ต่ำ = แนวรับขาขึ้น, สูง = แนวต้านขาลง) ณ วัน i ดูได้เฉพาะจุดที่ j ≤ i−3
+function trendLine(a,flag,i,k=3,rising=true){let j2=-1,j1=-1;for(let j=i-k;j>=0;j--)if(flag[j]){if(j2<0)j2=j;else{j1=j;break}}
+  if(j1<0||(rising?a[j2]<=a[j1]:a[j2]>=a[j1]))return null;const sl=(a[j2]-a[j1])/(j2-j1);return{j1,j2,p1:a[j1],p2:a[j2],sl,at:x=>a[j2]+sl*(x-j2)}}
 function indicators(B){
   const o=B.map(b=>b.o),c=B.map(b=>b.c),h=B.map(b=>b.h),l=B.map(b=>b.l),v=B.map(b=>b.v);
   const tr=h.map((x,i)=>i?Math.max(x-l[i],Math.abs(x-c[i-1]),Math.abs(l[i]-c[i-1])):x-l[i]),atr=rma(tr,14);
@@ -138,7 +149,7 @@ function indicators(B){
   const dx=pdi.map((x,i)=>x!=null&&mdi[i]!=null&&(x+mdi[i])>0?100*Math.abs(x-mdi[i])/(x+mdi[i]):null),adx=rma(dx,14);
   let ob=0;const obv=c.map((x,i)=>{if(i)ob+=x>c[i-1]?v[i]:x<c[i-1]?-v[i]:0;return ob}),obvE=ema(obv,20);
   // เฉพาะตัวที่ระบบใช้จริง (MACD, Stochastic, Bollinger ถูกตัดออกหลังทดสอบ จึงไม่คำนวณแล้ว)
-  return{o,c,h,l,v,e20:ema(c,20),e50:ema(c,50),e200:ema(c,200),rsi:rsi(c),atr,adx,pdi,mdi,obv,obvE,vAvg:sma(v,20),wk:weekly(B),pl:pivots(l,3,true),ph:pivots(h,3,false)};
+  return{o,c,h,l,v,e20:ema(c,20),e50:ema(c,50),e200:ema(c,200),rsi:rsi(c),atr,adx,pdi,mdi,obv,obvE,vAvg:sma(v,20),wk:weekly(B),pl:pivots(l,3,true),ph:pivots(h,3,false),...supertrend(h,l,c)};
 }
 /* ---------- votes: each indicator gives -2..+2 ----------
    คัดด้วยการทดสอบกับหุ้นจริง ~1,600 ตัว ราคา 5 ปี (ตัดทีละตัว แบ่งช่วงที่ เม.ย. 2024):
@@ -281,7 +292,7 @@ function sysVerdict(x,tone,lv,sig){if(sig)return lv>=3?["ซื้อตาม�
   if(tone==="sell"||x<35)return x<35?["หลีกเลี่ยง","p-sell2"]:["ยังไม่ควรเข้า","p-sell"];return tone==="buy"?["แนวโน้มดี · รอราคาย่อ","p-hold"]:x>=45?["รอสัญญาณ","p-hold"]:["ระวัง","p-sell"]}
 // ระบบรออะไรอยู่ (หุ้นที่ยังไม่มีสัญญาณ) → [ข้อความสั้น, รายละเอียด, ใกล้เกิดสัญญาณไหม]
 function sysWait(R){const w=R.sw;if(!w)return["รอสัญญาณ","",false];const [sc,r2,f]=w,P=rulesFor(R.st.m),miss=[];
-  if(f&1)miss.push("แนวโน้มรายสัปดาห์ยังไม่ขึ้น");if(f&2)miss.push(`ยังไม่แข็งกว่าตลาด (ต้องอยู่กลุ่มบน ${100-P.rs}%)`);if(f&4)miss.push(`แนวโน้มยังไม่ชัด (ADX ≤ ${P.adx})`);if(f&8)miss.push(`หุ้นแกว่งน้อยกว่า ${P.vol}% ต่อวัน`);
+  if(f&1)miss.push("แนวโน้มรายสัปดาห์ยังไม่ขึ้น");if(f&2)miss.push(`ยังไม่แข็งกว่าตลาด (ต้องอยู่กลุ่มบน ${100-P.rs}%)`);if(f&4)miss.push(`แนวโน้มยังไม่ชัด (ADX ≤ ${P.adx})`);if(f&8)miss.push(`หุ้นแกว่งน้อยกว่า ${P.vol}% ต่อวัน`);if(f&16)miss.push("ราคายังต่ำกว่าเส้น Supertrend (ขาลง)");
   if(miss.length)return[`ยังไม่ผ่าน: ${miss[0].replace(/ \(.*\)$/,"")}`,"ยังไม่ผ่านตัวกรอง: "+miss.join(" · "),false];
   if(sc<P.thr)return[`รอคะแนน ≥ ${P.thr} (ตอนนี้ ${sc})`,`ผ่านตัวกรองแล้ว · สัญญาณจะเกิดเมื่อคะแนนเทคนิคข้าม ${P.thr} (ตอนนี้ ${sc})`,sc>=P.thr-8];
   return[`รอราคาย่อ (RSI2 ${r2})`,`ผ่านตัวกรองและคะแนน ${sc} ≥ ${P.thr} แล้ว · สัญญาณจะเกิดเมื่อราคาย่อจน RSI(2) < ${P.dip} (ตอนนี้ ${r2})`,true]}
@@ -388,7 +399,7 @@ function analyze(st){
   // ทดสอบ 5 ปี: เพิ่มเงื่อนไขแข็งกว่าตลาด 70% และขายเมื่อปิดเหนือ SMA10 → ชนะ 66–67% กำไร +0.62/+0.69% ต่อไม้ (เดิม +0.26/+0.22%)
   const r2=rsi(I.c,2),s10=sma(I.c,10),s200=sma(I.c,200),pbSig=i=>s200[i]!=null&&I.c[i]>s200[i]&&r2[i]<5&&rsPass(rs70,i),PB={...RULES,sl:3,tp:null,hold:15,exit:j=>I.c[j]>s10[j]};
   const pbt=simulate(B,I,pbSig,0,B.length,st.m,PB);const pb={all:stats(pbt),trades:pbt,now:pbSig(n),r2:r2[n],s5:s10[n],s200:s200[n],rs:rs70?!!rs70[n]:null,near:s200[n]!=null&&I.c[n]>s200[n]&&r2[n]<15&&rsPass(rs70,n)};
-  const qq=!S.px[st.s]&&S.quotes?.q?.[st.s];const sw=[Math.round(model.arr[end]),Math.round(r2Of(I)[end]??50),(I.wk[end]>=0?0:1)|(rsPass(rsA,end)?0:2)|(RP.adx==null||(I.adx[end]??0)>RP.adx?0:4)|(volOK(I,end,RP)?0:8)];
+  const qq=!S.px[st.s]&&S.quotes?.q?.[st.s];const sw=[Math.round(model.arr[end]),Math.round(r2Of(I)[end]??50),(I.wk[end]>=0?0:1)|(rsPass(rsA,end)?0:2)|(RP.adx==null||(I.adx[end]??0)>RP.adx?0:4)|(volOK(I,end,RP)?0:8)|(!RP.st||I.sd[end]===1?0:16)];
   // แผนล่วงหน้า (หุ้นผ่านตัวกรอง คะแนน ≥ 40 แต่ยังไม่ย่อพอ): ถ้าราคาปิดวันถัดไป ≤ trig จะเกิดสัญญาณตามระบบ แล้วตั้งซื้อ lp
   const cond=(()=>{if(sys||sw[2]||RP.dip==null||model.arr[end]<RP.thr)return null;const at=I.atr[end];if(!at)return null;
     const x=rsiTrigger(I.c,end,2,RP.dip);if(!(x>0))return null;const trig=rt(x-tick(x)*.5,st.m,"floor"),lp=trig-RP.lim*at;if(!(lp>0))return null;
