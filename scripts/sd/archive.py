@@ -55,6 +55,10 @@ def snap_news(items, macro=None):
     if cal.get("stocks") and not cal.get("staleFrom") and st.get("calib") != d:  # ผลทดสอบระบบวันละชุด เก็บถาวรไว้เทียบพัฒนาการ
         _write(f"calib/{d[:4]}/{d}.json.gz", cal)
         st["calib"] = d
+    lrn = load("learn.json", {})
+    if lrn.get("updated") and st.get("learn") != d:  # ภาพรวมตลาดและสถานะการเรียนรู้ของระบบ วันละชุด
+        _write(f"learn/{d[:4]}/{d}.json.gz", lrn)
+        st["learn"] = d
     if macro:
         _write(_rel("macro", now), {"t": now, "macro": {k: {f: v.get(f) for f in ("value", "chg1", "chg20", "z", "dir", "asOf") if f in v}
                                                            for k, v in macro.items() if isinstance(v, dict)}})

@@ -262,6 +262,24 @@ function liveMood(mk){const q=S.quotes?.q||{},today=dayIn(mk,Date.now()),big=mk=
   return{lab,up,dn,n:xs.length,ic,last}}
 function liveMoodLine(mk){const L=liveMood(mk);if(!L)return "";const t=new Date(L.last*1000).toLocaleTimeString(LOC(),{hour:"2-digit",minute:"2-digit",timeZone:mk==="TH"?"Asia/Bangkok":"America/New_York"});
   return `<span class="lm-dot ${L.ic>=0?"up":"down"}"></span>ตอนนี้ ${mk==="TH"?"SET":"S&P 500"} <b class="${L.ic>=0?"up":"down"}">${pct(L.ic,2)}</b> · ขึ้น <b>${L.up}</b> ลง <b>${L.dn}</b> จาก ${L.n} หุ้นใหญ่ · ราคา ${t} น.`}
+// วิเคราะห์ตลาดอัตโนมัติ (คำนวณทุกคืนจากหุ้นที่มีสภาพคล่องทั้งตลาด เก็บประวัติใน data/learn.json)
+function marketCard(mk){const H=S.learn?.market?.[mk];if(!H?.length)return "";const r=H.at(-1),w=H[Math.max(0,H.length-6)],dlt=r.a200-w.a200;
+  const reg=r.a200>=60?["ขาขึ้น","up"]:r.a200>=40?["ไซด์เวย์","warn"]:["ขาลง","down"],sn=k=>esc(SECTORS[k]?.th||k);
+  const spark=(()=>{const a=H.slice(-60).map(x=>x.a200);if(a.length<2)return "";const w0=160,h0=36,pts=a.map((v,i)=>`${(i/(a.length-1)*w0).toFixed(1)},${(h0-2-v/100*(h0-4)).toFixed(1)}`).join(" ");
+    return `<svg width="${w0}" height="${h0}" viewBox="0 0 ${w0} ${h0}" aria-hidden="true"><line x1="0" x2="${w0}" y1="${h0-2-.5*(h0-4)}" y2="${h0-2-.5*(h0-4)}" stroke="var(--line)" stroke-dasharray="3 3"/><polyline fill="none" stroke="var(--accent-2,var(--up))" stroke-width="2" points="${pts}"/></svg>`})();
+  return `<section class="card mcard"><div class="card-h"><div><h2>วิเคราะห์ตลาดอัตโนมัติ</h2><div class="sub-t">คำนวณใหม่ทุกคืนจาก ${r.n} หุ้นที่มีสภาพคล่อง · ข้อมูล ${thDate(r.d)} · สะสมแล้ว ${H.length} วัน</div></div><span class="pill ${reg[1]==="up"?"p-buy":reg[1]==="down"?"p-sell":"p-hold"}">ตลาด${reg[0]}</span></div>
+   <div class="mc-g"><div><div class="k">อยู่เหนือเส้น 200 วัน</div><div class="v num">${r.a200}%</div><div class="s">${H.length>1?`${dlt>=0?"+":""}${dlt} จุด จากสัปดาห์ก่อน`:"แนวโน้มระยะยาว"}</div>${spark}</div>
+    <div><div class="k">อยู่เหนือเส้น 50 วัน</div><div class="v num">${r.a50}%</div><div class="s">แนวโน้มระยะกลาง · เหนือ Supertrend ${r.st}%</div></div>
+    <div><div class="k">วันล่าสุด ขึ้น / ลง</div><div class="v num"><span class="up">${r.adv}</span> / <span class="down">${r.dec}</span></div><div class="s">ทำจุดสูงสุด 52 สัปดาห์ ${r.nh} · ต่ำสุด ${r.nl}</div></div>
+    <div><div class="k">ผลตอบแทนกลาง 20 วัน</div><div class="v num ${r.r20>=0?"up":"down"}">${pct(r.r20,1)}</div><div class="s">แกว่งเฉลี่ย ${r.atr}% ต่อวัน · สัญญาณซื้อ ${r.sig}</div></div></div>
+   <p class="mc-t"><b>กลุ่มแข็ง:</b> ${r.top.map(([k,v])=>`${sn(k)} ${pct(v,1)}`).join(" · ")} &nbsp; <b>กลุ่มอ่อน:</b> ${r.bot.map(([k,v])=>`${sn(k)} ${pct(v,1)}`).join(" · ")}</p></section>`}
+// สถานะการเรียนรู้ของระบบ (หน้าความแม่นยำ)
+function learnCard(){const L=S.learn;if(!L)return "";const w=s=>Math.min(s.is.avg,s.oos.avg);
+  const col=m=>{const t=L.tuned?.[m],ld=L.lead?.[m];return `<div class="sysm"><b>${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</b> ${t?`<span class="pill sm p-buy">ใช้กติกาที่เรียนรู้เอง ตั้งแต่ ${thDate(t.since)}</span>`:`<span class="pill sm p-hold">ใช้กติกาตั้งต้น</span>`}
+    <div class="muted" style="font-size:12.5px">${t?`${esc(t.key)} · กำไรต่อไม้ ${pct(w(t.before),2)} → ${pct(w(t.after),2)}`:""}${ld?.key?`${t?"<br>":""}แบบที่ดีกว่ากำลังพิสูจน์: ${esc(ld.key)} · ชนะ ${ld.is.win.toFixed(0)}/${ld.oos.win.toFixed(0)}% · กำไร ${pct(w(ld),2)}/ไม้ · ชนะแบบเดิมมา ${ld.days}/5 คืน`:`${t?"<br>":""}คืนล่าสุดยังไม่พบแบบที่ดีกว่าอย่างมีนัยสำคัญ`}</div></div>`};
+  return `<section class="card"><div class="card-h"><div><h2>ระบบเรียนรู้เองทุกคืน</h2><div class="sub-t">ทดสอบ 72 แบบกับหุ้นทั้งตลาดทุกคืน ถ้าแบบไหนชนะ ≥ 80% ทั้งช่วงสร้างและช่วงทดสอบ และกำไรต่อไม้ดีกว่าแบบที่ใช้อยู่ ≥ 0.1% ติดกัน 5 คืน จะเปลี่ยนไปใช้เอง · ถ้าผลจริงหลังเปลี่ยน ≥ 30 ไม้ชนะต่ำกว่า 70% จะกลับไปใช้ค่าเดิมเอง</div></div></div>
+   <div class="sysg">${col("TH")}${col("US")}</div>
+   ${(L.events||[]).length?`<ul class="steps" style="margin:10px 0 0">${L.events.slice(-6).reverse().map(e=>`<li>${thDate(e.d)} · ${e.m==="TH"?"ไทย":"สหรัฐฯ"}: ${esc(e.text)}</li>`).join("")}</ul>`:`<p class="foot" style="margin:10px 0 0">ยังไม่มีการเปลี่ยนกติกา ระบบบันทึกผลทุกคืนและจะแสดงประวัติที่นี่</p>`}</section>`}
 function vHome(){
   const all=allStocks().filter(s=>s.m===S.mkt&&liquid(s)).map(info).filter(R=>R.overall!=null),m=S.meta||{},MK=S.mkt;
   const avg=all.reduce((a,r)=>a+r.overall,0)/all.length;
@@ -285,6 +303,7 @@ function vHome(){
       <div class="mbig" role="group" aria-label="เลือกตลาด"><button type="button" data-mkt="TH" aria-pressed="${MK==="TH"}">หุ้นไทย</button><button type="button" data-mkt="US" aria-pressed="${MK==="US"}">หุ้นสหรัฐฯ</button></div><div class="chips" style="margin-top:10px">${mktChip(MK)}</div></div>
     <div class="hx-r"><div class="clk" id="clk" aria-live="off">${clockHTML()}</div>${MK==="TH"?idx("set","SET Index")+idx("gold","ทองคำ (US$/ออนซ์)"):idx("spx","S&P 500")+idx("ndx","Nasdaq")}</div>
   </section>
+  ${marketCard(MK)}
   ${S.live?"":sampleNotice()}
   ${fav.length?`<section><div class="sh"><h2>รายการโปรด</h2></div><div class="rail">${fav.map(card).join("")}</div></section>`:""}
   ${lsGet("introDone")?"":introCard()}
@@ -827,7 +846,8 @@ async function loadHist(syms){const need=syms.filter(s=>{const st=stockBySym(s);
   if(!document.querySelector("input:focus,details[open]"))render()}
 async function loadAll(){
   // ราคาย้อนหลังของทุกหุ้น (รวมหุ้นหลัก) โหลดเมื่อเปิดดู จึงไม่ต้องโหลด prices.json ตอนเริ่ม
-  const [[fund,macro,news,man,uni0,sum,cal,rsq],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json"].map(J)),getLive()]);
+  const [[fund,macro,news,man,uni0,sum,cal,rsq,lrn],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json","data/learn.json"].map(J)),getLive()]);
+  if(lrn){S.learn=lrn;S.tuned=lrn.tuned||{}}
   const uni=uni0||await J("data/universe.json"),px=null;
   if(cal&&cal.updated!==S.calibData?.updated){S.calibData=cal;S.calib=null}
   if(rsq){S.rsq=rsq;S._rsqIdx=null}
@@ -1155,6 +1175,7 @@ function vAccuracy(){
     <tr><td><b>ซื้อตอนย่อ (RSI 2)</b><div class="mean">แข็งกว่าตลาด 70% · ราคาเหนือ SMA200 และ RSI(2) &lt; 5 · ขายเมื่อปิดเหนือ SMA10 หรือ 15 วัน · SL 3 ATR</div></td>${sRow(C.pb.is)}${sRow(C.pb.oos)}<td class="muted" style="font-size:12px">แสดงในหน้าหุ้นทุกตัว</td></tr>
     ${C.hiwin.map(r=>`<tr><td><b>ตามคะแนนเทคนิค</b><div class="mean">${fmtG(r.g)}</div></td>${sRow(r.is)}${sRow(r.oos)}<td></td></tr>`).join("")}</tbody></table></div>
    <p class="foot" style="margin:10px 0 0">ระบบที่ชนะบ่อยจะได้กำไรต่อไม้น้อย และเวลาแพ้จะเสียมากกว่าตอนชนะ (SL ไกลกว่า TP) ห้ามเลื่อน SL ออกไปอีก และควรเสี่ยงไม่เกิน 1–2% ของเงินต่อไม้ เพราะแพ้ติดกัน 3–4 ไม้ยังเกิดขึ้นได้</p></section>
+  ${learnCard()}
   ${sysFwdCard(C)}
   ${fwdCard(C)}
   <section class="card method"><h2>ระบบทำให้ rating แม่นยำขึ้นอย่างไร (อัตโนมัติ)</h2><ul>

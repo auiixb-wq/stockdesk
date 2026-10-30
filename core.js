@@ -62,7 +62,8 @@ const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,slCap:.08,hold:20,adx:25,rs:70,di
 // กติกาตามกรอบเวลา (ทับค่าของรายวัน) หน่วย ATR ของแท่งกรอบนั้น · ค่าที่ผ่านการทดสอบใน research/smc.js (TF=W / HDIR=h1 TF=4H)
 const TF_RULES={W:{TH:{tp:1,sl:3,slCap:null,hold:20,warm:60},US:{tp:.8,sl:3,slCap:null,hold:20,vol:5.6,warm:60}},"4H":{TH:{st:false},US:{vol:1.8}},"1H":{TH:{st:false},US:{vol:.95}}};
 const TF_LABEL={"1H":"1 ชม.","4H":"4 ชม.",D:"วัน",W:"สัปดาห์"},TF_UNIT={"1H":"ชั่วโมง","4H":"แท่ง 4 ชม.",D:"วันทำการ",W:"สัปดาห์"};
-const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(tf!=="D"&&TF_RULES[tf]?.[m]||{})});
+// S.tuned = กติกาที่ระบบเรียนรู้เองจากการทดสอบรายคืน (data/learn.json) ใช้เฉพาะแบบเน้นอัตราชนะ และเฉพาะกรอบรายวัน
+const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(RULES.preset!=="edge"&&S.tuned?.[m]?.rules||{}),...(tf!=="D"&&TF_RULES[tf]?.[m]||{})});
 const PRESETS={win:{preset:"win"},edge:{preset:"edge"}};const RULES0={...RULES};
 const volOK=(I,i,P)=>P.vol==null||(I.atr[i]||0)/I.c[i]*100>=P.vol;
 // จุดเกิดสัญญาณ: คะแนนเพิ่งข้าม thr หรือ (คะแนน ≥ thr และย่อสั้นแรง RSI(2) < dip) — รอบ 5: ได้ไม้ ~1.5–2 เท่า ชนะและกำไรต่อไม้เท่าเดิม
@@ -399,9 +400,9 @@ function calibAdd(C,R){if(R.sample)return;C.stocks++;C.real++;const H=C.H,c=R.I.
 function calibDone(C){const strip=s=>s.n?{n:s.n,win:s.win,avg:s.avg,exp:s.exp,pf:s.pf}:{n:0};
   const res=C.grid.map(G=>({g:G.g,is:strip(stats(G.is)),oos:strip(stats(G.oos))}));
   const cur=null;
-  const best=res.filter(r=>r.is.n>=30).sort((a,b)=>b.is.exp-a.is.exp).slice(0,6);
+  const best=res.filter(r=>r.is.n>=30).sort((a,b)=>b.is.exp-a.is.exp).slice(0,6);C.res=res;
   const hiwin=res.filter(r=>r.is.n>=30&&r.is.win>=65&&r.is.exp>0).sort((a,b)=>b.is.exp-a.is.exp).slice(0,4);
-  return{H:C.H,A:C.A,stocks:C.stocks,real:C.real,from:C.from,to:C.to,cur,best,hiwin,pb:{is:strip(stats(C.pb.is)),oos:strip(stats(C.pb.oos))},
+  return{H:C.H,A:C.A,stocks:C.stocks,real:C.real,from:C.from,to:C.to,cur,best,hiwin,grid:res,pb:{is:strip(stats(C.pb.is)),oos:strip(stats(C.pb.oos))},
     ic:VOTES.map((v,j)=>({name:v.name,id:v.id,ic:pval(C.ic[j].is),icO:pval(C.ic[j].oos),n:C.ic[j].is.n})).sort((a,b)=>b.ic-a.ic),
     base:{is:strip(stats(C.base.is)),oos:strip(stats(C.base.oos))},baseM:Object.fromEntries(Object.entries(C.baseM).map(([m,v])=>[m,{is:strip(stats(v.is)),oos:strip(stats(v.oos)),rules:rulesFor(m)}])),
     loo:VOTES.map((v,j)=>{const a=strip(stats(C.loo[j].is)),b=strip(stats(C.loo[j].oos)),bi=stats(C.base.is),bo=stats(C.base.oos);

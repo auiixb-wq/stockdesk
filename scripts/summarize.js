@@ -20,6 +20,8 @@ S.universe = uni.items;
   fs.writeFileSync(path.join(DATA, "uni.json"), JSON.stringify({ updated: uni.updated, items: uni.items.map(i => Object.fromEntries(K.filter(k => i[k] != null).map(k => [k, R2(i[k])]))) }));
 }
 S.quotes = quotes;
+const learn = load("data/learn.json", { tuned: {}, lead: {}, events: [], market: {} });
+S.tuned = learn.tuned || {};
 // งบจาก .info (ละเอียด) ก่อน ถ้าไม่มีใช้ P/E และปันผลจากตัวคัดกรอง
 S.fundLive = { ...Object.fromEntries(uni.items.filter(i => i.pe != null || i.dy != null).map(i => [i.s, { pe: i.pe, dy: i.dy }])), ...fund };
 S.macro = macro;
@@ -53,13 +55,21 @@ for (const f of fs.existsSync(fdir) ? fs.readdirSync(fdir).filter(f => f.endsWit
   fs.writeFileSync(path.join(DATA, "rsq.json"), JSON.stringify(rsq));
   S.cache.clear();
 }
-const t0 = Date.now(), out = {}, C = calibNew();
+const t0 = Date.now(), out = {}, C = calibNew(), MS = {};
+// ภาพรวมตลาดรายวัน: เก็บค่าจากหุ้นที่มีสภาพคล่องแต่ละตัวระหว่างวิเคราะห์
+function mstat(R) {
+  const B = R.B, I = R.I, n = B.length - 1; if (n < 260) return;
+  const c = B[n].c, hi = Math.max(...B.slice(-252).map(b => b.h)), lo = Math.min(...B.slice(-252).map(b => b.l));
+  (MS[R.st.m] ??= []).push({ sec: R.st.sec, a50: I.e50[n] != null && c > I.e50[n], a200: I.e200[n] != null && c > I.e200[n], r1: c / B[n - 1].c - 1, r20: c / B[n - 20].c - 1,
+    nh: c >= hi * .98, nl: c <= lo * 1.02, atr: (I.atr[n] || 0) / c, sig: !!R.sys, up: I.sd?.[n] === 1 });
+}
 let ok = 0, fail = 0;
 for (const st of allStocks()) {
   if (!hasBars(st)) continue;
   try {
     const R = analyze(st);
     out[st.s] = summarize(R); ok++;
+    if (liquid(st)) mstat(R);
     // ทดสอบความแม่นยำเฉพาะหุ้นที่มีสภาพคล่องและประวัติราคาอย่างน้อย 2 ปี
     if (liquid(st) && R.B.length >= 500) calibAdd(C, R);
   } catch (e) { fail++; if (fail < 5) console.error(st.s, e.message); }
@@ -78,6 +88,46 @@ cal.fwd = forward();
 cal.fwdSys = forwardSys();
 fs.writeFileSync(path.join(DATA, "calib.json"), JSON.stringify(cal));
 console.log(`calib: ${C.stocks} หุ้น`);
+learnStep();
+
+// ---------- ระบบเรียนรู้เองทุกคืน ----------
+// 1) ปรับกติกาเอง: จาก 72 แบบที่ทดสอบทุกคืน ถ้ามีแบบที่ชนะ ≥ 80% ทั้งช่วงสร้างและช่วงทดสอบ และกำไรต่อไม้ (ช่วงที่แย่กว่า) ดีกว่าแบบปัจจุบัน ≥ 0.1%
+//    ติดกัน 5 คืน → ใช้แบบนั้นอัตโนมัติ · ถ้าใช้แล้วผลจริง (ติดตามไปข้างหน้า) ≥ 30 ไม้ชนะต่ำกว่า 70% → กลับไปใช้ค่าเดิม
+// 2) วิเคราะห์ตลาดรายวัน: แนวโน้ม ความกว้างของตลาด กลุ่มที่แข็ง/อ่อน และเก็บประวัติไว้ดูพัฒนาการ
+function learnStep() {
+  if (cal.staleFrom) return;
+  const L = learn, today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10), worst = s => Math.min(s.is.avg, s.oos.avg);
+  L.lead ??= {}; L.tuned ??= {}; L.events ??= []; L.market ??= {};
+  const ev = (m, kind, text) => { L.events.push({ d: today, m, kind, text }); L.events = L.events.slice(-60) };
+  for (const m of ["TH", "US"]) {
+    const cur = cal.baseM?.[m]; if (!cur?.is?.n || !cur?.oos?.n) continue;
+    const cand = (cal.grid || []).filter(r => r.g.m === m && r.is.n >= 80 && r.oos.n >= 50 && r.is.win >= 80 && r.oos.win >= 80 && worst(r) >= worst(cur) + .1)
+      .sort((a, b) => worst(b) - worst(a))[0];
+    const key = cand ? `thr${cand.g.thr}·tp${cand.g.tp}·sl${cand.g.sl}·hold${cand.g.hold}` : null, prev = L.lead[m];
+    if (L.lead[m]?.d !== today) L.lead[m] = key ? { key, days: prev?.key === key ? prev.days + 1 : 1, d: today, g: cand.g, is: cand.is, oos: cand.oos, cur: { is: cur.is, oos: cur.oos } } : { key: null, days: 0, d: today };
+    const ld = L.lead[m];
+    if (key && ld.days >= 5 && L.tuned[m]?.key !== key) {
+      const { thr, tp, sl, hold } = cand.g;
+      L.tuned[m] = { key, rules: { thr, tp, sl, hold }, since: today, before: { is: cur.is, oos: cur.oos }, after: { is: cand.is, oos: cand.oos } };
+      ev(m, "adopt", `ใช้กติกาใหม่ ${key} หลังชนะแบบเดิมติดกัน ${ld.days} คืน · กำไรต่อไม้ ${worst(cur).toFixed(2)}% → ${worst(cand).toFixed(2)}%`);
+    }
+    const f = cal.fwdSys?.M?.[m], tu = L.tuned[m];
+    if (tu && f && f.closed >= 30 && f.win / f.closed < .7) { delete L.tuned[m]; ev(m, "revert", `กลับไปใช้ค่าเดิม เพราะผลจริง ${f.closed} ไม้ชนะแค่ ${(f.win / f.closed * 100).toFixed(0)}%`) }
+  }
+  // วิเคราะห์ตลาดรายวัน
+  for (const [m, xs] of Object.entries(MS)) {
+    if (xs.length < 50) continue;
+    const pc = f => Math.round(xs.filter(f).length / xs.length * 100), med = a => { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1] };
+    const secs = {}; for (const x of xs) (secs[x.sec] ??= []).push(x.r20);
+    const rank = Object.entries(secs).filter(([, a]) => a.length >= 5).map(([k, a]) => [k, +(a.reduce((p, v) => p + v, 0) / a.length * 100).toFixed(2)]).sort((a, b) => b[1] - a[1]);
+    const row = { d: today, n: xs.length, a50: pc(x => x.a50), a200: pc(x => x.a200), st: pc(x => x.up), adv: xs.filter(x => x.r1 > 0).length, dec: xs.filter(x => x.r1 < 0).length,
+      nh: xs.filter(x => x.nh).length, nl: xs.filter(x => x.nl).length, r20: +(med(xs.map(x => x.r20)) * 100).toFixed(2), atr: +(med(xs.map(x => x.atr)) * 100).toFixed(2), sig: xs.filter(x => x.sig).length, top: rank.slice(0, 3), bot: rank.slice(-3).reverse() };
+    const H = (L.market[m] ??= []).filter(r => r.d !== today); H.push(row); L.market[m] = H.slice(-400);
+  }
+  L.updated = Math.floor(Date.now() / 1000);
+  fs.writeFileSync(path.join(DATA, "learn.json"), JSON.stringify(L));
+  console.log("learn:", Object.fromEntries(["TH", "US"].map(m => [m, L.lead[m]?.key ? `${L.lead[m].key} ${L.lead[m].days} คืน` : "ไม่มีแบบที่ดีกว่า"])), "tuned:", Object.keys(L.tuned));
+}
 
 
 // ติดตามผลจริงไปข้างหน้า: คะแนนรวม (เทคนิค + งบ + ข่าว + ปัจจัย) ที่บันทึกไว้แต่ละวัน เทียบกับราคาที่เกิดขึ้นจริงหลังจากนั้น
