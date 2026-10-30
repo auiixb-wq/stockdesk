@@ -224,6 +224,62 @@ if (process.env.TFX) {
   }
   process.exit(0);
 }
+// WR=1: หาแบบที่อัตราชนะสูงขึ้นแต่ยังได้มากกว่าเสีย — จุดเข้า × ทางออกแบบขายบางส่วน (TP1 ขาย f ส่วน แล้วเลื่อน SL มาทุน, ที่เหลือไป TP2)
+if (process.env.WR) {
+  const CAP = MK === "TH" ? .10 : .15;
+  const ENT = {
+    U3: (x, i) => STRAT.T_U3(x, i),
+    U3ST: (x, i) => x.I.sd[i] === 1 ? STRAT.T_U3(x, i) : null,
+    U3R: (x, i) => REG.get(x.B[i].t) ? STRAT.T_U3(x, i) : null,
+    U3STR: (x, i) => x.I.sd[i] === 1 && REG.get(x.B[i].t) ? STRAT.T_U3(x, i) : null,
+    // ตัวกรองคุณภาพเพิ่ม (บนฐาน U3 + Supertrend)
+    E200: (x, i) => x.I.sd[i] === 1 && x.I.e200[i] && x.B[i].c > x.I.e200[i] && x.I.e50[i] > x.I.e200[i] ? STRAT.T_U3(x, i) : null,
+    RSX: (x, i) => x.I.sd[i] === 1 && x.rs[i] >= (MK === "TH" ? 85 : 90) ? STRAT.T_U3(x, i) : null,
+    ADXH: (x, i) => x.I.sd[i] === 1 && x.I.adx[i] > (MK === "TH" ? 30 : 25) ? STRAT.T_U3(x, i) : null,
+    DIP5: (x, i) => x.I.sd[i] === 1 && x.r2[i] < 5 ? STRAT.T_U3(x, i) : null,
+    E200R: (x, i) => x.I.sd[i] === 1 && REG.get(x.B[i].t) && x.I.e200[i] && x.B[i].c > x.I.e200[i] && x.I.e50[i] > x.I.e200[i] ? STRAT.T_U3(x, i) : null,
+  };
+  if (process.env.WRE) for (const k of Object.keys(ENT)) if (!process.env.WRE.split(",").includes(k)) delete ENT[k];
+  const EX = [];
+  for (const s of [1.5, 2, 3, 4]) for (const H of [10, 20, 40]) {
+    for (const k of [4, 6, 8]) if (k >= s) EX.push({ s, k1: null, k2: k, f: 0, H });
+    for (const k1 of [1, 1.5, 2, 2.5, 3]) for (const k2 of [4, 6, 8]) for (const f of [.3, .5]) if (k2 >= s && k2 > k1) EX.push({ s, k1, k2, f, H });
+  }
+  const sm = a => { const n = a.length; if (!n) return { n: 0, win: 0, avg: 0, aw: 0, al: 0 }; const w = a.filter(r => r > 0), l = a.filter(r => r <= 0); return { n, win: w.length / n * 100, avg: a.reduce((p, r) => p + r, 0) / n * 100, aw: w.reduce((p, r) => p + r, 0) / (w.length || 1) * 100, al: l.reduce((p, r) => p + r, 0) / (l.length || 1) * 100 } };
+  for (const [nm, sig] of Object.entries(ENT)) {
+    const res = EX.map(() => ({ is: [], oos: [] }));
+    for (const x of st) {
+      const B = x.B, n = B.length, busy = EX.map(() => 0);
+      for (let i = WARM; i < n - 1; i++) {
+        const sg = sig(x, i); if (!sg) continue; const a = atr(x, i);
+        let e = -1, en = 0; for (let d = i + 1; d <= Math.min(n - 1, i + sg.days); d++) if (B[d].l <= sg.px) { e = d; en = Math.min(B[d].o, sg.px); break }
+        if (e < 0) continue;
+        EX.forEach((X, q) => {
+          if (e < busy[q]) return;
+          let stop = Math.max(en - X.s * a, en * (1 - CAP)), left = 1, got = 0, xi = e; const t1 = X.k1 ? en + X.k1 * a : null, t2 = en + X.k2 * a, Z = (X.z ??= { n: 0, h1: 0, d1: 0, h2: 0, d2: 0, fs: 0, fsr: 0 }); Z.n++;
+          for (let j = e; j < Math.min(n, e + X.H); j++) { const b = B[j]; xi = j;
+            if (b.l <= stop) { const r = Math.min(stop, j > e ? b.o : stop) / en - 1; if (left === 1) { Z.fs++; Z.fsr += r } got += left * r; left = 0; break }
+            if (j === e) continue;
+            if (t1 && left === 1 && b.h >= t1) { got += X.f * (Math.max(t1, b.o) / en - 1); left = 1 - X.f; stop = Math.max(stop, en * (1 + COST)); Z.h1++; Z.d1 += j - e }
+            if (b.h >= t2) { got += left * (Math.max(t2, b.o) / en - 1); left = 0; Z.h2++; Z.d2 += j - e; break } }
+          if (left > 0) got += left * (B[xi].c / en - 1);
+          busy[q] = xi + 1; (B[e].t < SPLIT ? res[q].is : res[q].oos).push(got - COST);
+        });
+      }
+    }
+    const rows = EX.map((X, q) => ({ X, is: sm(res[q].is), oos: sm(res[q].oos) })).filter(r => r.is.n >= 60 && r.oos.n >= 60);
+    const lab = r => `SL${r.X.s} ${r.X.k1 ? `TP1 ${r.X.k1}(${r.X.f * 100}%)→ทุน ` : ""}TP${r.X.k2} ถือ${r.X.H}`, fm = r => `${lab(r).padEnd(30)} | ${r.is.n}/${r.oos.n} ชนะ ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% เฉลี่ย ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}% ได้เฉลี่ย +${((r.is.aw + r.oos.aw) / 2).toFixed(1)} เสียเฉลี่ย ${((r.is.al + r.oos.al) / 2).toFixed(1)}`;
+    const wv = r => Math.min(r.is.avg, r.oos.avg), ww = r => Math.min(r.is.win, r.oos.win);
+    if (process.env.WRSTAT) for (const r of rows.filter(r => lab(r).replace(/ +/g, " ").trim() === process.env.WRSTAT)) { const z = r.X.z; console.log(`  สถิติ ${lab(r)}: ถึง TP1 ${(z.h1 / z.n * 100).toFixed(0)}% (~${(z.d1 / (z.h1 || 1)).toFixed(0)} วัน) · ถึง TP2 ${(z.h2 / z.n * 100).toFixed(0)}% (~${(z.d2 / (z.h2 || 1)).toFixed(0)} วัน) · โดน SL เต็มก่อน TP1 ${(z.fs / z.n * 100).toFixed(0)}% เสียเฉลี่ย ${(z.fsr / (z.fs || 1) * 100).toFixed(1)}%`) }
+    console.log(`\n${MK} ${nm}`);
+    for (const r of rows.slice().sort((a, b) => wv(b) - wv(a)).slice(0, 3)) console.log("  กำไรสุด  " + fm(r));
+    for (const r of rows.filter(r => wv(r) >= (MK === "TH" ? 1 : 2.5)).sort((a, b) => ww(b) - ww(a)).slice(0, 4)) console.log("  ชนะสุด*  " + fm(r));
+    for (const r of rows.filter(r => wv(r) > 0).map(r => ({ ...r, sc: ww(r) / 100 * wv(r) })).sort((a, b) => b.sc - a.sc).slice(0, 3)) console.log("  สมดุล   " + fm(r));
+    // คุ้ม: ไม้ที่ชนะได้เฉลี่ย ≥ ไม้ที่แพ้เสียเฉลี่ย (ทั้งสองช่วง) และกำไรไม่ต่ำกว่าระบบปัจจุบัน → เรียงตามอัตราชนะ
+    for (const r of rows.filter(r => r.is.aw >= -r.is.al && r.oos.aw >= -r.oos.al && wv(r) >= +(process.env.WRMIN || (MK === "TH" ? 1.4 : 3.5))).sort((a, b) => ww(b) - ww(a)).slice(0, 4)) console.log("  คุ้ม     " + fm(r));
+  }
+  process.exit(0);
+}
 // Desk Strategy: จุดเข้าเดิม (T_U3) แต่ออกแบบ "แพ้น้อย ออกไว ชนะยาว" — DESK=1 node research/smc.js <res> . TH
 if (process.env.DESK) {
   const ENG = {

@@ -196,9 +196,9 @@ function forwardSys() {
   for (const snap of snaps) {
     for (const [sym, v] of Object.entries(snap)) {
       const y = v[8]; if (!Array.isArray(y)) continue;
-      const [lp, tp, sl, , d] = y, key = sym + d; if (seen.has(key)) continue; seen.add(key);
+      const [lp, tp, sl0, , d, , t1] = y, key = sym + d; if (seen.has(key)) continue; seen.add(key);
       const st = stockBySym(sym); if (!st) continue;
-      const P = rulesFor(st.m), B = barsOf(st), r = (res[st.m] ??= { sig: 0, filled: 0, closed: 0, win: 0, sum: 0, open: 0, tp: 0, sl: 0, time: 0, recent: [] });
+      const P = rulesFor(st.m), B = barsOf(st), r = (res[st.m] ??= { sig: 0, filled: 0, closed: 0, win: 0, sum: 0, open: 0, tp: 0, tp1: 0, sl: 0, time: 0, recent: [] });
       r.sig++;
       // รายหุ้น: [สัญญาณ, ได้ของ, ปิดแล้ว, ชนะ, ผลรวม %, ประวัติล่าสุด [วันสัญญาณ, ผล %|null, ทางออก]]
       const ps = (per[sym] ??= [0, 0, 0, 0, 0, []]); ps[0]++;
@@ -207,15 +207,18 @@ function forwardSys() {
       let e = -1; for (let k = i0; k < Math.min(B.length, i0 + (P.ld || 1)); k++) if (B[k].l <= lp) { e = k; break; }
       if (e < 0) { if (i0 + (P.ld || 1) > B.length) { r.open++; log(null, "wait") } else log(null, "miss"); continue; }
       r.filled++; ps[1]++;
-      const en = Math.min(B[e].o, lp); let xp = null, how = "";
+      // TP1 (ถ้ามี): ขายบางส่วนแล้วเลื่อน SL มาที่ทุน · ที่เหลือไป TP
+      const en = Math.min(B[e].o, lp), c = costOf(st.m), f = P.tp1f || .5; let xp = null, how = "", sl = sl0, p1 = null;
       for (let j = e; j < Math.min(B.length, e + P.hold); j++) {
         const b = B[j];
         if (j > e && b.o <= sl) { xp = b.o; how = "sl"; break } if (b.l <= sl) { xp = sl; how = "sl"; break }
         if (j === e) continue;
+        if (t1 && p1 == null && b.h >= t1) { p1 = Math.max(t1, b.o); sl = Math.max(sl, en * (1 + 2 * c)) }
         if (b.o >= tp) { xp = b.o; how = "tp"; break } if (b.h >= tp) { xp = tp; how = "tp"; break }
       }
       if (xp == null) { if (e + P.hold <= B.length) { xp = B[e + P.hold - 1].c; how = "time" } else { r.open++; log(null, "hold"); continue } }
-      const c = costOf(st.m), ret = (xp * (1 - c) / (en * (1 + c)) - 1) * 100;
+      if (p1 != null) { xp = f * p1 + (1 - f) * xp; if (how === "sl") how = "tp1" }
+      const ret = (xp * (1 - c) / (en * (1 + c)) - 1) * 100;
       r.closed++; r.sum += ret; if (ret > 0) r.win++; r[how]++;
       ps[2]++; ps[4] += ret; if (ret > 0) ps[3]++; log(ret, how);
       r.recent.push([sym, d, +ret.toFixed(2), how]);
