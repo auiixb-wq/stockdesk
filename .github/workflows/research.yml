@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       set:
-        description: "กรอบที่ทดสอบ: 1h (1 ชม./4 ชม.) หรือ 15m"
+        description: "ชุดทดสอบ: 1h (1 ชม./4 ชม.), 15m หรือ tfx (กลยุทธ์เฉพาะกรอบเล็ก)"
         default: "1h"
 permissions:
   contents: write
@@ -28,9 +28,14 @@ jobs:
           git fetch origin hist --depth=1 && mkdir -p res/hist && git --work-tree=res/hist checkout origin/hist -- . && git reset -q
           if [ "${{ github.event.inputs.set }}" = "15m" ]; then export INTERVAL=15m PERIOD=60d OUTDIR=m15; fi
           python3 research/intra_fetch.py res 2>&1 | tail -20 > fetch.txt; cat fetch.txt
+          if [ "${{ github.event.inputs.set }}" = "tfx" ]; then INTERVAL=15m PERIOD=60d OUTDIR=m15 python3 research/intra_fetch.py res 2>&1 | tail -3 >> fetch.txt; fi
       - name: Backtest
         run: |
-          if [ "${{ github.event.inputs.set }}" = "15m" ]; then bash research/intra_run15.sh res > results.txt 2>&1 || true; else bash research/intra_run.sh res > results.txt 2>&1 || true; fi
+          case "${{ github.event.inputs.set }}" in
+            15m) bash research/intra_run15.sh res > results.txt 2>&1 || true ;;
+            tfx) bash research/tfx_run.sh res > results.txt 2>&1 || true ;;
+            *) bash research/intra_run.sh res > results.txt 2>&1 || true ;;
+          esac
           cat fetch.txt >> results.txt
       - name: Publish results
         env:

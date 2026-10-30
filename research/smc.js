@@ -24,7 +24,7 @@ if ((TF || HDIR !== "hist") && fs.existsSync(R + "/hist")) {
   for (const x of st) { let j; try { j = JSON.parse(fs.readFileSync(R + "/hist/" + x.s + ".json")) } catch { continue }
     per[x.s] = j; j.t.forEach((t, i) => { if (i >= 63 && j.c[i] > 0 && j.c[i - 63] > 0) (by[t] ??= []).push(j.c[i] / j.c[i - 63] - 1) }) }
   for (const k in by) by[k].sort((a, b) => a - b);
-  for (const [sy, j] of Object.entries(per)) { const m = new Map(); j.t.forEach((t, i) => { const a = by[t]; if (i < 63 || !a || a.length < 30) return; const v = j.c[i] / j.c[i - 63] - 1; let lo = 0, hi = a.length; while (lo < hi) { const md = (lo + hi) >> 1; if (a[md] < v) lo = md + 1; else hi = md } m.set(t, lo / (a.length - 1) * 100) }); RSD[sy] = { m, d: j.t } }
+  for (const [sy, j] of Object.entries(per)) { const m = new Map(); j.t.forEach((t, i) => { const a = by[t]; if (i < 63 || !a || a.length < 30) return; const v = j.c[i] / j.c[i - 63] - 1; let lo = 0, hi = a.length; while (lo < hi) { const md = (lo + hi) >> 1; if (a[md] < v) lo = md + 1; else hi = md } m.set(t, lo / (a.length - 1) * 100) }); RSD[sy] = { m, d: j.t, j } }
 }
 const pct = (t, v) => { const a = rsBy[t]; if (!a || a.length < 30) return 50; let lo = 0, hi = a.length; while (lo < hi) { const md = (lo + hi) >> 1; if (a[md] < v) lo = md + 1; else hi = md } return lo / (a.length - 1) * 100 };
 const W = { e200: 1, mtf: 1.2, adx: 1, obv: .7, rsi: 1 }, K = 3;
@@ -162,6 +162,62 @@ function run(name) {
   return EXITS.map((X, k) => ({ X, is: sm(res[k].is), oos: sm(res[k].oos), y: Object.fromEntries(Object.entries(res[k].y || {}).map(([a, v]) => [a, sm(v)])) }));
 }
 const f = r => `${r.n}ไม้ ชนะ${r.win.toFixed(1)}% ${r.avg >= 0 ? "+" : ""}${r.avg.toFixed(2)}% PF${r.pf.toFixed(2)}`;
+// ---------- กลยุทธ์เฉพาะกรอบเล็ก (TFX=1): ใช้ภาพรายวันคัดหุ้น/ทิศทาง แล้วใช้แท่งเล็กหาจังหวะเข้า · ทางออกเป็น % และถือข้ามวันได้ ----------
+// BPD = จำนวนแท่งต่อวัน (15m: TH 22 / US 26 · 1H: TH 6 / US 7 · 4H: 2) ใช้แปลงจำนวนวันถือเป็นจำนวนแท่ง
+if (process.env.TFX) {
+  const BPD = +(process.env.BPD || 7), RSTH = MK === "TH" ? 70 : 80;
+  // บริบทรายวันของวันทำการก่อนหน้า: แนวโน้ม (ปิด > EMA50 และ EMA20 > EMA50), สัปดาห์ไม่ลง, แข็งกว่าตลาด, ADX, สัญญาณระบบรายวัน
+  for (const x of st) {
+    const D = RSD[x.s]; x.dctx = null; if (!D) continue;
+    const j = D.j, DB = j.t.map((t, i) => ({ t, o: j.o[i], h: j.h[i], l: j.l[i], c: j.c[i], v: j.v?.[i] ?? 0 })).filter(b => b.c > 0 && b.o > 0);
+    if (DB.length < 260) continue;
+    const DI = indicators(DB), dr2 = rsi(DI.c, 2), dsc = DI.c.map((_, i) => { if (!i) return 0; let a = 0, w = 0; for (const v of VOTES) { const r = v.f(DI, i, false); if (r && W[v.id]) { a += W[v.id] * r.v; w += W[v.id] * 2 } } return w ? a / w * 100 : 0 });
+    const ok = DB.map((b, i) => { const rs = D.m.get(b.t); return { up: DI.e50[i] != null && b.c > DI.e50[i] && DI.e20[i] > DI.e50[i], wk: DI.wk[i] >= 0, rs: rs != null && rs >= RSTH, adx: (DI.adx[i] || 0) > (MK === "TH" ? 25 : 20), vol: MK === "TH" || (DI.atr[i] || 0) / b.c * 100 >= 2.5, st: DI.sd[i] === 1,
+      sig: (DI.wk[i] >= 0) && rs != null && rs >= RSTH && (DI.adx[i] || 0) > (MK === "TH" ? 25 : 20) && (MK === "TH" || (DI.atr[i] || 0) / b.c * 100 >= 2.5) && ((dsc[i - 1] < 40 && dsc[i] >= 40) || (dsc[i] >= 40 && dr2[i] < 20)), ph: i ? DB[i - 1].h : null, hi: b.h } });
+    // แท่งเล็ก i → ดัชนีวันก่อนหน้า (ไม่แอบดูวันนี้) และสัญญาณระบบรายวันใน 3 วันล่าสุด
+    let k = 0; x.dctx = x.B.map(b => { const day = String(b.t).slice(0, 10); while (k < DB.length && DB[k].t < day) k++; const q = k - 1; if (q < 1) return null; const o = ok[q];
+      return { ...o, sig3: ok[q].sig || ok[q - 1]?.sig || ok[q - 2]?.sig, dhi: DB[q].h } });
+  }
+  const ENTRY = {
+    U3: (x, i) => STRAT.T_U3(x, i) ? "lim" : null,
+    DDIP: (x, i) => { const d = x.dctx?.[i]; return d && d.up && d.wk && d.rs && d.vol && x.r2[i] < 10 ? "open" : null },
+    DDIP_ST: (x, i) => { const d = x.dctx?.[i]; return d && d.up && d.wk && d.rs && d.vol && d.st && x.r2[i] < 10 ? "open" : null },
+    DSIG: (x, i) => { const d = x.dctx?.[i]; return d && d.sig3 && x.r2[i] < 20 ? "open" : null },
+    DSIG5: (x, i) => { const d = x.dctx?.[i]; return d && d.sig3 && x.r2[i] < 5 ? "open" : null },
+    DBRK: (x, i) => { const d = x.dctx?.[i], B = x.B; return d && d.up && d.wk && d.rs && d.vol && B[i].c > d.dhi && B[i - 1].c <= d.dhi ? "open" : null },
+    DST: (x, i) => { const d = x.dctx?.[i]; return d && d.up && d.wk && d.rs && d.vol && x.I.sd[i - 1] === -1 && x.I.sd[i] === 1 ? "open" : null },
+  };
+  const EX = []; for (const tp of [1, 1.5, 2, 3, 5]) for (const sl of [1, 2, 3, 5]) for (const days of [1, 3, 5, 10]) EX.push({ tp: tp / 100, sl: sl / 100, hold: Math.max(1, Math.round(days * BPD)), days });
+  const names = (ONLY || Object.keys(ENTRY).join(",")).split(",");
+  for (const nm of names) {
+    const res = EX.map(() => ({ is: [], oos: [] }));
+    for (const x of st) {
+      const B = x.B, n = B.length, busy = EX.map(() => 0);
+      for (let i = WARM; i < n - 1; i++) {
+        const kind = ENTRY[nm](x, i); if (!kind) continue;
+        let e = i + 1, en = B[e].o;
+        if (kind === "lim") { const lp = B[i].c - LK * atr(x, i); e = -1; for (let d = i + 1; d <= Math.min(n - 1, i + LD); d++) if (B[d].l <= lp) { e = d; en = Math.min(B[d].o, lp); break } if (e < 0) continue }
+        EX.forEach((X, k) => {
+          if (e < busy[k]) return;
+          const tp = en * (1 + X.tp), sl = en * (1 - X.sl); let xp = null, xi = null;
+          for (let j = e; j < Math.min(n, e + X.hold); j++) { const b = B[j];
+            if (b.l <= sl) { xp = j > e ? Math.min(sl, b.o) : sl; xi = j; break }
+            if (j === e && kind === "lim") continue;
+            if (b.h >= tp) { xp = Math.max(tp, b.o); xi = j; break } }
+          if (xp == null) { xi = Math.min(n - 1, e + X.hold - 1); xp = B[xi].c }
+          busy[k] = xi + 1; (B[e].t < SPLIT ? res[k].is : res[k].oos).push(xp / en - 1 - COST);
+        });
+      }
+    }
+    const sm = a => { const n = a.length; if (!n) return { n: 0, win: 0, avg: 0 }; let w = 0, t = 0; for (const r of a) { t += r; if (r > 0) w++ } return { n, win: w / n * 100, avg: t / n * 100 } };
+    const rows = EX.map((X, k) => ({ X, is: sm(res[k].is), oos: sm(res[k].oos) })).filter(r => r.is.n >= 40 && r.oos.n >= 25);
+    const f = r => `TP${(r.X.tp * 100).toFixed(1)}% SL${(r.X.sl * 100).toFixed(0)}% ถือ${r.X.days}วัน | ${r.is.n}/${r.oos.n}ไม้ ชนะ ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% กำไร ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}%`;
+    console.log(`\n${MK} ${nm}`);
+    for (const r of rows.sort((a, b) => Math.min(b.is.avg, b.oos.avg) - Math.min(a.is.avg, a.oos.avg)).slice(0, 3)) console.log("  กำไรสุด " + f(r));
+    for (const r of rows.filter(r => r.is.win >= 75 && r.oos.win >= 75).sort((a, b) => Math.min(b.is.avg, b.oos.avg) - Math.min(a.is.avg, a.oos.avg)).slice(0, 2)) console.log("  ชนะ75+ " + f(r));
+  }
+  process.exit(0);
+}
 // Desk Strategy: จุดเข้าเดิม (T_U3) แต่ออกแบบ "แพ้น้อย ออกไว ชนะยาว" — DESK=1 node research/smc.js <res> . TH
 if (process.env.DESK) {
   const ENG = {
