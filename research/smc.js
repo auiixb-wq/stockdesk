@@ -180,6 +180,7 @@ if (process.env.TFX) {
   }
   const ENTRY = {
     U3: (x, i) => STRAT.T_U3(x, i) ? "lim" : null,
+    U3ST: (x, i) => x.I.sd[i] === 1 && STRAT.T_U3(x, i) ? "lim" : null,
     DDIP: (x, i) => { const d = x.dctx?.[i]; return d && d.up && d.wk && d.rs && d.vol && x.r2[i] < 10 ? "open" : null },
     DDIP_ST: (x, i) => { const d = x.dctx?.[i]; return d && d.up && d.wk && d.rs && d.vol && d.st && x.r2[i] < 10 ? "open" : null },
     DSIG: (x, i) => { const d = x.dctx?.[i]; return d && d.sig3 && x.r2[i] < 20 ? "open" : null },
@@ -187,7 +188,11 @@ if (process.env.TFX) {
     DBRK: (x, i) => { const d = x.dctx?.[i], B = x.B; return d && d.up && d.wk && d.rs && d.vol && B[i].c > d.dhi && B[i - 1].c <= d.dhi ? "open" : null },
     DST: (x, i) => { const d = x.dctx?.[i]; return d && d.up && d.wk && d.rs && d.vol && x.I.sd[i - 1] === -1 && x.I.sd[i] === 1 ? "open" : null },
   };
-  const EX = []; for (const tp of [1, 1.5, 2, 3, 5]) for (const sl of [1, 2, 3, 5]) for (const days of [1, 3, 5, 10]) EX.push({ tp: tp / 100, sl: sl / 100, hold: Math.max(1, Math.round(days * BPD)), days });
+  const EX = [];
+  // RRX=1: เฉพาะทางออกที่ TP ≥ SL (ได้ไม่น้อยกว่าเสีย) + แบบเลื่อนจุดตัดมาทุน (be) เมื่อกำไรถึงระยะ SL
+  if (process.env.ATRX) { for (const tp of [1.5, 2, 3, 4, 5, 6, 8]) for (const sl of [1, 1.5, 2, 3, 4]) if (tp >= sl) for (const days of (BPD <= 1 ? [5, 10, 20, 40] : [1, 3, 5, 10])) for (const be of [false, true]) EX.push({ atr: true, tp, sl, hold: Math.max(1, Math.round(days * BPD)), days, be }) }
+  else if (process.env.RRX) { for (const tp of [2, 3, 4, 5, 6, 8, 10, 15]) for (const sl of [1, 1.5, 2, 3, 4, 5, 6, 8]) if (tp >= sl) for (const days of (BPD <= 1 ? [5, 10, 20, 40] : [1, 3, 5, 10])) for (const be of [false, true]) EX.push({ tp: tp / 100, sl: sl / 100, hold: Math.max(1, Math.round(days * BPD)), days, be }) }
+  else for (const tp of [1, 1.5, 2, 3, 5]) for (const sl of [1, 2, 3, 5]) for (const days of [1, 3, 5, 10]) EX.push({ tp: tp / 100, sl: sl / 100, hold: Math.max(1, Math.round(days * BPD)), days });
   const names = (ONLY || Object.keys(ENTRY).join(",")).split(",");
   for (const nm of names) {
     const res = EX.map(() => ({ is: [], oos: [] }));
@@ -199,11 +204,12 @@ if (process.env.TFX) {
         if (kind === "lim") { const lp = B[i].c - LK * atr(x, i); e = -1; for (let d = i + 1; d <= Math.min(n - 1, i + LD); d++) if (B[d].l <= lp) { e = d; en = Math.min(B[d].o, lp); break } if (e < 0) continue }
         EX.forEach((X, k) => {
           if (e < busy[k]) return;
-          const tp = en * (1 + X.tp), sl = en * (1 - X.sl); let xp = null, xi = null;
+          const a = X.atr ? atr(x, i) : 0, tp = X.atr ? en + X.tp * a : en * (1 + X.tp); let sl = X.atr ? en - X.sl * a : en * (1 - X.sl), xp = null, xi = null;
           for (let j = e; j < Math.min(n, e + X.hold); j++) { const b = B[j];
             if (b.l <= sl) { xp = j > e ? Math.min(sl, b.o) : sl; xi = j; break }
             if (j === e && kind === "lim") continue;
-            if (b.h >= tp) { xp = Math.max(tp, b.o); xi = j; break } }
+            if (b.h >= tp) { xp = Math.max(tp, b.o); xi = j; break }
+            if (X.be && b.c >= (X.atr ? en + X.sl * a : en * (1 + X.sl))) sl = Math.max(sl, en * (1 + COST)) }
           if (xp == null) { xi = Math.min(n - 1, e + X.hold - 1); xp = B[xi].c }
           busy[k] = xi + 1; (B[e].t < SPLIT ? res[k].is : res[k].oos).push(xp / en - 1 - COST);
         });
@@ -211,9 +217,9 @@ if (process.env.TFX) {
     }
     const sm = a => { const n = a.length; if (!n) return { n: 0, win: 0, avg: 0 }; let w = 0, t = 0; for (const r of a) { t += r; if (r > 0) w++ } return { n, win: w / n * 100, avg: t / n * 100 } };
     const rows = EX.map((X, k) => ({ X, is: sm(res[k].is), oos: sm(res[k].oos) })).filter(r => r.is.n >= 40 && r.oos.n >= 25);
-    const f = r => `TP${(r.X.tp * 100).toFixed(1)}% SL${(r.X.sl * 100).toFixed(0)}% ถือ${r.X.days}วัน | ${r.is.n}/${r.oos.n}ไม้ ชนะ ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% กำไร ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}%`;
+    const f = r => `${r.X.atr ? `TP${r.X.tp}ATR SL${r.X.sl}ATR` : `TP${(r.X.tp * 100).toFixed(1)}% SL${(r.X.sl * 100).toFixed(1)}%`}${r.X.be ? " +BE" : ""} ถือ${r.X.days}วัน | ${r.is.n}/${r.oos.n}ไม้ ชนะ ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% กำไร ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}%`;
     console.log(`\n${MK} ${nm}`);
-    for (const r of rows.sort((a, b) => Math.min(b.is.avg, b.oos.avg) - Math.min(a.is.avg, a.oos.avg)).slice(0, 3)) console.log("  กำไรสุด " + f(r));
+    for (const r of rows.sort((a, b) => Math.min(b.is.avg, b.oos.avg) - Math.min(a.is.avg, a.oos.avg)).slice(0, process.env.RRX ? 5 : 3)) console.log("  กำไรสุด " + f(r));
     for (const r of rows.filter(r => r.is.win >= 75 && r.oos.win >= 75).sort((a, b) => Math.min(b.is.avg, b.oos.avg) - Math.min(a.is.avg, a.oos.avg)).slice(0, 2)) console.log("  ชนะ75+ " + f(r));
   }
   process.exit(0);
