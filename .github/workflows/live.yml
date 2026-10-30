@@ -22,6 +22,7 @@ jobs:
           git checkout origin/gh-pages -- data 2>/dev/null || true
           git fetch origin hist --depth=1 && mkdir -p data/hist && git --work-tree=data/hist checkout origin/hist -- . && git reset -q || true
           git fetch origin intra --depth=1 && mkdir -p data/intra && git --work-tree=data/intra checkout origin/intra -- . && git reset -q || true
+          git fetch origin intra15 --depth=1 && mkdir -p data/intra15 && git --work-tree=data/intra15 checkout origin/intra15 -- . && git reset -q || true
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

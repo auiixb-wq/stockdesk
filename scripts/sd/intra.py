@@ -24,13 +24,13 @@ def _frame(d):
             "c": [num(x, 4) for x in d["Close"]], "v": [int(x) if x == x else 0 for x in d["Volume"]]}
 
 
-def _download(items, period, each):
+def _download(items, period, each, interval="60m"):
     """ดาวน์โหลดทีละ 150 ตัว แล้วเรียก each(item, frame) ต่อหุ้น คืนจำนวนที่สำเร็จ"""
     ok = 0
     for k in range(0, len(items), 150):
         part = items[k:k + 150]
         try:
-            df = yf.download([i["y"] for i in part], period=period, interval="60m", group_by="ticker",
+            df = yf.download([i["y"] for i in part], period=period, interval=interval, group_by="ticker",
                              auto_adjust=False, threads=True, progress=False, prepost=False)
         except Exception as e:
             ERRORS.append(f"intra {period} chunk {k}: {str(e)[:80]}")
@@ -72,4 +72,31 @@ def fetch_intra_recent(uni):
     if out:
         save("intra_recent.json", {"updated": int(time.time()), "s": out})
     print("intra recent:", len(out))
+    return len(out)
+
+
+def fetch_intra15(uni):
+    """แท่ง 15 นาที 1 เดือน (ชุดหลัก, branch intra15) — รอบ FULL หรือยังไม่มีไฟล์"""
+    d0 = os.path.join(DATA, "intra15")
+    os.makedirs(d0, exist_ok=True)
+    if os.environ.get("FULL") != "1" and len(os.listdir(d0)) >= len(members(uni)) * .5:
+        return 0
+
+    def put(i, f):
+        with open(os.path.join(d0, i["s"] + ".json"), "w") as fh:
+            json.dump(f, fh, separators=(",", ":"))
+    n = _download(members(uni), "1mo", put, "15m")
+    if n:
+        open(os.path.join(DATA, ".intra15_new"), "w").close()
+    print("intra15 1mo:", n)
+    return n
+
+
+def fetch_intra15_recent(uni):
+    """แท่ง 15 นาที 2 วันล่าสุด รวมไฟล์เดียว (ทุกรอบใหญ่)"""
+    out = {}
+    _download(members(uni), "2d", lambda i, f: out.__setitem__(i["s"], f), "15m")
+    if out:
+        save("intra15_recent.json", {"updated": int(time.time()), "s": out})
+    print("intra15 recent:", len(out))
     return len(out)

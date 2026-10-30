@@ -5,14 +5,15 @@ import json, os, sys, time
 import yfinance as yf
 
 R = sys.argv[1]
+IV, PER, OUT = os.environ.get("INTERVAL", "60m"), os.environ.get("PERIOD", "730d"), os.environ.get("OUTDIR", "h1")
 U = json.load(open(os.path.join(R, "universe.json")))["items"]
 items = [i for i in U if (i["m"] == "TH" and (i.get("mc") or 0) >= 5e9) or (i["m"] == "US" and (i.get("mc") or 0) >= 1e10)]
-os.makedirs(os.path.join(R, "h1"), exist_ok=True)
+os.makedirs(os.path.join(R, OUT), exist_ok=True)
 ok = 0
 for k in range(0, len(items), 100):
     part = items[k:k + 100]
     try:
-        df = yf.download([i["y"] for i in part], period="730d", interval="60m", group_by="ticker", auto_adjust=False, threads=True, progress=False)
+        df = yf.download([i["y"] for i in part], period=PER, interval=IV, group_by="ticker", auto_adjust=False, threads=True, progress=False)
     except Exception as e:
         print("chunk", k, e)
         continue
@@ -22,9 +23,9 @@ for k in range(0, len(items), 100):
             idx = d.index.tz_convert("UTC")
             r = lambda a: [round(float(x), 4) for x in a]
             json.dump({"t": [x.strftime("%Y-%m-%dT%H:%M") for x in idx], "o": r(d["Open"]), "h": r(d["High"]), "l": r(d["Low"]), "c": r(d["Close"]),
-                       "v": [int(x) if x == x else 0 for x in d["Volume"]]}, open(os.path.join(R, "h1", i["s"] + ".json"), "w"), separators=(",", ":"))
+                       "v": [int(x) if x == x else 0 for x in d["Volume"]]}, open(os.path.join(R, OUT, i["s"] + ".json"), "w"), separators=(",", ":"))
             ok += 1
         except Exception:
             pass
     time.sleep(1)
-print("hourly files:", ok, "/", len(items))
+print(OUT, "files:", ok, "/", len(items))

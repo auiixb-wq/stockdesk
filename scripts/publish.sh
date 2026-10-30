@@ -26,3 +26,9 @@ if [ -f data/.intra_new ] && [ -d data/intra ]; then
   git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" intra
   cd .. && rm -f data/.intra_new
 fi
+if [ -f data/.intra15_new ] && [ -d data/intra15 ]; then
+  rm -rf _intra15 && cp -r data/intra15 _intra15 && cd _intra15 && git init -q -b intra15 && git add -A
+  git -c user.name="stockdesk-bot" -c user.email="actions@users.noreply.github.com" commit -qm "intra15 $(date -u +%F)"
+  git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" intra15
+  cd .. && rm -f data/.intra15_new
+fi

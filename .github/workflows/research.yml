@@ -3,9 +3,9 @@ name: research
 on:
   workflow_dispatch:
     inputs:
-      args:
-        description: "ชุดทดสอบ (เว้นว่าง = มาตรฐาน)"
-        default: ""
+      set:
+        description: "กรอบที่ทดสอบ: 1h (1 ชม./4 ชม.) หรือ 15m"
+        default: "1h"
 permissions:
   contents: write
 jobs:
@@ -26,9 +26,12 @@ jobs:
           mkdir -p res
           git fetch origin gh-pages --depth=1 && git show origin/gh-pages:data/universe.json > res/universe.json
           git fetch origin hist --depth=1 && mkdir -p res/hist && git --work-tree=res/hist checkout origin/hist -- . && git reset -q
+          if [ "${{ github.event.inputs.set }}" = "15m" ]; then export INTERVAL=15m PERIOD=60d OUTDIR=m15; fi
           python3 research/intra_fetch.py res 2>&1 | tail -20 > fetch.txt; cat fetch.txt
       - name: Backtest
-        run: bash research/intra_run.sh res > results.txt 2>&1 || true; cat fetch.txt >> results.txt
+        run: |
+          if [ "${{ github.event.inputs.set }}" = "15m" ]; then bash research/intra_run15.sh res > results.txt 2>&1 || true; else bash research/intra_run.sh res > results.txt 2>&1 || true; fi
+          cat fetch.txt >> results.txt
       - name: Publish results
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
