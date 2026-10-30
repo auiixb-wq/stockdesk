@@ -56,8 +56,11 @@ const RULES={thr:40,split:.7,warm:60,wk:true,rs:70,adx:20,preset:"win"};
 //   (สหรัฐฯ ไม่ดีขึ้น 72.1 → 70.8%/ปี จึงไม่ใช้ · Supertrend เดี่ยว ๆ และทะลุเส้นแนวโน้ม ชนะแค่ 30–45% ไม่ผ่าน)
 const MKT_RULES={win:{TH:{lim:1,ld:1,tp:1,sl:5,slCap:.08,hold:20,adx:25,rs:70,dip:20,st:true},US:{lim:1.5,ld:3,tp:.8,sl:5,slCap:.12,hold:20,adx:20,rs:80,vol:2.5,dip:20}},
                  edge:{TH:{lim:1,ld:1,tp:1,sl:5,hold:20,adx:25,rs:70},US:{lim:1,ld:1,tp:3,sl:3,hold:30,adx:20,rs:70}}};
+// ผลทดสอบ: สัปดาห์ (5 ปี) ไทย TP1/SL3 ชนะ 71/75% · สหรัฐฯ TP0.8/SL3 ชนะ 80/82% แต่แพ้เฉลี่ย −20 ถึง −27%
+//          4 ชม. (ราคารายชั่วโมง 730 วัน) กติกาเดียวกับรายวัน: ไทยชนะ 80/77% (+0.62/+0.29%) · สหรัฐฯ 83/80% (+0.70/+0.52%)
+//          1 ชม.: ไทยชนะ 83/83% (+0.27/+0.33%) · สหรัฐฯ 79/83% (+0.10/+0.34%) · Supertrend ไม่ช่วยในกรอบชั่วโมง จึงปิดไว้
 // กติกาตามกรอบเวลา (ทับค่าของรายวัน) หน่วย ATR ของแท่งกรอบนั้น · ค่าที่ผ่านการทดสอบใน research/smc.js (TF=W / HDIR=h1 TF=4H)
-const TF_RULES={W:{TH:{tp:1,sl:3,slCap:null,hold:20,warm:60},US:{tp:.8,sl:3,slCap:null,hold:20,vol:5.6,warm:60}},"4H":{},"1H":{}};
+const TF_RULES={W:{TH:{tp:1,sl:3,slCap:null,hold:20,warm:60},US:{tp:.8,sl:3,slCap:null,hold:20,vol:5.6,warm:60}},"4H":{TH:{st:false},US:{vol:1.8}},"1H":{TH:{st:false},US:{vol:.95}}};
 const TF_LABEL={"1H":"1 ชม.","4H":"4 ชม.",D:"วัน",W:"สัปดาห์"},TF_UNIT={"1H":"ชั่วโมง","4H":"แท่ง 4 ชม.",D:"วันทำการ",W:"สัปดาห์"};
 const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(tf!=="D"&&TF_RULES[tf]?.[m]||{})});
 const PRESETS={win:{preset:"win"},edge:{preset:"edge"}};const RULES0={...RULES};
