@@ -19,7 +19,9 @@ function i18nRun(r) {
 const TH_MON = { "ม.ค.": "Jan", "ก.พ.": "Feb", "มี.ค.": "Mar", "เม.ย.": "Apr", "พ.ค.": "May", "มิ.ย.": "Jun", "ก.ค.": "Jul", "ส.ค.": "Aug", "ก.ย.": "Sep", "ต.ค.": "Oct", "พ.ย.": "Nov", "ธ.ค.": "Dec" };
 const TH_DATE = /(ม\.ค\.|ก\.พ\.|มี\.ค\.|เม\.ย\.|พ\.ค\.|มิ\.ย\.|ก\.ค\.|ส\.ค\.|ก\.ย\.|ต\.ค\.|พ\.ย\.|ธ\.ค\.)(\s?)(\d{4}|\d{2})?(?!\d)/g;
 const beYear = y => y.length === 4 ? String(+y - 543) : String((+y + 57) % 100).padStart(2, "0");
-function i18nText(s) { return s.replace(TH_DATE, (m, mo, sp, y) => TH_MON[mo] + (y ? " " + beYear(y) : "")).replace(TH_RUN, r => i18nRun(r)) }
+// วลีที่มีอักษรอังกฤษปน แปลทั้งวลีก่อน
+const MIXED = [[/หุ้น US/g, "US stocks"]];
+function i18nText(s) { for (const [a, b] of MIXED) s = s.replace(a, b); return s.replace(TH_DATE, (m, mo, sp, y) => TH_MON[mo] + (y ? " " + beYear(y) : "")).replace(TH_RUN, r => i18nRun(r)) }
 function i18nApply(root) {
   if (I18N.lang !== "en" || !I18N.dict || !root) return;
   I18N.busy = true;

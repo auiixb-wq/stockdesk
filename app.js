@@ -759,7 +759,7 @@ document.addEventListener("click",e=>{
   else if(t.dataset.unfav){toggleFav(t.dataset.unfav)}
   else if(t.dataset.addfav){toggleFav(t.dataset.addfav);toast(`เพิ่ม ${t.dataset.addfav} ในรายการโปรดแล้ว`)}
   else if(t.dataset.themeSet){applyTheme(t.dataset.themeSet);render()}
-  else if(t.id==="langBtn"){lsSet("lang",S.lang==="en"?"th":"en");location.reload()}
+  else if(t.closest?.("#langBtn")){const l=e.target.closest(".lf")?.dataset.l||(S.lang==="en"?"th":"en");if(l!==S.lang){lsSet("lang",l);location.reload()}}
   else if(t.id==="themeBtn"){const m=lsGet("theme")||"system";applyTheme(m==="system"?"light":m==="light"?"dark":"system");toast(m==="system"?"โหมดสว่าง":m==="light"?"โหมดมืด":"ตามระบบ")}
   else if(t.dataset.rules){Object.assign(RULES,JSON.parse(t.dataset.rules));lsSet("rules",JSON.parse(t.dataset.rules));S.cache.clear();S.calib=null;toast("ใช้ค่าใหม่แล้ว คะแนนทุกหุ้นคำนวณใหม่");render()}
   else if(t.dataset.rulesReset){try{localStorage.removeItem("rules")}catch{}Object.assign(RULES,RULES0);S.cache.clear();S.calib=null;render()}
@@ -1153,7 +1153,7 @@ function vAccuracy(){
 S.watch=lsGet("watch")||[];S.mkt=["TH","US"].includes(lsGet("mkt"))?lsGet("mkt"):"TH";S.px=lsGet("px")||{};S.fa=lsGet("fa")||{};if(lsGet("rulesV")!==5){try{localStorage.removeItem("rules")}catch{}lsSet("rulesV",5)}Object.assign(RULES,lsGet("rules")||{});
 applyTheme(lsGet("theme")||"system");
 S.tf=["1H","4H","D","W"].includes(lsGet("tf"))?lsGet("tf"):"D";
-S.lang=lsGet("lang")==="en"?"en":"th";i18nStart(S.lang);{const b=$("#langBtn");if(b){b.textContent=S.lang==="en"?"ไทย":"EN";b.title=S.lang==="en"?"เปลี่ยนเป็นภาษาไทย":"Switch to English"}}
+S.lang=lsGet("lang")==="en"?"en":"th";i18nStart(S.lang);{const b=$("#langBtn");if(b){b.querySelectorAll(".lf").forEach(x=>x.classList.toggle("on",x.dataset.l===S.lang));b.title=S.lang==="en"?"เปลี่ยนเป็นภาษาไทย":"Switch to English"}}
 render();loadAll();syInit();
 /* ---------- แถบข่าววิ่ง: ประกาศงบวันนี้ · ขึ้น/ลงแรงวันนี้ · ข่าวระดับ 1 ล่าสุด (อัปเดตพร้อมราคาทุก 15 วินาที) ---------- */
 const EARN_RE=/\b(?:Q[1-4]|first|second|third|fourth)[- ]quarter (?:results|earnings|profit|revenue)|\bQ[1-4](?: 20\d\d)?\)? (?:earnings|results)|earnings (?:call|beat|miss|results|report|top|surprise)|beats? (?:estimates|expectations)|ผลประกอบการ|งบไตรมาส|กำไรสุทธิ(?:ไตรมาส|งวด|\s?[1-4]Q)|[1-4]Q\d\d|ไตรมาส\s?[1-4]\s?\/?\s?(?:25|20)\d\d/i;
