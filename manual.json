@@ -1,0 +1,1104 @@
+{
+ "updated": "2026-10-28",
+ "factors": [
+  {
+   "cat": "energy",
+   "date": "2026-10-23",
+   "impacts": {
+    "consumer": -0.5,
+    "energy": 1,
+    "materials": -1,
+    "transport": -1,
+    "utility": -0.5
+   },
+   "name": "ราคาน้ำมันดิบ Brent",
+   "note": "คำนวณอัตโนมัติจากสัญญาซื้อขายล่วงหน้า Brent (BZ=F)",
+   "order": 1,
+   "scope": "ALL",
+   "short": "น้ำมัน Brent",
+   "id": "oil",
+   "auto": "BZ=F",
+   "channels": [
+    {
+     "who": "ผู้สำรวจและผลิต (PTTEP, XOM, COP)",
+     "e": 1,
+     "h": "สั้น–กลาง",
+     "via": "รายได้",
+     "why": "ราคาขายน้ำมันและก๊าซสูงขึ้นโดยตรง ต้นทุนผลิตแทบไม่เปลี่ยน"
+    },
+    {
+     "who": "โรงกลั่น (TOP, BCP, SPRC)",
+     "e": 0,
+     "h": "สั้น",
+     "via": "ส่วนต่างราคา",
+     "why": "ขึ้นกับค่าการกลั่น (crack spread) และกำไรจากสต็อก ไม่ได้ดีขึ้นตามราคาน้ำมันเสมอ"
+    },
+    {
+     "who": "ปิโตรเคมี (PTTGC, IRPC, IVL)",
+     "e": -1,
+     "h": "สั้น–กลาง",
+     "via": "ต้นทุน",
+     "why": "วัตถุดิบแพงขึ้น ส่งผ่านราคาขายได้ช้าเมื่ออุปสงค์อ่อน"
+    },
+    {
+     "who": "สายการบินและขนส่ง (AAV, BA, DAL, FDX)",
+     "e": -1,
+     "h": "สั้น",
+     "via": "ต้นทุน",
+     "why": "เชื้อเพลิงเป็นต้นทุนหลัก ขึ้นราคาตั๋ว/ค่าส่งได้บางส่วนเท่านั้น"
+    }
+   ],
+   "stocks": {
+    "PTTEP": 1,
+    "PTT": 0.5,
+    "BCP": 0,
+    "TOP": 0,
+    "SPRC": 0,
+    "IRPC": -0.5,
+    "PTTGC": -0.5,
+    "IVL": -0.5,
+    "AAV": -1,
+    "BA": -1,
+    "THAI": -1,
+    "XOM": 1,
+    "CVX": 1,
+    "COP": 1,
+    "OXY": 1,
+    "EOG": 1,
+    "SLB": 0.5,
+    "DAL": -1,
+    "UAL": -1,
+    "AAL": -1,
+    "LUV": -1,
+    "FDX": -0.5,
+    "UPS": -0.5
+   }
+  },
+  {
+   "cat": "rates",
+   "date": "2026-10-21",
+   "dir": 1,
+   "impacts": {
+    "bank": 0.5,
+    "comm": -0.5,
+    "property": -0.5,
+    "tech": -0.5,
+    "utility": -0.5
+   },
+   "name": "ดอกเบี้ยนโยบาย Fed",
+   "note": "Fed คงดอกเบี้ยและเตือนว่าน้ำมันแพงจะทำให้ต้นทุนการเงินสูงนาน Goldman คาดอาจขึ้นอีกครั้ง เงินเฟ้อเดือน ก.ย. ที่ออกมาสูงกว่าคาดยิ่งกดดัน",
+   "order": 2,
+   "scope": "ALL",
+   "short": "ดอกเบี้ย Fed",
+   "src": "inkl",
+   "strength": 0.6,
+   "url": "https://www.inkl.com/news/fed-keeps-rates-steady-as-powell-warns-iran-oil-shock-could-boost-inflation-in-2026",
+   "value": "3.50–3.75%",
+   "id": "fed",
+   "channels": [
+    {
+     "who": "ตลาดหุ้นทั่วโลก",
+     "e": -1,
+     "h": "สั้น–กลาง",
+     "via": "มูลค่า + เงินทุนไหลเข้าออก",
+     "why": "ดอกเบี้ยสหรัฐฯ สูงดึงเงินออกจากตลาดเกิดใหม่และกด P/E"
+    }
+   ]
+  },
+  {
+   "cat": "rates",
+   "date": "2026-10-23",
+   "impacts": {
+    "bank": 0.5,
+    "comm": -0.5,
+    "health": -0.5,
+    "property": -1,
+    "tech": -1,
+    "utility": -1
+   },
+   "name": "Bond yield สหรัฐฯ อายุ 10 ปี",
+   "note": "คำนวณอัตโนมัติจากราคา ^TNX: ทิศทาง = การเปลี่ยนแปลง 20 วันทำการ เทียบความผันผวนปกติ",
+   "order": 3,
+   "scope": "ALL",
+   "short": "US 10Y yield",
+   "id": "us10y",
+   "auto": "^TNX",
+   "channels": [
+    {
+     "who": "หุ้นเติบโตและเทค",
+     "e": -1,
+     "h": "สั้น–กลาง",
+     "via": "มูลค่า",
+     "why": "อัตราคิดลดสูงขึ้นทำให้มูลค่ากำไรในอนาคตลดลง (P/E หด)"
+    },
+    {
+     "who": "อสังหาฯ และสาธารณูปโภค",
+     "e": -1,
+     "h": "กลาง",
+     "via": "ต้นทุนเงินกู้ + มูลค่า",
+     "why": "ใช้หนี้สูงและถูกประเมินแบบหุ้นปันผล แข่งกับผลตอบแทนพันธบัตร"
+    },
+    {
+     "who": "ธนาคารสหรัฐฯ",
+     "e": 1,
+     "h": "กลาง",
+     "via": "รายได้ดอกเบี้ย",
+     "why": "ส่วนต่างดอกเบี้ยกว้างขึ้นเมื่อดอกเบี้ยระยะยาวสูง"
+    }
+   ],
+   "stocks": {
+    "JPM": 0.5,
+    "BAC": 0.5,
+    "WFC": 0.5,
+    "C": 0.5
+   }
+  },
+  {
+   "asOf": "2026-10-15",
+   "cat": "rates",
+   "date": "2026-10-15",
+   "dir": 1,
+   "impacts": {
+    "bank": 0.5,
+    "consumer": -0.5,
+    "property": -1,
+    "utility": -1
+   },
+   "name": "Bond yield ไทย อายุ 10 ปี",
+   "note": "ปิด 2.313% ลดลง 7.9 bp ในสัปดาห์ แต่เพิ่มขึ้น 65.4 bp ตั้งแต่ต้นปี กดดันหุ้นที่พึ่งพาเงินกู้และหุ้นปันผลอย่างอสังหาฯ และโรงไฟฟ้า",
+   "order": 4,
+   "scope": "TH",
+   "short": "TH 10Y yield",
+   "src": "ADB AsianBondsOnline",
+   "strength": 0.5,
+   "url": "https://asianbondsonline.adb.org/economy/?economy=TH&page=13",
+   "value": "2.31%",
+   "id": "th10y",
+   "channels": [
+    {
+     "who": "อสังหาฯ และโรงไฟฟ้า",
+     "e": -1,
+     "h": "กลาง",
+     "via": "ต้นทุนเงินกู้",
+     "why": "ต้นทุนออกหุ้นกู้ใหม่สูงขึ้น และหุ้นปันผลดูน่าสนใจน้อยลง"
+    },
+    {
+     "who": "ธนาคาร/ประกัน",
+     "e": 1,
+     "h": "กลาง",
+     "via": "ผลตอบแทนการลงทุน",
+     "why": "ลงทุนพันธบัตรได้ผลตอบแทนสูงขึ้น"
+    }
+   ]
+  },
+  {
+   "asOf": "2026-10-21",
+   "cat": "rates",
+   "date": "2026-10-23",
+   "dir": -1,
+   "impacts": {
+    "bank": 1
+   },
+   "name": "ส่วนต่างดอกเบี้ย (NIM) ของธนาคารไทย",
+   "note": "NIM ของ KBANK ไตรมาส 3 ลดเหลือ 2.89% จาก 3.24% ปีก่อน หลัง ธปท. ลดดอกเบี้ยรวม 1.50% ธนาคารหลายแห่งกำไรลดลง แม้รายได้ค่าธรรมเนียมช่วยชดเชย",
+   "order": 5,
+   "scope": "TH",
+   "short": "NIM แบงก์ไทย",
+   "src": "Nation Thailand",
+   "strength": 1,
+   "url": "https://www.nationthailand.com/business/banking-finance/40072580",
+   "value": "2.89%",
+   "id": "nim",
+   "channels": [
+    {
+     "who": "ธนาคารพาณิชย์",
+     "e": 1,
+     "h": "กลาง",
+     "via": "รายได้ดอกเบี้ยสุทธิ",
+     "why": "NIM คือรายได้หลักของธนาคาร"
+    }
+   ]
+  },
+  {
+   "asOf": "2026-08-26",
+   "cat": "rates",
+   "date": "2026-08-26",
+   "dir": 0,
+   "impacts": {
+    "bank": 1,
+    "consumer": -0.5,
+    "property": -1,
+    "utility": -0.5
+   },
+   "name": "ดอกเบี้ยนโยบาย ธปท.",
+   "note": "กนง. คงดอกเบี้ย 1.00% ต่อเนื่อง 3 ครั้ง หลังลดรวม 1.50% ระหว่าง ต.ค. 2024–ก.พ. 2026 ประชุมครั้งถัดไป 28 ต.ค. โพล Reuters คาดคงที่ถึงปี 2027",
+   "order": 6,
+   "scope": "TH",
+   "short": "ดอกเบี้ย ธปท.",
+   "src": "The Star",
+   "strength": 0.5,
+   "url": "https://www.thestar.com.my/business/business-news/2026/08/26/thai-central-bank-keeps-key-interest-rate-unchanged",
+   "value": "1.00%",
+   "id": "bot",
+   "channels": [
+    {
+     "who": "ธนาคาร",
+     "e": 1,
+     "h": "กลาง",
+     "via": "ส่วนต่างดอกเบี้ย (NIM)",
+     "why": "ดอกเบี้ยสินเชื่อปรับขึ้นเร็วกว่าดอกเบี้ยเงินฝาก"
+    },
+    {
+     "who": "อสังหาฯ และผู้กู้เยอะ",
+     "e": -1,
+     "h": "กลาง",
+     "via": "ต้นทุนเงินกู้ + อุปสงค์",
+     "why": "ผ่อนบ้านแพงขึ้น ดอกเบี้ยจ่ายบริษัทสูงขึ้น"
+    }
+   ],
+   "stocks": {
+    "KBANK": 1,
+    "SCB": 1,
+    "BBL": 1,
+    "KTB": 1,
+    "TTB": 1
+   }
+  },
+  {
+   "cat": "fx",
+   "date": "2026-10-11",
+   "impacts": {
+    "bank": -0.5,
+    "consumer": -0.5,
+    "energy": -0.5,
+    "tech": 1,
+    "transport": 0.5
+   },
+   "name": "ค่าเงินบาท (USD/THB)",
+   "note": "คำนวณอัตโนมัติจากอัตรา USD/THB (THB=X) ขึ้น = บาทอ่อน",
+   "order": 7,
+   "scope": "TH",
+   "short": "บาทอ่อน",
+   "id": "usdthb",
+   "auto": "THB=X",
+   "channels": [
+    {
+     "who": "ผู้ส่งออก (DELTA, HANA, KCE, TU)",
+     "e": 1,
+     "h": "สั้น–กลาง",
+     "via": "รายได้",
+     "why": "รายได้เป็นดอลลาร์ แปลงเป็นบาทได้มากขึ้น"
+    },
+    {
+     "who": "ท่องเที่ยว (AOT, MINT, CENTEL)",
+     "e": 1,
+     "h": "กลาง",
+     "via": "ปริมาณ",
+     "why": "ไทยถูกลงสำหรับนักท่องเที่ยวต่างชาติ"
+    },
+    {
+     "who": "ผู้นำเข้าและบริษัทที่มีหนี้ดอลลาร์",
+     "e": -1,
+     "h": "สั้น",
+     "via": "ต้นทุน",
+     "why": "ต้นทุนนำเข้าและภาระหนี้ในรูปบาทสูงขึ้น"
+    }
+   ],
+   "stocks": {
+    "DELTA": 1,
+    "HANA": 1,
+    "KCE": 1,
+    "TU": 1,
+    "CPF": 0.5,
+    "AOT": 0.5,
+    "MINT": 0.5,
+    "CENTEL": 0.5,
+    "PTT": -0.5,
+    "BJC": -0.5
+   }
+  },
+  {
+   "asOf": "2026-10-15",
+   "cat": "macro",
+   "date": "2026-10-15",
+   "dir": -1,
+   "impacts": {
+    "consumer": 0.5,
+    "health": 0.5,
+    "property": 0.5,
+    "transport": 1
+   },
+   "name": "การท่องเที่ยวไทย",
+   "note": "เป้าผู้โดยสารปีงบ 2569 ของ AOT ถูกลดเหลือ 126 ล้านคน (เท่าปีก่อน) จากความขัดแย้งตะวันออกกลาง แม้ Golden Week และการประชุม IMF-ธนาคารโลกช่วยเดือนตุลาคม",
+   "order": 8,
+   "scope": "TH",
+   "short": "ท่องเที่ยว",
+   "src": "Kaohoon International",
+   "strength": 0.5,
+   "url": "https://www.kaohooninternational.com/?p=591399",
+   "value": "126 ล้านคน",
+   "id": "tourism",
+   "channels": [
+    {
+     "who": "สนามบิน โรงแรม สายการบิน",
+     "e": 1,
+     "h": "สั้น–กลาง",
+     "via": "ปริมาณ",
+     "why": "จำนวนผู้โดยสารและอัตราเข้าพักเปลี่ยนตามนักท่องเที่ยวโดยตรง"
+    },
+    {
+     "who": "ห้างและค้าปลีก",
+     "e": 1,
+     "h": "กลาง",
+     "via": "ยอดขาย",
+     "why": "นักท่องเที่ยวใช้จ่ายในห้าง"
+    }
+   ],
+   "stocks": {
+    "AOT": 1,
+    "MINT": 1,
+    "CENTEL": 1,
+    "ERW": 1,
+    "BA": 1,
+    "AAV": 1,
+    "CPN": 0.5
+   }
+  },
+  {
+   "asOf": "2026-10-14",
+   "cat": "macro",
+   "date": "2026-10-14",
+   "dir": 1,
+   "impacts": {
+    "bank": 0.5,
+    "consumer": -0.5,
+    "property": -0.5,
+    "tech": -0.5
+   },
+   "name": "เงินเฟ้อสหรัฐฯ (CPI)",
+   "note": "CPI เดือน ก.ย. เพิ่ม 3.7% จากปีก่อน สูงกว่าคาด 3.6% และเร่งจาก 3.4% ราคาพลังงานพุ่ง ทำให้ดอกเบี้ยมีแนวโน้มสูงนาน",
+   "order": 9,
+   "scope": "US",
+   "short": "เงินเฟ้อสหรัฐฯ",
+   "src": "investingLive",
+   "strength": 0.8,
+   "url": "https://investinglive.com/news/us-september-cpi-vs-3-6-expected-0/",
+   "value": "3.7%",
+   "id": "cpi",
+   "channels": [
+    {
+     "who": "ค้าปลีกและสินค้าฟุ่มเฟือย",
+     "e": -1,
+     "h": "กลาง",
+     "via": "อุปสงค์ + ต้นทุน",
+     "why": "ผู้บริโภคมีกำลังซื้อน้อยลง ต้นทุนค่าแรงและวัตถุดิบเพิ่ม"
+    },
+    {
+     "who": "บริษัทที่ตั้งราคาได้ (แบรนด์แข็ง)",
+     "e": 0,
+     "h": "กลาง",
+     "via": "ราคาขาย",
+     "why": "ส่งผ่านต้นทุนได้ อัตรากำไรไม่ลดมาก"
+    }
+   ]
+  },
+  {
+   "cat": "flow",
+   "date": "2026-10-12",
+   "dir": -1,
+   "impacts": {
+    "bank": 1,
+    "comm": 0.5,
+    "consumer": 0.5,
+    "energy": 0.5,
+    "health": 0.5,
+    "materials": 0.5,
+    "property": 0.5,
+    "tech": 0.5,
+    "transport": 0.5,
+    "utility": 0.5
+   },
+   "name": "เงินทุนต่างชาติในตลาดหุ้นไทย",
+   "note": "ตลาดแกว่งในกรอบ มีแรงกดดันจากเงินทุนต่างชาติไหลออก ประกอบกับค่าเงินบาทที่อ่อนตัว",
+   "order": 10,
+   "scope": "TH",
+   "short": "Fund flow ไทย",
+   "src": "Kaohoon International",
+   "strength": 0.8,
+   "url": "https://www.kaohooninternational.com/?p=592487",
+   "id": "flow",
+   "channels": [
+    {
+     "who": "หุ้นใหญ่ใน SET50",
+     "e": 1,
+     "h": "สั้น",
+     "via": "ราคา",
+     "why": "ต่างชาติซื้อขายหุ้นใหญ่เป็นหลัก กระทบราคามากกว่าหุ้นเล็ก"
+    }
+   ]
+  },
+  {
+   "asOf": "2026-08-31",
+   "cat": "macro",
+   "date": "2026-09-30",
+   "dir": -1,
+   "impacts": {
+    "consumer": 0.5,
+    "energy": 0.5,
+    "materials": 1,
+    "tech": 0.5,
+    "transport": 0.5
+   },
+   "name": "เศรษฐกิจจีน (PMI ภาคการผลิต)",
+   "note": "PMI ภาคการผลิตเดือน ส.ค. ต่ำกว่า 50 (หดตัว) ภาคบริการ 49.0 อ่อนสุดตั้งแต่ ธ.ค. 2022 กระทบความต้องการวัสดุ พลังงาน และนักท่องเที่ยวจีน ตัวเลขเดือน ต.ค. ออก 31 ต.ค.",
+   "order": 11,
+   "scope": "ALL",
+   "short": "เศรษฐกิจจีน",
+   "src": "Finance Calendar",
+   "strength": 0.5,
+   "url": "https://www.financecalendar.com/?p=2391",
+   "value": "49.8",
+   "id": "china",
+   "channels": [
+    {
+     "who": "ท่องเที่ยวไทย",
+     "e": 1,
+     "h": "กลาง",
+     "via": "ปริมาณ",
+     "why": "นักท่องเที่ยวจีนเป็นกลุ่มใหญ่"
+    },
+    {
+     "who": "ปิโตรเคมี/วัสดุ",
+     "e": 1,
+     "h": "กลาง",
+     "via": "ราคาขาย",
+     "why": "จีนเป็นผู้ซื้อหลัก ราคาสินค้าโภคภัณฑ์ขึ้นกับอุปสงค์จีน"
+    }
+   ],
+   "stocks": {
+    "AOT": 1,
+    "MINT": 0.5,
+    "CENTEL": 0.5,
+    "CPN": 0.5,
+    "PTTGC": 0.5,
+    "SCC": 0.5,
+    "AAPL": 0.5,
+    "TSLA": 0.5
+   }
+  },
+  {
+   "cat": "theme",
+   "date": "2026-10-23",
+   "dir": 1,
+   "impacts": {
+    "comm": 0.5,
+    "tech": 1,
+    "utility": 0.5
+   },
+   "name": "การลงทุนด้าน AI ของบริษัทเทคใหญ่",
+   "note": "ช่วงประกาศงบ Q3 ของบริษัทเทคใหญ่ (MSFT, GOOGL 28 ต.ค. · AAPL 2 พ.ย. · NVDA กลาง พ.ย.) ประเด็นหลักคือการลงทุนด้าน AI ซึ่งหนุนผู้ผลิตชิป อุปกรณ์ไฟฟ้า และความต้องการไฟฟ้า",
+   "order": 12,
+   "scope": "ALL",
+   "short": "AI capex",
+   "src": "SimianX",
+   "strength": 0.8,
+   "url": "https://www.simianx.ai/stories/magnificent-7-earnings-dates-results-tracker",
+   "id": "ai",
+   "channels": [
+    {
+     "who": "ผู้ผลิตชิปและอุปกรณ์ (NVDA, AVGO, DELTA)",
+     "e": 1,
+     "h": "สั้น–กลาง",
+     "via": "รายได้",
+     "why": "คำสั่งซื้อจากศูนย์ข้อมูลเพิ่มขึ้นโดยตรง"
+    },
+    {
+     "who": "ผู้ให้บริการคลาวด์ (MSFT, GOOGL, AMZN)",
+     "e": 1,
+     "h": "กลาง–ยาว",
+     "via": "รายได้ แต่กดกระแสเงินสดระยะสั้น",
+     "why": "รายได้คลาวด์โต แต่ค่าใช้จ่ายลงทุนสูงทำให้ FCF ลด"
+    },
+    {
+     "who": "โรงไฟฟ้า",
+     "e": 1,
+     "h": "ยาว",
+     "via": "ปริมาณ",
+     "why": "ศูนย์ข้อมูลใช้ไฟฟ้ามาก"
+    }
+   ],
+   "stocks": {
+    "NVDA": 1,
+    "AVGO": 1,
+    "AMD": 1,
+    "TSM": 1,
+    "MU": 1,
+    "MSFT": 1,
+    "GOOGL": 1,
+    "META": 0.5,
+    "AMZN": 1,
+    "ORCL": 1,
+    "DELTA": 1,
+    "KCE": 0.5,
+    "GULF": 0.5
+   }
+  },
+  {
+   "cat": "theme",
+   "date": "2026-10-28",
+   "dir": 0,
+   "impacts": {
+    "comm": -0.5,
+    "consumer": -0.5,
+    "materials": -0.5,
+    "tech": -1
+   },
+   "name": "ภาษีการค้าสหรัฐฯ–จีน",
+   "note": "สหรัฐฯ เลื่อนภาษีตอบโต้จีนไปถึงอย่างน้อย 10 พ.ย. 2026 และเก็บภาษี 12.5% กับ 60 ประเทศตั้งแต่ ก.ค. ตอนนี้ยังไม่มีทิศทางชัด ต้องจับตาก่อนเส้นตาย",
+   "order": 13,
+   "scope": "ALL",
+   "short": "ภาษีการค้า",
+   "src": "IDN Financials",
+   "strength": 0.5,
+   "url": "https://www.idnfinancials.com/news/69253/trump-xi-from-trade-war-to-tariff-truce",
+   "id": "tariff",
+   "channels": [
+    {
+     "who": "ผู้ผลิตที่ส่งออกไปสหรัฐฯ",
+     "e": -1,
+     "h": "กลาง–ยาว",
+     "via": "ราคาขาย/ปริมาณ",
+     "why": "ภาษีนำเข้าทำให้สินค้าแพงขึ้นหรือต้องลดราคา"
+    },
+    {
+     "who": "บริษัทสหรัฐฯ ที่ผลิตในเอเชีย",
+     "e": -1,
+     "h": "กลาง",
+     "via": "ต้นทุน",
+     "why": "ต้นทุนสินค้าที่นำเข้าเพิ่มขึ้น"
+    }
+   ],
+   "stocks": {
+    "DELTA": -1,
+    "HANA": -1,
+    "KCE": -1,
+    "AAPL": -1,
+    "NKE": -1,
+    "TSLA": -0.5
+   }
+  },
+  {
+   "cat": "flow",
+   "date": "2026-10-23",
+   "impacts": {
+    "bank": -0.5,
+    "comm": -1,
+    "consumer": -0.5,
+    "energy": -0.5,
+    "tech": -1
+   },
+   "name": "ความกลัวในตลาด (VIX / Risk-off)",
+   "note": "คำนวณอัตโนมัติจากดัชนี VIX ขึ้น = ตลาดกลัวมากขึ้น",
+   "order": 14,
+   "scope": "ALL",
+   "short": "ความกลัวตลาด",
+   "id": "vix",
+   "auto": "^VIX",
+   "channels": [
+    {
+     "who": "หุ้นที่ผันผวนสูง/มูลค่าแพง",
+     "e": -1,
+     "h": "สั้น",
+     "via": "มูลค่า",
+     "why": "นักลงทุนลดความเสี่ยง ขายหุ้นที่ขึ้นมามากก่อน"
+    },
+    {
+     "who": "หุ้นปันผล/ป้องกันตัว",
+     "e": 0,
+     "h": "สั้น",
+     "via": "มูลค่า",
+     "why": "มักลงน้อยกว่าตลาด"
+    }
+   ]
+  },
+  {
+   "id": "dxy",
+   "auto": "DX-Y.NYB",
+   "order": 15,
+   "cat": "fx",
+   "name": "ดัชนีค่าเงินดอลลาร์ (DXY)",
+   "short": "ดอลลาร์",
+   "scope": "ALL",
+   "note": "คำนวณอัตโนมัติจาก DXY ดอลลาร์แข็งมักกดดันราคาสินค้าโภคภัณฑ์และเงินทุนในตลาดเกิดใหม่",
+   "impacts": {
+    "energy": -0.5,
+    "materials": -0.5,
+    "tech": -0.5
+   },
+   "channels": [
+    {
+     "who": "สินค้าโภคภัณฑ์",
+     "e": -1,
+     "h": "สั้น",
+     "via": "ราคาขาย",
+     "why": "ราคาที่เป็นดอลลาร์มักลดลงเมื่อดอลลาร์แข็ง"
+    },
+    {
+     "who": "บริษัทสหรัฐฯ ที่ขายต่างประเทศมาก",
+     "e": -1,
+     "h": "กลาง",
+     "via": "รายได้",
+     "why": "รายได้ต่างประเทศแปลงกลับเป็นดอลลาร์ได้น้อยลง"
+    }
+   ]
+  }
+ ],
+ "news": [
+  {
+   "date": "2026-10-15",
+   "factors": [
+    {
+     "eff": -1,
+     "id": "th10y"
+    }
+   ],
+   "market": "TH",
+   "sectors": [
+    "property",
+    "utility"
+   ],
+   "sentiment": 0,
+   "source": "ADB AsianBondsOnline",
+   "summary": "yield ระยะสั้นย่อลง แต่ทั้งปีเพิ่มขึ้นชัดเจน ยังเป็นแรงกดดันต่อหุ้นอสังหาฯ และโรงไฟฟ้า",
+   "tickers": [],
+   "tier": 1,
+   "title": "Thailand 10-year government bond yield, AsianBondsOnline",
+   "titleTh": "Bond yield ไทย 10 ปี ปิด 2.313% ลดลง 7.9 bp ในสัปดาห์ แต่ยังสูงกว่าต้นปี 65 bp",
+   "url": "https://asianbondsonline.adb.org/economy/?economy=TH&page=13",
+   "id": "adb-th10y-2026-10-15"
+  },
+  {
+   "approx": true,
+   "date": "2026-09-30",
+   "factors": [
+    {
+     "eff": -1,
+     "id": "china"
+    }
+   ],
+   "market": "ALL",
+   "sectors": [
+    "materials"
+   ],
+   "sentiment": -1,
+   "source": "Finance Calendar",
+   "summary": "PMI ภาคการผลิตครั้งก่อน 49.8 ภาคบริการ 49.0 ตัวเลขเดือน ต.ค. จะประกาศ 31 ต.ค.",
+   "tickers": [
+    "SCC"
+   ],
+   "tier": 3,
+   "title": "China Official PMI October 2026 (preview)",
+   "titleTh": "PMI ภาคการผลิตจีนต่ำกว่า 50 ภาคบริการอ่อนสุดตั้งแต่ปลายปี 2022",
+   "url": "https://www.financecalendar.com/?p=2391",
+   "id": "fc-chinapmi-2026-09"
+  },
+  {
+   "date": "2026-10-14",
+   "factors": [
+    {
+     "eff": 1,
+     "id": "cpi"
+    },
+    {
+     "eff": 1,
+     "id": "fed"
+    }
+   ],
+   "market": "US",
+   "sectors": [],
+   "sentiment": -1,
+   "source": "investingLive",
+   "summary": "CPI เพิ่ม 0.6% จากเดือนก่อน มากสุดตั้งแต่ เม.ย. เงินเฟ้อรายปีเร่งจาก 3.4% ทองคำร่วงขณะดอลลาร์แข็งขึ้น",
+   "tickers": [],
+   "tier": 2,
+   "title": "US September CPI 3.7% vs 3.6% expected",
+   "titleTh": "เงินเฟ้อสหรัฐฯ ก.ย. 3.7% สูงกว่าคาด ราคาพลังงานพุ่ง",
+   "url": "https://investinglive.com/news/us-september-cpi-vs-3-6-expected-0/",
+   "id": "il-uscpi-2026-10-14"
+  },
+  {
+   "approx": true,
+   "date": "2026-10-23",
+   "factors": [
+    {
+     "eff": -1,
+     "id": "oil"
+    }
+   ],
+   "market": "ALL",
+   "sectors": [
+    "energy"
+   ],
+   "sentiment": 0,
+   "source": "Kalshi",
+   "summary": "เป็นราคาจากตลาดคาดการณ์ ไม่ใช่ราคาปิดทางการ ราคาน้ำมันผ่อนลงจากจุดสูงแต่ยังสูงกว่าปีก่อนมาก",
+   "tickers": [],
+   "tier": 3,
+   "title": "Brent oil monthly market, Oct 30 2026",
+   "titleTh": "ตลาดคาดการณ์ให้ Brent ปลาย ต.ค. ราว $95–97 ลดลงจากระดับกว่า $108 ช่วง ก.ค.",
+   "url": "https://kalshi.com/markets/kxbrentmon/brent-monthly/kxbrentmon-26oct3017",
+   "id": "kalshi-brent-2026-10"
+  },
+  {
+   "approx": true,
+   "date": "2026-05-01",
+   "market": "TH",
+   "sectors": [
+    "energy"
+   ],
+   "sentiment": 1,
+   "source": "Kaohoon International",
+   "summary": "ธุรกิจโรงกลั่นที่ดีขึ้นช่วยหนุนประมาณการกำไร ขณะที่ PTT มีแผนลงทุน 5 ปี (2569-2573) โดยตั้งงบสำรองการลงทุนราว 115,200 ล้านบาท",
+   "tickers": [
+    "PTT"
+   ],
+   "tier": 2,
+   "title": "PTT Climbs 2% as Refinery Growth Prospect Uplifts 2026-27 Outlook",
+   "titleTh": "PTT บวก 2% แนวโน้มธุรกิจโรงกลั่นหนุนมุมมองปี 2569-70",
+   "url": "https://www.kaohooninternational.com/?p=575494",
+   "id": "kh-575494"
+  },
+  {
+   "approx": true,
+   "date": "2026-08-01",
+   "market": "TH",
+   "sectors": [
+    "utility"
+   ],
+   "sentiment": 1,
+   "source": "Kaohoon International",
+   "summary": "กรุงศรีคงคำแนะนำ “ซื้อ” ราคาเป้าหมายปี 2569 ที่ 74 บาท ขณะที่ InnovestX ปรับกำไรปกติปี 2569-70 ขึ้น 9% จากความต้องการไฟฟ้าที่สูงขึ้นและส่วนแบ่งจาก ADVANC",
+   "tickers": [
+    "GULF",
+    "ADVANC"
+   ],
+   "tier": 2,
+   "title": "GULF Surges 2% on Positive 2Q26 Earnings Outlook and Robust Expansion Capability Going Forward",
+   "titleTh": "GULF บวก 2% รับแนวโน้มกำไรไตรมาส 2/69 กรุงศรีคงคำแนะนำซื้อ เป้า 74 บาท",
+   "url": "https://www.kaohooninternational.com/markets/588075",
+   "id": "kh-588075"
+  },
+  {
+   "approx": true,
+   "date": "2026-10-15",
+   "factors": [
+    {
+     "eff": 1,
+     "id": "tourism"
+    }
+   ],
+   "market": "TH",
+   "sectors": [
+    "transport"
+   ],
+   "sentiment": 1,
+   "source": "Kaohoon International",
+   "summary": "คาดเที่ยวบินและผู้โดยสารเดือนตุลาคมเพิ่มจาก Golden Week ของจีนและตารางบินฤดูหนาว คาดกำไรปกติปีงบ 2570 โต 57% แต่เป้าผู้โดยสารปีงบ 2569 ถูกปรับลดเหลือ 126 ล้านคนจากความขัดแย้งในตะวันออกกลาง",
+   "tickers": [
+    "AOT"
+   ],
+   "tier": 2,
+   "title": "InnovestX Sees AOT Upside From Slot Management, Chinese Travel and Fee Revision",
+   "titleTh": "InnovestX มองบวก AOT จากการจัดการ slot การบิน นักท่องเที่ยวจีน และค่าธรรมเนียมใหม่",
+   "url": "https://www.kaohooninternational.com/?p=591399",
+   "id": "kh-591399"
+  },
+  {
+   "date": "2026-10-09",
+   "factors": [
+    {
+     "eff": -1,
+     "id": "flow"
+    }
+   ],
+   "market": "TH",
+   "sectors": [],
+   "sentiment": 1,
+   "source": "Kaohoon International",
+   "summary": "ตลาดหุ้นไทยปิดบวกเล็กน้อย ขณะที่บทวิเคราะห์ช่วงต้นเดือนชี้ว่าตลาดแกว่งในกรอบ และกดดันจากเงินทุนต่างชาติไหลออก",
+   "tickers": [],
+   "tier": 2,
+   "title": "Market Roundup 9 October 2026",
+   "titleTh": "SET ปิด 1,577.65 จุด บวก 7.04 จุด (+0.45%) มูลค่าซื้อขาย 53,540 ล้านบาท",
+   "url": "https://www.kaohooninternational.com/?p=592487",
+   "id": "kh-592487"
+  },
+  {
+   "date": "2026-10-20",
+   "factors": [
+    {
+     "eff": -1,
+     "id": "flow"
+    }
+   ],
+   "market": "TH",
+   "sectors": [
+    "tech"
+   ],
+   "sentiment": -1,
+   "source": "Kaohoon International",
+   "summary": "ดัชนีปรับลงตามตลาดในภูมิภาค จากแรงขายหุ้นขนาดใหญ่ โดยเฉพาะกลุ่มเทคโนโลยี",
+   "tickers": [
+    "DELTA"
+   ],
+   "tier": 2,
+   "title": "Market Roundup 20 October 2026",
+   "titleTh": "SET ปรับลงตามตลาดภูมิภาค แรงขายหุ้นใหญ่ โดยเฉพาะกลุ่มเทคโนโลยี",
+   "url": "https://www.kaohooninternational.com/?p=592960",
+   "id": "kh-592960"
+  },
+  {
+   "approx": true,
+   "date": "2026-10-21",
+   "factors": [
+    {
+     "eff": -1,
+     "id": "nim"
+    }
+   ],
+   "market": "TH",
+   "sectors": [
+    "bank"
+   ],
+   "sentiment": 0,
+   "source": "Kaohoon International",
+   "summary": "กำไร 9 เดือน 40,635 ล้านบาท +3.4% YoY (ไม่รวมรายการพิเศษใกล้เคียงปีก่อน) NIM 2.89% จาก 3.24% ปีก่อน ต้นทุนความเสี่ยงสินเชื่อ 1.60% อยู่บนสุดของเป้า และคาดค่าใช้จ่ายตามฤดูกาลสูงขึ้นในไตรมาส 4",
+   "tickers": [
+    "KBANK"
+   ],
+   "tier": 2,
+   "title": "Kasikorn Reports THB12.7 Billion of Net Profit in 3Q26 with NII Surge and Strong Coverage Buffer",
+   "titleTh": "KBANK กำไรไตรมาส 3/69 ราว 12,720 ล้านบาท ลดลง 2.1% YoY, NIM แคบลงเหลือ 2.89%",
+   "url": "https://www.kaohooninternational.com/?p=592987",
+   "id": "kh-592987"
+  },
+  {
+   "approx": true,
+   "date": "2026-10-22",
+   "market": "TH",
+   "sectors": [
+    "bank"
+   ],
+   "sentiment": 1,
+   "source": "Kaohoon International",
+   "summary": "กำไรไตรมาส 3 ตรงกับประมาณการของ CGS International และ Bloomberg consensus แต่คาดกำไรไตรมาส 4 ลดลงจากไตรมาสก่อนตามค่าใช้จ่ายตามฤดูกาล",
+   "tickers": [
+    "KBANK"
+   ],
+   "tier": 2,
+   "title": "CGSI Keeps KBANK at Add with THB253 Target as Earnings Meet Estimates",
+   "titleTh": "CGSI คงคำแนะนำ “Add” KBANK ราคาเป้าหมาย 253 บาท หลังกำไรตรงคาด",
+   "url": "https://www.kaohooninternational.com/?p=593008",
+   "id": "kh-593008"
+  },
+  {
+   "date": "2026-10-22",
+   "market": "TH",
+   "sectors": [
+    "tech",
+    "energy"
+   ],
+   "sentiment": 0,
+   "source": "Kaohoon International",
+   "summary": "บทสรุปตลาดแนะนำให้นักลงทุนติดตามผลประกอบการบริษัทเทคโนโลยีสหรัฐฯ หุ้นที่อิงเศรษฐกิจในประเทศ และหุ้นที่เกี่ยวกับพลังงาน",
+   "tickers": [],
+   "tier": 2,
+   "title": "Market Roundup 22 October 2026",
+   "titleTh": "สรุปตลาด 22 ต.ค.: แนะจับตางบบริษัทเทคสหรัฐฯ หุ้นในประเทศ และกลุ่มพลังงาน",
+   "url": "https://www.kaohooninternational.com/?p=593165",
+   "id": "kh-593165"
+  },
+  {
+   "date": "2026-08-21",
+   "market": "TH",
+   "sectors": [
+    "energy"
+   ],
+   "sentiment": 1,
+   "source": "MGR Online",
+   "summary": "กำไรครึ่งปีแรกเพิ่มขึ้นราว 74% และคาดจ่ายปันผลระหว่างกาลต้นเดือนกันยายน ไตรมาส 1 กำไร 25,738 ล้านบาท +10.4% YoY",
+   "tickers": [
+    "PTT",
+    "PTTEP"
+   ],
+   "tier": 2,
+   "title": "PTT shows strong first-half performance with net profit surging 74% to nearly 80 billion",
+   "titleTh": "PTT กำไรครึ่งแรกปี 2569 พุ่ง 74% เกือบ 80,000 ล้านบาท",
+   "url": "https://en.mgronline.com/culture/ptt-shows-strong-first-half-performance-with-net-profit-surging-74-to-nearly-80/",
+   "id": "mgr-ptt-1h26"
+  },
+  {
+   "approx": true,
+   "date": "2026-10-23",
+   "factors": [
+    {
+     "eff": -1,
+     "id": "nim"
+    }
+   ],
+   "market": "TH",
+   "sectors": [
+    "bank"
+   ],
+   "sentiment": 0,
+   "source": "Nation Thailand",
+   "summary": "BBL และ SCBX กำไรลดลง YoY, NPL ของธนาคารไทยพาณิชย์ดีขึ้นเป็นไตรมาสที่ 6 ที่ 2.95% กำไร 9 เดือนรวม 6 แบงก์ราว 150,800 ล้านบาท ตัวขับเคลื่อนย้ายจากส่วนต่างดอกเบี้ยไปสู่ค่าธรรมเนียมและธุรกิจบริหารความมั่งคั่ง",
+   "tickers": [
+    "KBANK",
+    "SCB"
+   ],
+   "tier": 2,
+   "title": "Thai Banks' Q3 Profits Diverge Amid Margin Squeeze as Fee Income Offsets",
+   "titleTh": "กำไรแบงก์ไทยไตรมาส 3 แตกต่างกัน ส่วนต่างดอกเบี้ยถูกบีบ รายได้ค่าธรรมเนียมช่วยชดเชย",
+   "url": "https://www.nationthailand.com/business/banking-finance/40072580",
+   "id": "nt-40072580"
+  },
+  {
+   "date": "2026-10-23",
+   "factors": [
+    {
+     "eff": -1,
+     "id": "us10y"
+    },
+    {
+     "eff": 1,
+     "id": "vix"
+    }
+   ],
+   "market": "US",
+   "sectors": [],
+   "sentiment": 0,
+   "source": "OctagonAI",
+   "summary": "yield ลดลงเหลือ 4.96% เมื่อ 22 ต.ค. และทรงตัวใกล้ระดับนั้นวันที่ 23 จากแรงซื้อพันธบัตรเป็นสินทรัพย์ปลอดภัย (แหล่งข้อมูลรองจากตลาดคาดการณ์)",
+   "tickers": [],
+   "tier": 3,
+   "title": "How high will the 10-year US Treasury yield get by Oct 30, 2026?",
+   "titleTh": "Bond yield สหรัฐฯ 10 ปี ลดลงมาที่ 4.96% หลังแตะ 5.34% สูงสุดตั้งแต่ปี 2002",
+   "url": "https://www.octagonai.co/markets/financials/interest-rates/how-high-will-the-10-year-us-treasury-yield-get-by-oct-30-2026/",
+   "id": "oct-us10y-2026-10-23"
+  },
+  {
+   "date": "2026-10-11",
+   "factors": [
+    {
+     "eff": 1,
+     "id": "usdthb"
+    }
+   ],
+   "market": "TH",
+   "sectors": [],
+   "sentiment": 0,
+   "source": "Pound Sterling Live",
+   "summary": "USD/THB 33.57 (11 ต.ค.) จากระดับ 32.94 เมื่อ 6 ต.ค. ช่วงทั้งปีอยู่ระหว่าง 30.93–33.83",
+   "tickers": [],
+   "tier": 3,
+   "title": "U.S. Dollar-Thai Baht History: 2026",
+   "titleTh": "ค่าเงินบาทอ่อนไปที่ 33.57 ต่อดอลลาร์ ใกล้ระดับอ่อนสุดของปี",
+   "url": "https://www.poundsterlinglive.com/history/USD-THB-2026",
+   "id": "psl-usdthb-2026-10-11"
+  },
+  {
+   "date": "2026-10-23",
+   "factors": [
+    {
+     "eff": 1,
+     "id": "ai"
+    }
+   ],
+   "market": "US",
+   "sectors": [
+    "tech",
+    "comm"
+   ],
+   "sentiment": 0,
+   "source": "SimianX",
+   "summary": "ช่วงประกาศงบของบริษัทเทคใหญ่ ประเด็นหลักคือการลงทุนด้าน AI (AI capex) ความผันผวนอาจสูงรอบวันประกาศงบ",
+   "tickers": [
+    "MSFT",
+    "GOOGL",
+    "AAPL",
+    "NVDA",
+    "META",
+    "AMZN"
+   ],
+   "tier": 3,
+   "title": "Magnificent 7 Earnings Dates 2026: Q3 Schedule, Results and AI Capex",
+   "titleTh": "ปฏิทินงบ Q3: MSFT และ GOOGL 28 ต.ค., AAPL 2 พ.ย. (ครั้งแรกภายใต้ CEO John Ternus), NVDA คาดกลาง พ.ย.",
+   "url": "https://www.simianx.ai/stories/magnificent-7-earnings-dates-results-tracker",
+   "id": "sx-mag7-dates"
+  },
+  {
+   "date": "2026-10-21",
+   "market": "US",
+   "sectors": [],
+   "sentiment": 1,
+   "source": "Tapeboard",
+   "summary": "ตลาดปิดบวกทั่วกระดานก่อนเข้าสู่ช่วงประกาศงบบริษัทเทคโนโลยีรายใหญ่",
+   "tickers": [],
+   "tier": 3,
+   "title": "Market Pulse 2026-10-21",
+   "titleTh": "หุ้นสหรัฐฯ ปิดบวก: S&P 500 +0.58% (7,757.17) Nasdaq +1.05% Dow +0.69%",
+   "url": "https://tapeboard.com/blog/market-pulse-2026-10-21",
+   "id": "tb-2026-10-21"
+  },
+  {
+   "date": "2026-10-22",
+   "factors": [
+    {
+     "eff": 1,
+     "id": "vix"
+    }
+   ],
+   "market": "US",
+   "sectors": [
+    "tech",
+    "comm"
+   ],
+   "sentiment": -1,
+   "source": "Tapeboard",
+   "summary": "แรงขายในกลุ่มเทคโนโลยีและสื่อสารกดดันดัชนี หลังจากวันก่อนหน้าตลาดปิดบวก",
+   "tickers": [
+    "NVDA",
+    "AVGO",
+    "MSFT",
+    "AAPL",
+    "GOOGL",
+    "META"
+   ],
+   "tier": 3,
+   "title": "Market Pulse 2026-10-22",
+   "titleTh": "Nasdaq ร่วง 2.60% ปิด 26,008.86 · S&P 500 ลง 1.21% ปิด 7,663.43 กลุ่มเทคและสื่อสารนำการลง",
+   "url": "https://tapeboard.com/blog/market-pulse-2026-10-22",
+   "id": "tb-2026-10-22"
+  },
+  {
+   "approx": true,
+   "date": "2026-06-01",
+   "market": "TH",
+   "sectors": [
+    "transport"
+   ],
+   "sentiment": 1,
+   "source": "Thailand Business News",
+   "summary": "ค่าธรรมเนียมผู้โดยสารที่สูงขึ้นหนุนรายได้ด้านการบิน",
+   "tickers": [
+    "AOT"
+   ],
+   "tier": 2,
+   "title": "Airports of Thailand to increase international passenger service fees starting June 20, 2026",
+   "titleTh": "AOT ขึ้นค่าบริการผู้โดยสารขาออกระหว่างประเทศจาก 730 เป็น 1,120 บาท ตั้งแต่ 20 มิ.ย. 2569",
+   "url": "https://www.thailand-business-news.com/tourism/308365-airports-of-thailand-to-increase-international-passenger-service-fees-starting-june-20-2026",
+   "id": "tbn-308365"
+  }
+ ]
+}

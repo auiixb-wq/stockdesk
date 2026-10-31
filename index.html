@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#11261B">
+<meta name="description" content="วิเคราะห์หุ้นไทยและสหรัฐฯ พร้อมจุดซื้อ TP SL งบการเงิน ข่าว และปัจจัยมหภาค">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>stockdesk</title>
+<script>try{if(JSON.parse(localStorage.getItem("mkt")||"null")==="US")document.documentElement.dataset.mkt="US"}catch(e){}</script>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=Prompt:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="app.css?v=69">
+
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#home" aria-label="stockdesk หน้าแรก"><i><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16.5l5-5 3.5 3.5L20 7.5"/></svg></i><span class="bt">stockdesk</span></a>
+    <div class="mswitch" role="group" aria-label="เลือกตลาด"><button type="button" data-mkt="TH">หุ้นไทย</button><button type="button" data-mkt="US">หุ้น US</button></div>
+    <nav class="tabs" aria-label="เมนูหลัก">
+      <a class="tab" href="#home" data-v="home">หน้าแรก</a>
+      <a class="tab" href="#market" data-v="market">ตลาด</a>
+      <a class="tab" href="#watch" data-v="watch">โปรด</a>
+      <a class="tab" href="#news" data-v="news">ข่าว</a>
+      <a class="tab" href="#factors" data-v="factors">ปัจจัย</a>
+      <a class="tab" href="#more" data-v="more">เพิ่มเติม</a>
+    </nav>
+    <div class="search">
+      <input id="q" type="search" placeholder="ค้นหาหุ้น เช่น PTT, NVDA" autocomplete="off" aria-label="ค้นหาหุ้น">
+      <div class="sugg" id="sugg" hidden></div>
+    </div>
+    <span class="live" id="live" role="status"></span>
+    <button class="lang-btn" id="langBtn" type="button" aria-label="เปลี่ยนภาษา / Change language"><span class="lf" data-l="th"><svg viewBox="0 0 9 6" width="18" height="12" aria-hidden="true"><rect width="9" height="6" fill="#A51931"/><rect y="1" width="9" height="4" fill="#F4F5F8"/><rect y="2" width="9" height="2" fill="#2D2A4A"/></svg>TH</span><span class="lf" data-l="en"><svg viewBox="0 0 60 30" width="18" height="12" aria-hidden="true"><clipPath id="ukc"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" clip-path="url(#ukc)" stroke="#C8102E" stroke-width="4"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></svg>EN</span></button>
+    <button class="icon-btn" id="themeBtn" type="button" aria-label="สลับโหมดสี"></button>
+  </div>
+  <div class="tick" id="tick" hidden><div class="tk-in" id="tickIn"></div></div>
+</header>
+
+<div class="bg3d" aria-hidden="true"><span class="floor"></span><span class="coin c1"><b></b></span><span class="coin c2"><b></b></span><svg class="bars" viewBox="0 0 280 210"><path class="bs" d="M28 162l11 -7v38l-11 7z"/><path class="bt" d="M8 162l11 -7h20l-11 7z"/><rect class="bf" x="8" y="162" width="20" height="38"/><path class="bs" d="M60 136l11 -7v64l-11 7z"/><path class="bt" d="M40 136l11 -7h20l-11 7z"/><rect class="bf" x="40" y="136" width="20" height="64"/><path class="bs" d="M92 148l11 -7v52l-11 7z"/><path class="bt" d="M72 148l11 -7h20l-11 7z"/><rect class="bf" x="72" y="148" width="20" height="52"/><path class="bs" d="M124 110l11 -7v90l-11 7z"/><path class="bt" d="M104 110l11 -7h20l-11 7z"/><rect class="bf" x="104" y="110" width="20" height="90"/><path class="bs" d="M156 124l11 -7v76l-11 7z"/><path class="bt" d="M136 124l11 -7h20l-11 7z"/><rect class="bf" x="136" y="124" width="20" height="76"/><path class="bs" d="M188 78l11 -7v122l-11 7z"/><path class="bt" d="M168 78l11 -7h20l-11 7z"/><rect class="bf" x="168" y="78" width="20" height="122"/><path class="bs" d="M220 92l11 -7v108l-11 7z"/><path class="bt" d="M200 92l11 -7h20l-11 7z"/><rect class="bf" x="200" y="92" width="20" height="108"/><path class="bs" d="M252 44l11 -7v156l-11 7z"/><path class="bt" d="M232 44l11 -7h20l-11 7z"/><rect class="bf" x="232" y="44" width="20" height="156"/><polyline class="tl" points="24,141 56,115 88,127 120,89 152,103 184,57 216,71 248,23"/><circle class="td" cx="248" cy="23" r="4.5"/></svg></div>
+<main id="app"></main>
+<footer class="site-foot"><b>stockdesk</b> by Babybeck · Copyright © <span id="fy">2026</span> · All rights reserved</footer>
+
+<nav class="bnav" aria-label="เมนูหลัก">
+  <a href="#home" data-v="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>หน้าแรก</a>
+  <a href="#market" data-v="market"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19V5M4 19h16M8 15l4-5 3 3 5-6"/></svg>ตลาด</a>
+  <a href="#watch" data-v="watch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg>โปรด</a>
+  <a href="#news" data-v="news"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/></svg>ข่าว</a>
+  <a href="#more" data-v="more"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>เพิ่มเติม</a>
+</nav>
+
+<script defer src="vendor/lightweight-charts-4.1.3.js"></script>
+<script defer src="i18n-en.js?v=69"></script>
+<script defer src="i18n.js?v=69"></script>
+<script defer src="core.js?v=69"></script>
+<script defer src="app.js?v=69"></script>
+</body>
+</html>
