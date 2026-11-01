@@ -34,6 +34,7 @@ jobs:
           case "${{ github.event.inputs.set }}" in
             15m) bash research/intra_run15.sh res > results.txt 2>&1 || true ;;
             tfx) bash research/tfx_run.sh res > results.txt 2>&1 || true ;;
+            tfwr) bash research/tfwr_run.sh res > results.txt 2>&1 || true ;;
             *) bash research/intra_run.sh res > results.txt 2>&1 || true ;;
           esac
           cat fetch.txt >> results.txt

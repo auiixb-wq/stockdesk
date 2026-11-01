@@ -241,7 +241,9 @@ if (process.env.WR) {
   };
   if (process.env.WRE) for (const k of Object.keys(ENT)) if (!process.env.WRE.split(",").includes(k)) delete ENT[k];
   const EX = [];
-  for (const s of [1.5, 2, 3, 4]) for (const H of [10, 20, 40]) {
+  // ถือไม่เกินกี่วัน → จำนวนแท่ง (BPD = แท่งต่อวัน: วัน 1 · สัปดาห์ 0.2 · 4 ชม. 2 · 1 ชม. TH 6 / US 7)
+  const BPD = +(process.env.BPD || 1), DAYS = (process.env.WRH || (BPD < 1 ? "10,20,40" : BPD > 1 ? "1,3,5,10" : "10,20,40")).split(",").map(Number);
+  for (const s of [1.5, 2, 3, 4]) for (const H of DAYS.map(d => Math.max(1, Math.round(d * BPD)))) {
     for (const k of [4, 6, 8]) if (k >= s) EX.push({ s, k1: null, k2: k, f: 0, H });
     for (const k1 of [1, 1.5, 2, 2.5, 3]) for (const k2 of [4, 6, 8]) for (const f of [.3, .5]) if (k2 >= s && k2 > k1) EX.push({ s, k1, k2, f, H });
   }
@@ -267,8 +269,8 @@ if (process.env.WR) {
         });
       }
     }
-    const rows = EX.map((X, q) => ({ X, is: sm(res[q].is), oos: sm(res[q].oos) })).filter(r => r.is.n >= 60 && r.oos.n >= 60);
-    const lab = r => `SL${r.X.s} ${r.X.k1 ? `TP1 ${r.X.k1}(${r.X.f * 100}%)→ทุน ` : ""}TP${r.X.k2} ถือ${r.X.H}`, fm = r => `${lab(r).padEnd(30)} | ${r.is.n}/${r.oos.n} ชนะ ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% เฉลี่ย ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}% ได้เฉลี่ย +${((r.is.aw + r.oos.aw) / 2).toFixed(1)} เสียเฉลี่ย ${((r.is.al + r.oos.al) / 2).toFixed(1)}`;
+    const rows = EX.map((X, q) => ({ X, is: sm(res[q].is), oos: sm(res[q].oos) })).filter(r => r.is.n >= +(process.env.WRN || 60) && r.oos.n >= +(process.env.WRN || 60));
+    const lab = r => `SL${r.X.s} ${r.X.k1 ? `TP1 ${r.X.k1}(${r.X.f * 100}%)→ทุน ` : ""}TP${r.X.k2} ถือ${+(r.X.H / BPD).toFixed(1)}วัน`, fm = r => `${lab(r).padEnd(30)} | ${r.is.n}/${r.oos.n} ชนะ ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% เฉลี่ย ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}% ได้เฉลี่ย +${((r.is.aw + r.oos.aw) / 2).toFixed(1)} เสียเฉลี่ย ${((r.is.al + r.oos.al) / 2).toFixed(1)}`;
     const wv = r => Math.min(r.is.avg, r.oos.avg), ww = r => Math.min(r.is.win, r.oos.win);
     if (process.env.WRSTAT) for (const r of rows.filter(r => lab(r).replace(/ +/g, " ").trim() === process.env.WRSTAT)) { const z = r.X.z; console.log(`  สถิติ ${lab(r)}: ถึง TP1 ${(z.h1 / z.n * 100).toFixed(0)}% (~${(z.d1 / (z.h1 || 1)).toFixed(0)} วัน) · ถึง TP2 ${(z.h2 / z.n * 100).toFixed(0)}% (~${(z.d2 / (z.h2 || 1)).toFixed(0)} วัน) · โดน SL เต็มก่อน TP1 ${(z.fs / z.n * 100).toFixed(0)}% เสียเฉลี่ย ${(z.fsr / (z.fs || 1) * 100).toFixed(1)}%`) }
     console.log(`\n${MK} ${nm}`);
