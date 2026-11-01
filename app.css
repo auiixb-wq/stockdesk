@@ -626,3 +626,19 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .vchart-h .tfs{margin:0}.vchart-h .btn{margin-left:auto}
 .vchart .chartbox{flex:1;min-height:300px}
 .vchart .legend{margin-top:6px}
+/* ปุ่ม "สรุป" ในตัวเลือกตลาด + หน้าสรุปตลาด */
+.mswitch .mbrief{color:var(--ink-2);font:600 13px var(--f-body);padding:6px 12px;border-radius:99px;text-decoration:none;white-space:nowrap}
+.mswitch .mbrief[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+@media (max-width:820px){.mswitch .mbrief{padding:5px 9px;font-size:12px}}
+.br-top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:10px;margin-bottom:12px}
+.br-hero p{margin:0;font-size:15.5px;line-height:1.6}
+.br-ul{margin:6px 0 0;padding-left:18px;line-height:1.7}.br-ul li{margin:2px 0}
+.br-ol{margin:8px 0 0;padding-left:20px}.br-n{margin:0 0 12px}.br-n a{font-weight:600}
+.br-nh{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:2px;font-size:12px}
+.br-cat{background:var(--surface-2);border-radius:99px;padding:1px 8px;font-weight:600}
+.br-src{font-size:12px}.br-sub{font-size:12.5px;margin:2px 0 6px}
+.br-secs{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.br-sec{border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;min-width:0}
+.br-sh{display:flex;justify-content:space-between;font-size:14.5px}.br-sm,.br-sn{margin-top:4px;overflow-wrap:anywhere}
+.br-out.br-up{border-left:4px solid var(--up)}.br-out.br-down{border-left:4px solid var(--down)}.br-out.br-mid{border-left:4px solid var(--warn)}
+.br-out h2{margin:2px 0 6px}.br-out h3{margin:12px 0 2px;font-size:14px}.br-f{display:inline-block;width:14px}

@@ -800,16 +800,17 @@ async function toggleFav(sym){const list=S.watch.includes(sym)?S.watch.filter(x=
 function route(){const h=location.hash.slice(1);if(h.startsWith("s-"))return{v:"stock",sym:h.slice(2).toUpperCase()};return{v:NAV.includes(h)?h:"home"}}
 let curRange=126;
 function render(){queueMicrotask(renderTicker);
-  const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.mkt===S.mkt));document.documentElement.dataset.mkt=S.mkt;document.querySelector('meta[name="theme-color"]')?.setAttribute("content",S.mkt==="US"?"#0F1E3D":"#11261B");document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
+  const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",r.v!=="brief"&&b.dataset.mkt===S.mkt));document.querySelector(".mswitch .mbrief")?.setAttribute("aria-pressed",r.v==="brief");document.documentElement.dataset.mkt=S.mkt;document.querySelector('meta[name="theme-color"]')?.setAttribute("content",S.mkt==="US"?"#0F1E3D":"#11261B");document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
   killCharts();
-  $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="sync"?vSync():vHome()}</div>`;
+  $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="brief"?vBrief():r.v==="sync"?vSync():vHome()}</div>`;
   if(r.v==="stock"){const st=stockBySym(r.sym);if(st&&hasBars(st)){const R=analyze(st),X=chartR(st);if($("#cMain")){if(X)drawCharts(X,$("#cRsi")?curRange:S.tf==="D"?126:S.tf==="W"?104:140);else $("#cMain").innerHTML=`<div class="empty">${(S.tf==="15m"?S.intra15:S.intra)?.[st.s]===null?"หุ้นนี้ยังไม่มีราคารายชั่วโมง":"กำลังโหลดราคารายชั่วโมง…"}</div>`}calc(R)}}
 }
 function calc(R){const out=$("#calcOut");if(!out)return;const cap=+$("#capIn").value||0,rk=+$("#riskIn").value||0,P=R.plan,m=R.st.m;const per=P.entry-P.sl;let sh=per>0?Math.floor(cap*rk/100/per):0;const lot=m==="TH"?100:1;sh=Math.floor(Math.min(sh,cap/P.entry)/lot)*lot;
   out.innerHTML=`<dt>จำนวนหุ้นที่ซื้อได้${m==="TH"?" (ล็อต 100)":""}</dt><dd class="num">${sh.toLocaleString()}</dd><dt>เงินที่ใช้</dt><dd class="num">${cur(m)}${fmt(sh*P.entry)}</dd><dt>ขาดทุนสูงสุดถ้าโดน SL</dt><dd class="num down">−${cur(m)}${fmt(sh*per)}</dd><dt>กำไรถ้าถึง TP2</dt><dd class="num up">+${cur(m)}${fmt(sh*(P.tp2-P.entry))}</dd>`}
 document.addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;
-  if(t.dataset.mkt){S.mkt=t.dataset.mkt;lsSet("mkt",S.mkt);S.mlimit=60;S.sgl=20;S.nlim=20;S.nq="";S.sec=null;render();window.scrollTo(0,0)}
+  if(t.dataset.mkt){S.mkt=t.dataset.mkt;lsSet("mkt",S.mkt);S.mlimit=60;S.sgl=20;S.nlim=20;S.nq="";S.sec=null;if(route().v==="brief")location.hash="#home";else render();window.scrollTo(0,0)}
+  else if(t.dataset.bm){S.bm=t.dataset.bm;lsSet("bm",S.bm);render()}
   else if(t.dataset.sort){S.sort=t.dataset.sort;render()}
   else if(t.dataset.scr){S.scr=t.dataset.scr;render()}
   else if(t.dataset.nf){S.nf=t.dataset.nf;S.nlim=20;render()}
@@ -1110,6 +1111,87 @@ function advisorCard(){const P=portfolio(),rows=P.rows.length?P.rows.map(r=>[r.s
 /* ---------- signals ---------- */
 // แผนพอร์ตตามระบบ: ถือพร้อมกันไม่เกิน 5 ตัว ตัวละ 1/5 ของเงินพอร์ต · เลือกสัญญาณที่หุ้นแข็งกว่าตลาดมากสุดก่อน (เหมือนการทดสอบพอร์ต)
 const SLOTS=5,PORT_BT={TH:"ไทย ~4 ปี: เงิน 100,000 → 350,096 (35.5%/ปี) · ลดลงลึกสุด 9.8%",US:"สหรัฐฯ ~4 ปี: เงิน 100,000 → 953,658 (72.1%/ปี) · ลดลงลึกสุด 19.7%"};
+/* ---------- สรุปตลาด (ปุ่ม "สรุป" ข้างตัวเลือกตลาด): ภาพรวม · เหตุการณ์สำคัญ · รายกลุ่ม · แนวโน้มวันถัดไป ----------
+   คำนวณในเบราว์เซอร์จากข้อมูลที่มีอยู่แล้ว (ราคา ดัชนี ข่าว วิเคราะห์ตลาดรายคืน) · เสาร์–อาทิตย์/วันหยุด สรุปเฉพาะข่าว + สิ่งที่ต้องติดตาม */
+// หมวดเหตุการณ์และน้ำหนักความสำคัญ (ข่าวที่กระทบทั้งตลาดสำคัญกว่าข่าวหุ้นรายตัว)
+const BR_CAT=[
+  ["การเมือง/เลือกตั้ง",5,/\belection|midterm|ballot|\bvote|polls? show|congress|senate|white house|shutdown|เลือกตั้ง|รัฐบาล|นายกฯ|นายกรัฐมนตรี|สภา|ยุบสภา|งบประมาณ/i],
+  ["ดอกเบี้ย/นโยบายการเงิน",4,/\bFed\b|FOMC|Powell|rate (?:cut|hike|decision)|interest rate|central bank|\bBOJ\b|\bECB\b|treasury yield|bond yield|กนง|ดอกเบี้ย|ธปท|แบงก์ชาติ|นโยบายการเงิน|อัตราผลตอบแทนพันธบัตร/i],
+  ["การค้า/ภาษีนำเข้า",4,/tariff|trade (?:war|deal|talks)|export control|ภาษีนำเข้า|กำแพงภาษี|สงครามการค้า|ข้อตกลงการค้า/i],
+  ["เศรษฐกิจ",3,/\bCPI\b|inflation|\bGDP\b|jobs report|payrolls?|unemployment|\bPMI\b|retail sales|recession|consumer (?:confidence|spending)|เงินเฟ้อ|จีดีพี|GDP|ส่งออก|เศรษฐกิจ|ว่างงาน|ดัชนีผู้บริโภค/i],
+  ["ภูมิรัฐศาสตร์",3,/\bwar\b|missile|attack|sanction|conflict|ceasefire|military|สงคราม|ความขัดแย้ง|คว่ำบาตร|หยุดยิง|โจมตี/i],
+  ["น้ำมัน/พลังงาน",2,/\boil\b|OPEC|crude|brent|natural gas|น้ำมัน|โอเปก|ก๊าซ/i],
+  ["เงินทุนไหล/ค่าเงิน",2,/foreign (?:investors|funds|selling|buying)|net (?:sell|buy)|fund (?:flows?|outflows?|inflows?)|dollar index|(?:strong|weak|stronger|weaker) dollar|ต่างชาติ(?:ขาย|ซื้อ)|ขายสุทธิ|ซื้อสุทธิ|ค่าเงินบาท|เงินบาท(?:อ่อน|แข็ง)|ดัชนีดอลลาร์/i],
+  ["ภาพรวมตลาด",2,/SET index|ดัชนี SET|S&P 500|Dow Jones|Nasdaq (?:Composite|closes|ends|falls|rises|slides|jumps)|Wall Street|stock market|stocks? (?:rally|fall|slide|surge|tumble|sink|climb)|ตลาดหุ้น|หุ้นไทย(?:ปิด|วันนี้|ร่วง|ปรับ)|SET ปิด/i],
+];
+// ข่าวที่ไม่ใช่เหตุการณ์ (หน้าราคา ETF, บทความชวนซื้อ/รายการ "x หุ้นที่ควรซื้อ") ตัดทิ้งก่อนจัดอันดับ
+const BR_JUNK=/stock price & latest news|\| stock price|\bETF\b.*(?:buffer|july|june)|prediction:|could be worth|should you buy|is it time to buy|(?:best|top) \d+|\d+ (?:stocks?|reasons|things)|here's why|millionaire|forecast:|การคาดการณ์:|ควรซื้อ|น่าซื้อ|\d+ ตัว|ตัวไหนดีกว่า|จะมีมูลค่า|เศรษฐี/i;
+const BR_STOP=new Set("stock stocks market markets shares share says said after ahead week year years company price prices could would about from with that this will their than more over into what when have been report reports news latest update today หุ้น ตลาด".split(" "));
+function brCat(x){const t=(x.title||"")+" "+(x.titleTh||"");for(const [n,w,re] of BR_CAT)if(re.test(t))return[n,w];return EARN_RE.test(t)?["งบบริษัท",1]:["หุ้นรายตัว",0]}
+// คะแนนความสำคัญ: แหล่งข่าว + หมวด + ทิศทาง + หุ้นใหญ่ + หลายแหล่งพูดเรื่องเดียวกัน
+function brNews(mk,since){const U=S.universe||[],big=new Set(U.filter(i=>i.m===mk).sort((a,b)=>(b.mc||0)-(a.mc||0)).slice(0,40).map(i=>i.s));
+  const xs=(S.news||[]).filter(x=>(x.market===mk||x.market==="ALL")&&(+x.ts||0)>=since&&!BR_JUNK.test((x.title||"")+" "+(x.titleTh||""))).map(x=>{const [cat,cw]=brCat(x),bt=(x.tickers||[]).some(t=>big.has(t));
+    return{x,cat,sc:(4-(x.tier||3))+cw+(x.sentiment?1:0)+(bt?1.5:0),w:new Set((((x.title||"")+" "+(x.titleTh||"")).toLowerCase().match(/[a-z]{4,}|[฀-๿]{4,}/g)||[]).filter(w=>!BR_STOP.has(w)))}});
+  xs.sort((a,b)=>b.sc-a.sc||(+b.x.ts)-(+a.x.ts));const out=[];
+  for(const a of xs){const dup=out.find(o=>{let k=0;for(const w of a.w)if(o.w.has(w))k++;return k>=3&&k/Math.max(1,Math.min(a.w.size,o.w.size))>=.55||(o.cat===a.cat&&Math.abs((+o.x.ts||0)-(+a.x.ts||0))<12*3600&&(a.x.tickers||[]).length&&(a.x.tickers||[]).every(t=>(o.x.tickers||[]).includes(t)))});
+    if(dup){if(!dup.src.has(a.x.source)){dup.src.add(a.x.source);dup.sc+=.7}continue}out.push({...a,src:new Set([a.x.source])})}
+  return out.sort((a,b)=>b.sc-a.sc)}
+// สถานะตลาด: วันทำการล่าสุดจากดัชนี · เสาร์–อาทิตย์หรือดัชนีไม่ใช่วันนี้ = ตลาดปิด
+function brState(mk){const ix=(S.meta||{})[mk==="TH"?"set":"spx"]||{},today=dayIn(mk,Date.now()),wd=new Date(today+"T12:00:00Z").getUTCDay(),wk=wd===0||wd===6;
+  return{ix,today,closed:wk||ix.date!==today,weekend:wk,holiday:!wk&&ix.date&&ix.date!==today}}
+function brMove(i){const q=S.quotes?.q?.[i.s];return q?.chg!=null?q.chg:i.chg}
+function vBrief(){const mk=S.bm==="US"?"US":S.bm==="TH"?"TH":(S.mkt==="US"?"US":"TH"),nm=mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ",ixn=mk==="TH"?"SET":"S&P 500";
+  const st=brState(mk),ix=st.ix,H=S.learn?.market?.[mk]||[],r=H.at(-1),r5=H[Math.max(0,H.length-6)],sn=k=>SECTORS[k]?.th||k;
+  const U=(S.universe||[]).filter(i=>i.m===mk&&(i.mc||0)>=TK_MC[mk]),mv=U.map(i=>({i,c:brMove(i)})).filter(o=>o.c!=null&&isFinite(o.c));
+  const up=mv.filter(o=>o.c>.1).length,dn=mv.filter(o=>o.c<-.1).length,since=Date.now()/1000-(st.closed?(st.weekend?80:40):30)*3600;
+  const N=brNews(mk,since),newsN=(()=>{const c={},o=[];for(const x of N){if((c[x.cat]=(c[x.cat]||0)+1)>3)continue;o.push(x);if(o.length>=(st.closed?8:6))break}return o})();
+  // รายกลุ่ม: เปลี่ยนแปลงวันล่าสุด (ค่ากลาง) + ~20 วัน (จากเส้นราคาย่อใน summary) + ข่าวเด่นของกลุ่ม
+  const secs=Object.keys(SECTORS).map(k=>{const g=mv.filter(o=>o.i.sec===k);if(g.length<3)return null;const cs=g.map(o=>o.c).sort((a,b)=>a-b),med=cs[Math.floor(cs.length/2)];
+    const r20s=g.map(o=>{const sp=S.summary?.[o.i.s]?.sp;return sp&&sp.length>9?(1000/sp[sp.length-8]-1)*100:null}).filter(v=>v!=null).sort((a,b)=>a-b),r20=r20s.length?r20s[Math.floor(r20s.length/2)]:null;
+    const best=g.slice().sort((a,b)=>b.o-a.o),hi=g.reduce((a,o)=>o.c>a.c?o:a),lo=g.reduce((a,o)=>o.c<a.c?o:a);
+    const nw=N.find(o=>(o.x.sectors||[]).includes(k)||(o.x.tickers||[]).some(t=>stockBySym(t)?.sec===k));
+    const tone=r20==null?"":med>=.3&&r20>=2?"แข็งแรงต่อเนื่อง":med>=.3&&r20<0?"เด้งระยะสั้นในแนวโน้มลง":med<=-.3&&r20>=2?"ย่อตัวในแนวโน้มขึ้น":med<=-.3&&r20<0?"อ่อนตัวต่อเนื่อง":r20>=2?"ทรงตัวในแนวโน้มขึ้น":r20<=-2?"ทรงตัวในแนวโน้มลง":"ทรงตัว";
+    return{k,n:g.length,med,r20,up:g.filter(o=>o.c>.1).length,dn:g.filter(o=>o.c<-.1).length,hi,lo,nw,tone}}).filter(Boolean).sort((a,b)=>b.med-a.med);
+  // แนวโน้มวันทำการถัดไป: รวมปัจจัยที่วัดได้ (ไม่ใช่คำทำนายแน่นอน)
+  const F=[],add=(v,t)=>F.push([v,t]);
+  if(ix.chg!=null){add(ix.chg>=.8?1:ix.chg<=-.8?-1:ix.chg>=.3?.5:ix.chg<=-.3?-.5:0,`${ixn} วันทำการล่าสุด ${pct(ix.chg,2)}`)}
+  if(up+dn>=20){const br=up/(up+dn)*100;add(br>=65?1:br<=35?-1:0,`หุ้นใหญ่ขึ้น ${up} ลง ${dn} (${br.toFixed(0)}% ขึ้น)`)}
+  if(r){const d5=r5?r.a50-r5.a50:0;add(r.a50>=55?1:r.a50<=30?-1:0,`หุ้นเหนือเส้น 50 วัน ${r.a50}%${H.length>5?` (${d5>=0?"+":""}${d5} จุดใน 5 วัน)`:""}`);
+    if(r.a50<=20&&r.r20<=-4)add(.5,`ลงมาลึก (20 วัน ${pct(r.r20,1)}) มีโอกาสเด้งทางเทคนิค`)}
+  if(mk==="TH"){const sx=(S.meta||{}).spx;if(sx?.chg!=null&&sx.date>=(ix.date||""))add(sx.chg>=.8?1:sx.chg<=-.8?-1:0,`ตลาดสหรัฐฯ รอบล่าสุด ${pct(sx.chg,2)} (มีผลต่อการเปิดตลาดไทย)`)}
+  else{const nx=(S.meta||{}).ndx;if(nx?.chg!=null&&ix.chg!=null)add(0,`Nasdaq 100 ${pct(nx.chg,2)} เทียบ S&P 500 ${pct(ix.chg,2)}`)}
+  {const top=N.slice(0,12),s=top.reduce((a,o)=>a+(o.x.sentiment||0)*Math.min(3,o.sc/3),0);if(top.length>=4)add(s>=3?.5:s<=-3?-.5:0,`โทนข่าวสำคัญ ${top.length} เรื่อง (ประเมินอัตโนมัติ) ${s>=1.5?"ค่อนข้างบวก":s<=-1.5?"ค่อนข้างลบ":"ผสม"}`)}
+  const score=F.reduce((a,[v])=>a+v,0),out=score>=1.5?["มีแนวโน้มเป็นบวก","up"]:score<=-1.5?["มีแรงกดดัน ระวังด้านลบ","down"]:["แกว่งตัว รอปัจจัยใหม่","mid"];
+  // สิ่งที่ต้องติดตาม: งบที่จะประกาศ + ข่าวที่พูดถึงเหตุการณ์ข้างหน้า
+  const nextTD=(()=>{const d=new Date(st.today+"T12:00:00Z");do d.setUTCDate(d.getUTCDate()+1);while(d.getUTCDay()===0||d.getUTCDay()===6);return d.toISOString().slice(0,10)})();
+  const horizon=st.closed?7:1,ern=(S.universe||[]).filter(i=>i.m===mk&&i.ed&&(i.mc||0)>=TK_MC[mk]*(mk==="US"?25:4)).map(i=>({i,d:dayIn(mk,i.ed*1000)})).filter(o=>o.d>st.today&&o.d<=(()=>{const d=new Date(nextTD+"T12:00:00Z");d.setUTCDate(d.getUTCDate()+horizon-1);return d.toISOString().slice(0,10)})()).sort((a,b)=>(b.i.mc||0)-(a.i.mc||0));
+  const ahead=N.filter(o=>!newsN.includes(o)&&/next week|tomorrow|upcoming|ahead of|this week|วันพรุ่งนี้|พรุ่งนี้|สัปดาห์หน้า|จับตา|รอ(?:ผล|ดู)|ก่อนการประชุม/i.test((o.x.title||"")+" "+(o.x.titleTh||""))&&o.cat!=="หุ้นรายตัว").slice(0,3);
+  // ประโยคสรุปหัวหน้า
+  const lead=secs[0],lag=secs.at(-1),topCat=N[0]?.cat;
+  const head=st.closed?`${st.weekend?"สุดสัปดาห์":"วันหยุด"} ตลาด${nm}ปิด · ${ix.date?`ปิดรอบล่าสุด (${thDate(ix.date)}) ${ixn} ${ix.v?fmt(ix.v):""} ${pct(ix.chg,2)}`:""} · ด้านล่างสรุปข่าวสำคัญที่เกิดระหว่างตลาดปิด และสิ่งที่ต้องติดตามวันทำการถัดไป`
+    :`${ixn} ${ix.v?fmt(ix.v):""} ${ix.chg!=null?pct(ix.chg,2):""} · หุ้นใหญ่ขึ้น ${up} ลง ${dn}${lead&&lag&&lead!==lag?` · กลุ่มนำ${sn(lead.k)} (${pct(lead.med,1)}) กลุ่มอ่อน${sn(lag.k)} (${pct(lag.med,1)})`:""}${topCat&&topCat!=="หุ้นรายตัว"?` · ประเด็นหลัก: ${topCat}`:""}`;
+  const chip=v=>`<span class="pill sm ${v>0?"p-buy":v<0?"p-sell":"p-hold"}">${v>0?"บวก":v<0?"ลบ":"กลาง"}</span>`;
+  const nRow=o=>{const x=o.x;return `<li class="br-n"><div class="br-nh"><span class="br-cat">${esc(o.cat)}</span>${o.src.size>1?`<span class="muted">${o.src.size} แหล่งข่าว</span>`:""}</div><a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">${esc(nT(x)||"")}</a><div class="muted br-src">${esc(x.source||"")} · ${new Date((+x.ts||0)*1e3).toLocaleString(LOC(),{timeZone:"Asia/Bangkok",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} น.${(x.tickers||[]).length?` · ${(x.tickers||[]).slice(0,4).map(t=>stockBySym(t)?`<a href="#s-${esc(t)}">${esc(dsym(t))}</a>`:esc(t)).join(" ")}`:""}</div></li>`};
+  const tabs=`<div class="chips br-tabs" role="group" aria-label="เลือกตลาดของสรุป">${[["TH","หุ้นไทย"],["US","หุ้นสหรัฐฯ"]].map(([k,l])=>`<button type="button" class="chip" data-bm="${k}" aria-pressed="${mk===k}">${l}</button>`).join("")}</div>`;
+  const overview=st.closed?"":`<section class="card"><h2>ภาพรวมตลาด</h2><ul class="br-ul">
+     ${ix.chg!=null?`<li>${ixn} ปิด${ix.date===st.today?"วันนี้":` ${thDate(ix.date)}`} ที่ <b class="num">${fmt(ix.v)}</b> <b class="num ${ix.chg>=0?"up":"down"}">${pct(ix.chg,2)}</b>${mk==="US"&&S.meta?.ndx?.chg!=null?` · Nasdaq 100 <b class="num ${S.meta.ndx.chg>=0?"up":"down"}">${pct(S.meta.ndx.chg,2)}</b>`:""}${S.meta?.gold?.chg!=null?` · ทองคำ <b class="num ${S.meta.gold.chg>=0?"up":"down"}">${pct(S.meta.gold.chg,2)}</b>`:""}</li>`:""}
+     ${up+dn?`<li>หุ้นใหญ่ ${mv.length} ตัว: ขึ้น <b class="up">${up}</b> ลง <b class="down">${dn}</b> → ${up>dn*1.5?"แรงซื้อชนะชัด":dn>up*1.5?"แรงขายชนะชัด":"แรงซื้อขายพอ ๆ กัน"}</li>`:""}
+     ${r?`<li>แนวโน้ม: หุ้นเหนือเส้น 200 วัน ${r.a200}% (${r.a200>=60?"ขาขึ้น":r.a200>=40?"ไซด์เวย์":"ขาลง"}) · เหนือเส้น 50 วัน ${r.a50}% · ผลตอบแทนกลาง 20 วัน ${pct(r.r20,1)} · ทำจุดสูงสุดใหม่ 52 สัปดาห์ ${r.nh} ตัว ต่ำสุดใหม่ ${r.nl} ตัว</li>`:""}
+     ${mv.length?(()=>{const s=mv.slice().sort((a,b)=>b.c-a.c),g=s.slice(0,4).filter(o=>o.c>0),l=s.slice(-4).reverse().filter(o=>o.c<0),f=o=>`<a href="#s-${esc(o.i.s)}">${esc(dsym(o.i.s))}</a> <span class="${o.c>=0?"up":"down"}">${pct(o.c,1)}</span>`;return `<li>ขึ้นแรง: ${g.map(f).join(" · ")||"–"}<br>ลงแรง: ${l.map(f).join(" · ")||"–"}</li>`})():""}
+   </ul></section>`;
+  const events=`<section class="card"><h2>${st.closed?"ข่าวสำคัญระหว่างตลาดปิด":"เหตุการณ์สำคัญ"}</h2><p class="muted br-sub">คัดจากข่าว ${N.length} เรื่องในช่วง ${st.closed?"ตลาดปิด":"24–30 ชม."}ล่าสุด เรียงตามผลกระทบต่อทั้งตลาด (การเมือง/เลือกตั้ง ดอกเบี้ย การค้า เศรษฐกิจ ก่อนข่าวหุ้นรายตัว) · ข่าวเรื่องเดียวกันรวมเป็นข้อเดียว</p>
+     ${newsN.length?`<ol class="br-ol">${newsN.map(nRow).join("")}</ol>`:`<p class="muted">ยังไม่มีข่าวสำคัญในช่วงนี้</p>`}</section>`;
+  const sectors=st.closed||!secs.length?"":`<section class="card"><h2>รายกลุ่มอุตสาหกรรม</h2><p class="muted br-sub">ค่ากลางของหุ้นใหญ่ในกลุ่ม · "20 วัน" = แนวโน้มระยะสั้นของกลุ่ม</p><div class="br-secs">${secs.map(g=>`<div class="br-sec"><div class="br-sh"><b>${esc(sn(g.k))}</b><span class="num ${g.med>=0?"up":"down"}">${pct(g.med,1)}</span></div>
+      <div class="muted">${g.tone}${g.r20!=null?` · 20 วัน <span class="${g.r20>=0?"up":"down"}">${pct(g.r20,1)}</span>`:""} · ขึ้น ${g.up} ลง ${g.dn} จาก ${g.n}</div>
+      <div class="br-sm">เด่น <a href="#s-${esc(g.hi.i.s)}">${esc(dsym(g.hi.i.s))}</a> <span class="${g.hi.c>=0?"up":"down"}">${pct(g.hi.c,1)}</span> · อ่อน <a href="#s-${esc(g.lo.i.s)}">${esc(dsym(g.lo.i.s))}</a> <span class="${g.lo.c>=0?"up":"down"}">${pct(g.lo.c,1)}</span></div>
+      ${g.nw?`<div class="br-sn">ข่าว: <a href="${esc(safeUrl(g.nw.x.url))}" target="_blank" rel="noopener">${esc((nT(g.nw.x)||"").slice(0,110))}</a></div>`:""}</div>`).join("")}</div></section>`;
+  const outlook=`<section class="card br-out br-${out[1]}"><div class="eyebrow">แนวโน้มวันทำการถัดไป (${thDate(nextTD)})</div><h2>${out[0]}</h2>
+     <ul class="br-ul">${F.map(([v,t])=>`<li><span class="br-f ${v>0?"up":v<0?"down":""}">${v>0?"▲":v<0?"▼":"•"}</span> ${t}</li>`).join("")}</ul>
+     ${ern.length||ahead.length?`<h3>สิ่งที่ต้องติดตาม</h3><ul class="br-ul">${ern.length?`<li>ประกาศงบ${st.closed?"ในสัปดาห์หน้า":"วันทำการถัดไป"}: ${ern.slice(0,10).map(o=>`<a href="#s-${esc(o.i.s)}">${esc(dsym(o.i.s))}</a>${st.closed?` <span class="muted">${thDate(o.d)}</span>`:""}`).join(" · ")}${ern.length>10?` +${ern.length-10}`:""}</li>`:""}${ahead.map(o=>`<li>${esc(o.cat)}: <a href="${esc(safeUrl(o.x.url))}" target="_blank" rel="noopener">${esc(nT(o.x)||"")}</a></li>`).join("")}</ul>`:""}
+     <p class="muted br-sub">ประเมินจากปัจจัยที่วัดได้ด้านบนรวมกัน ไม่ใช่คำทำนายแน่นอน ข่าวใหม่ระหว่างคืนเปลี่ยนภาพได้ · ใช้ประกอบกับจุดซื้อ / TP / SL ของระบบ</p></section>`;
+  return `<div class="br-top"><div><h1>สรุปตลาด${nm}</h1><p class="muted" style="margin:4px 0 0">${thDate(st.today)} · ${st.closed?(st.weekend?"เสาร์–อาทิตย์ ตลาดปิด":"ตลาดปิด (วันหยุด)"):"วันทำการ"} · อัปเดตอัตโนมัติจากราคาและข่าวล่าสุด</p></div>${tabs}</div>
+   <section class="card br-hero"><p>${head}</p></section>
+   ${st.closed?events+outlook:overview+events+sectors+outlook}`}
 function vSignals(){const mk=S.mkt==="US"?"US":"TH",cap=+(lsGet("cap"+mk)||(mk==="TH"?100000:10000)),h=holds(),lot=mk==="TH"?100:1,P=rulesFor(mk),bm=S.calibData?.baseM?.[mk];
   const held=Object.keys(h).filter(s=>h[s]?.q>0&&stockBySym(s)?.m===mk);
   const sig=allStocks().filter(st=>st.m===mk&&liquid(st)).map(info).filter(R=>R.sys&&!held.includes(R.st.s)).sort((a,b)=>(b.rs?.pctl??0)-(a.rs?.pctl??0));
@@ -1262,7 +1344,7 @@ function vAccuracy(){
 /* ---------- boot ---------- */
 S.watch=lsGet("watch")||[];S.mkt=["TH","US"].includes(lsGet("mkt"))?lsGet("mkt"):"TH";S.px=lsGet("px")||{};S.fa=lsGet("fa")||{};if(lsGet("rulesV")!==5){try{localStorage.removeItem("rules")}catch{}lsSet("rulesV",5)}Object.assign(RULES,lsGet("rules")||{});
 applyTheme(lsGet("theme")||"system");
-S.tf=["1H","4H","D","W"].includes(lsGet("tf"))?lsGet("tf"):"D";
+S.bm=lsGet("bm")||null;S.tf=["1H","4H","D","W"].includes(lsGet("tf"))?lsGet("tf"):"D";
 S.lang=lsGet("lang")==="en"?"en":"th";i18nStart(S.lang);{const b=$("#langBtn");if(b){b.querySelectorAll(".lf").forEach(x=>x.classList.toggle("on",x.dataset.l===S.lang));b.title=S.lang==="en"?"เปลี่ยนเป็นภาษาไทย":"Switch to English"}}
 render();loadAll();syInit();
 /* ---------- แถบข่าววิ่ง: ประกาศงบวันนี้ · ขึ้น/ลงแรงวันนี้ · ข่าวระดับ 1 ล่าสุด (อัปเดตพร้อมราคาทุก 15 วินาที) ---------- */

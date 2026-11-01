@@ -35,7 +35,7 @@ const STOCKS=[
  {s:"KO",n:"Coca-Cola",m:"US",sec:"consumer",p:70,v:.01}
 ];
 // ค่ากลางงบการเงินของข้อมูลตัวอย่างแต่ละ sector
-const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare","signals","sync"];
+const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare","signals","sync","brief"];
 const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more",compare:"more",signals:"home",sync:"watch"};
 const DEF_COST={TH:.17,US:.10}; // % ต่อขา: ค่าคอมออนไลน์ไทย ~0.157% + VAT, สหรัฐฯ เผื่อสเปรดและค่าแปลงสกุลเงิน
 // ค่าเริ่มต้นเลือกจากการทดสอบราคาจริง 24 หุ้น 5 ปี (28 ต.ค. 2569): ชนะ 66% ช่วงสร้าง / 71% ช่วงทดสอบ และกำไรทั้งสองช่วง
