@@ -4,6 +4,7 @@
 ก่อนรอบใหญ่ทุกครั้งดึงไฟล์ที่งานรายคืนสร้าง (งบ รายชื่อหุ้น ราคาย้อนหลัง) มาใช้ ไม่เอาของเก่าไปทับของใหม่
 """
 import datetime as dt, json, os, subprocess, sys, time
+from zoneinfo import ZoneInfo
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import update  # noqa: E402
@@ -45,7 +46,7 @@ def publish_site():
         print("publish failed:", r.stderr[-300:])
 
 
-OWN = {"quotes.json", "news.json", "meta.json", "archive_state.json"}  # ไฟล์ที่งานนี้เขียนเองตลอด (ของในเครื่องใหม่กว่าเสมอ)
+OWN = {"quotes.json", "news.json", "meta.json", "archive_state.json", "brief.json"}  # ไฟล์ที่งานนี้เขียนเองตลอด (ของในเครื่องใหม่กว่าเสมอ)
 
 
 def sync_shared():
@@ -70,6 +71,32 @@ def sync_shared():
     _hist_sha[0] = sha
 
 
+# บทความสรุปตลาด (scripts/brief.js): ไทย 06:00 / 12:00 น. · สหรัฐฯ 08:45 / 12:00 ET · เสาร์–อาทิตย์ฉบับสุดสัปดาห์ · ช้าได้ไม่เกิน 3 ชม.
+BRIEF_SLOTS = {"TH": ("Asia/Bangkok", [((6, 0), "morning"), ((12, 0), "midday")], (6, 0)), "US": ("America/New_York", [((8, 45), "preopen"), ((12, 0), "midday")], (9, 0))}
+
+
+def brief_due():
+    done = {x.get("id") for x in update.load("brief.json", {}).get("items", [])}
+    out = []
+    for mk, (tz, wk, we) in BRIEF_SLOTS.items():
+        now = dt.datetime.now(ZoneInfo(tz))
+        slots = [(we, "weekend")] if now.weekday() >= 5 else wk
+        for (h, m), kind in slots:
+            at = now.replace(hour=h, minute=m, second=0, microsecond=0)
+            if at <= now < at + dt.timedelta(hours=3) and f"{mk}-{kind}-{now:%Y-%m-%d}" not in done:
+                out.append((mk, kind))
+    return out
+
+
+def write_briefs():
+    made = False
+    for mk, kind in brief_due():
+        r = subprocess.run(["node", "scripts/brief.js", mk, kind], cwd=ROOT, capture_output=True, text=True)
+        print(r.stdout.strip() or r.stderr[-300:])
+        made = made or r.returncode == 0
+    return made
+
+
 def main():
     t0 = time.time()
     last_big, big = 0, None
@@ -92,6 +119,8 @@ def main():
             env = {**os.environ, "ARCHIVE_PUSH": "0"}
             big = subprocess.Popen([sys.executable, "scripts/update.py"] + ([] if trading else ["--news"]), cwd=ROOT, env=env)
             last_big = tick
+        if write_briefs() and big is None:
+            publish_site()
         if trading:
             try:
                 prices = update.load("prices.json", {})

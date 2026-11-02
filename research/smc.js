@@ -218,7 +218,8 @@ if (process.env.TFX) {
     const sm = a => { const n = a.length; if (!n) return { n: 0, win: 0, avg: 0 }; let w = 0, t = 0; for (const r of a) { t += r; if (r > 0) w++ } return { n, win: w / n * 100, avg: t / n * 100 } };
     const rows = EX.map((X, k) => ({ X, is: sm(res[k].is), oos: sm(res[k].oos) })).filter(r => r.is.n >= 40 && r.oos.n >= 25);
     const f = r => `${r.X.atr ? `TP${r.X.tp}ATR SL${r.X.sl}ATR` : `TP${(r.X.tp * 100).toFixed(1)}% SL${(r.X.sl * 100).toFixed(1)}%`}${r.X.be ? " +BE" : ""} ถือ${r.X.days}วัน | ${r.is.n}/${r.oos.n}ไม้ ชนะ ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% กำไร ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}%`;
-    console.log(`\n${MK} ${nm}`);
+    console.log(`\n${MK} ${nm} · สัญญาณ ${SIGN[0]} ได้ของ ${(SIGN[1] / (SIGN[0] || 1) * 100).toFixed(0)}%`);
+    if (process.env.WRONLY) { for (const r of rows.filter(r => lab(r).replace(/ +/g, " ").trim() === process.env.WRONLY)) console.log("  เลือก   " + fm(r)); continue }
     for (const r of rows.sort((a, b) => Math.min(b.is.avg, b.oos.avg) - Math.min(a.is.avg, a.oos.avg)).slice(0, process.env.RRX ? 5 : 3)) console.log("  กำไรสุด " + f(r));
     for (const r of rows.filter(r => r.is.win >= 75 && r.oos.win >= 75).sort((a, b) => Math.min(b.is.avg, b.oos.avg) - Math.min(a.is.avg, a.oos.avg)).slice(0, 2)) console.log("  ชนะ75+ " + f(r));
   }
@@ -249,13 +250,14 @@ if (process.env.WR) {
   }
   const sm = a => { const n = a.length; if (!n) return { n: 0, win: 0, avg: 0, aw: 0, al: 0 }; const w = a.filter(r => r > 0), l = a.filter(r => r <= 0); return { n, win: w.length / n * 100, avg: a.reduce((p, r) => p + r, 0) / n * 100, aw: w.reduce((p, r) => p + r, 0) / (w.length || 1) * 100, al: l.reduce((p, r) => p + r, 0) / (l.length || 1) * 100 } };
   for (const [nm, sig] of Object.entries(ENT)) {
-    const res = EX.map(() => ({ is: [], oos: [] }));
+    const res = EX.map(() => ({ is: [], oos: [] })), SIGN = [0, 0];
     for (const x of st) {
       const B = x.B, n = B.length, busy = EX.map(() => 0);
       for (let i = WARM; i < n - 1; i++) {
-        const sg = sig(x, i); if (!sg) continue; const a = atr(x, i);
-        let e = -1, en = 0; for (let d = i + 1; d <= Math.min(n - 1, i + sg.days); d++) if (B[d].l <= sg.px) { e = d; en = Math.min(B[d].o, sg.px); break }
-        if (e < 0) continue;
+        const sg = sig(x, i); if (!sg) continue; const a = atr(x, i); SIGN[0]++;
+        let e = -1, en = 0;
+        if (process.env.WROPEN) { e = i + 1; en = B[e].o } else for (let d = i + 1; d <= Math.min(n - 1, i + sg.days); d++) if (B[d].l <= sg.px) { e = d; en = Math.min(B[d].o, sg.px); break }
+        if (e < 0) continue; SIGN[1]++;
         EX.forEach((X, q) => {
           if (e < busy[q]) return;
           let stop = Math.max(en - X.s * a, en * (1 - CAP)), left = 1, got = 0, xi = e; const t1 = X.k1 ? en + X.k1 * a : null, t2 = en + X.k2 * a, Z = (X.z ??= { n: 0, h1: 0, d1: 0, h2: 0, d2: 0, fs: 0, fsr: 0 }); Z.n++;
@@ -273,7 +275,8 @@ if (process.env.WR) {
     const lab = r => `SL${r.X.s} ${r.X.k1 ? `TP1 ${r.X.k1}(${r.X.f * 100}%)→ทุน ` : ""}TP${r.X.k2} ถือ${+(r.X.H / BPD).toFixed(1)}วัน`, fm = r => `${lab(r).padEnd(30)} | ${r.is.n}/${r.oos.n} ชนะ ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% เฉลี่ย ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}% ได้เฉลี่ย +${((r.is.aw + r.oos.aw) / 2).toFixed(1)} เสียเฉลี่ย ${((r.is.al + r.oos.al) / 2).toFixed(1)}`;
     const wv = r => Math.min(r.is.avg, r.oos.avg), ww = r => Math.min(r.is.win, r.oos.win);
     if (process.env.WRSTAT) for (const r of rows.filter(r => lab(r).replace(/ +/g, " ").trim() === process.env.WRSTAT)) { const z = r.X.z; console.log(`  สถิติ ${lab(r)}: ถึง TP1 ${(z.h1 / z.n * 100).toFixed(0)}% (~${(z.d1 / (z.h1 || 1)).toFixed(0)} วัน) · ถึง TP2 ${(z.h2 / z.n * 100).toFixed(0)}% (~${(z.d2 / (z.h2 || 1)).toFixed(0)} วัน) · โดน SL เต็มก่อน TP1 ${(z.fs / z.n * 100).toFixed(0)}% เสียเฉลี่ย ${(z.fsr / (z.fs || 1) * 100).toFixed(1)}%`) }
-    console.log(`\n${MK} ${nm}`);
+    console.log(`\n${MK} ${nm} · สัญญาณ ${SIGN[0]} ได้ของ ${(SIGN[1] / (SIGN[0] || 1) * 100).toFixed(0)}%`);
+    if (process.env.WRONLY) { for (const r of rows.filter(r => lab(r).replace(/ +/g, " ").trim() === process.env.WRONLY)) console.log("  เลือก   " + fm(r)); continue }
     for (const r of rows.slice().sort((a, b) => wv(b) - wv(a)).slice(0, 3)) console.log("  กำไรสุด  " + fm(r));
     for (const r of rows.filter(r => wv(r) >= (MK === "TH" ? 1 : 2.5)).sort((a, b) => ww(b) - ww(a)).slice(0, 4)) console.log("  ชนะสุด*  " + fm(r));
     for (const r of rows.filter(r => wv(r) > 0).map(r => ({ ...r, sc: ww(r) / 100 * wv(r) })).sort((a, b) => b.sc - a.sc).slice(0, 3)) console.log("  สมดุล   " + fm(r));
@@ -419,7 +422,8 @@ if (process.env.PORT) {
 const names = ONLY ? ONLY.split(",") : Object.keys(STRAT);
 if (process.env.NEWI) {  // ทุกจุดออก: แสดงแบบที่ดีที่สุด 3 แบบ (ตามกำไรต่อไม้ช่วงทดสอบ) + จุดออกของระบบ + ออกตาม Supertrend
   for (const nm of names) { const rows = run(nm), sh = r => `TP${r.X.tp} SL${r.X.sl}${r.X.cap ? "cap" : ""} ถือ${r.X.hold} | ${r.is.n}/${r.oos.n}ไม้ ชนะ ${r.is.win.toFixed(0)}/${r.oos.win.toFixed(0)}% เฉลี่ย ${r.is.avg.toFixed(2)}/${r.oos.avg.toFixed(2)}%`;
-    console.log(`\n${MK} ${nm}`);
+    console.log(`\n${MK} ${nm} · สัญญาณ ${SIGN[0]} ได้ของ ${(SIGN[1] / (SIGN[0] || 1) * 100).toFixed(0)}%`);
+    if (process.env.WRONLY) { for (const r of rows.filter(r => lab(r).replace(/ +/g, " ").trim() === process.env.WRONLY)) console.log("  เลือก   " + fm(r)); continue }
     for (const r of rows.filter(r => r.oos.n >= 30).sort((a, b) => Math.min(b.is.avg, b.oos.avg) - Math.min(a.is.avg, a.oos.avg)).slice(0, 3)) console.log("  ดีสุด  " + sh(r));
     for (const r of rows.filter(r => r.X.cap || r.X.tp === "stx")) console.log("  " + (r.X.cap ? "ระบบ  " : "ST ออก") + " " + sh(r)) }
   process.exit(0);

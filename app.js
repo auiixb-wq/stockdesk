@@ -810,7 +810,8 @@ function calc(R){const out=$("#calcOut");if(!out)return;const cap=+$("#capIn").v
 document.addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;
   if(t.dataset.mkt){S.mkt=t.dataset.mkt;lsSet("mkt",S.mkt);S.mlimit=60;S.sgl=20;S.nlim=20;S.nq="";S.sec=null;if(route().v==="brief")location.hash="#home";else render();window.scrollTo(0,0)}
-  else if(t.dataset.bm){S.bm=t.dataset.bm;lsSet("bm",S.bm);render()}
+  else if(t.dataset.bm){S.bm=t.dataset.bm;S.bed=null;lsSet("bm",S.bm);render()}
+  else if(t.dataset.bed){S.bed=t.dataset.bed;render()}
   else if(t.dataset.sort){S.sort=t.dataset.sort;render()}
   else if(t.dataset.scr){S.scr=t.dataset.scr;render()}
   else if(t.dataset.nf){S.nf=t.dataset.nf;S.nlim=20;render()}
@@ -906,8 +907,8 @@ async function loadHist(syms){const need=syms.filter(s=>{const st=stockBySym(s);
   if(!document.querySelector("input:focus,details[open]"))render()}
 async function loadAll(){
   // ราคาย้อนหลังของทุกหุ้น (รวมหุ้นหลัก) โหลดเมื่อเปิดดู จึงไม่ต้องโหลด prices.json ตอนเริ่ม
-  const [[fund,macro,news,man,uni0,sum,cal,rsq,lrn,sr],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json","data/learn.json","data/signals_round.json"].map(J)),getLive()]);
-  if(lrn){S.learn=lrn;S.tuned=lrn.tuned||{}}if(sr)S.sigRound=sr;
+  const [[fund,macro,news,man,uni0,sum,cal,rsq,lrn,sr,bf],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json","data/learn.json","data/signals_round.json","data/brief.json"].map(J)),getLive()]);
+  if(lrn){S.learn=lrn;S.tuned=lrn.tuned||{}}if(sr)S.sigRound=sr;if(bf)S.briefs=bf.items||[];
   const uni=uni0||await J("data/universe.json"),px=null;
   if(cal&&cal.updated!==S.calibData?.updated){S.calibData=cal;S.calib=null}
   if(rsq){S.rsq=rsq;S._rsqIdx=null}
@@ -1140,6 +1141,15 @@ function brNews(mk,since){const U=S.universe||[],big=new Set(U.filter(i=>i.m===m
 function brState(mk){const ix=(S.meta||{})[mk==="TH"?"set":"spx"]||{},today=dayIn(mk,Date.now()),wd=new Date(today+"T12:00:00Z").getUTCDay(),wk=wd===0||wd===6;
   return{ix,today,closed:wk||ix.date!==today,weekend:wk,holiday:!wk&&ix.date&&ix.date!==today}}
 function brMove(i){const q=S.quotes?.q?.[i.s];return q?.chg!=null?q.chg:i.chg}
+// บทความสรุปตลาด (scripts/brief.js เขียนตามรอบ: ไทย 06:00/12:00 น. · สหรัฐฯ ก่อนเปิดและระหว่างวัน · สุดสัปดาห์)
+const BR_KIND={TH:{morning:"ฉบับเช้า · ก่อนตลาดเปิด",midday:"ฉบับเที่ยง · พักกลางวัน",weekend:"ฉบับสุดสัปดาห์"},US:{preopen:"ก่อนตลาดสหรัฐฯ เปิด",midday:"ระหว่างวัน",weekend:"ฉบับสุดสัปดาห์"}};
+function briefArticle(mk){const L=(S.briefs||[]).filter(x=>x.mk===mk).sort((a,b)=>b.ts-a.ts).slice(0,6);if(!L.length)return "";const A=L.find(x=>x.id===S.bed)||L[0];
+  const when=t=>new Date(t*1e3).toLocaleString(LOC(),{timeZone:"Asia/Bangkok",weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  const para=t=>esc(t).replace(/\n/g,"<br>").replace(/^\[([^\]]+)\]/,'<span class="br-cat">$1</span>').replace(/ทำไมสำคัญ:/,"<b>ทำไมสำคัญ:</b>");
+  return `<article class="card br-art"><div class="chips br-eds" role="group" aria-label="เลือกฉบับ">${L.map(x=>`<button type="button" class="chip" data-bed="${esc(x.id)}" aria-pressed="${x.id===A.id}">${esc(BR_KIND[mk]?.[x.kind]||x.kind)} · ${when(x.ts)}</button>`).join("")}</div>
+   <div class="eyebrow">${esc(BR_KIND[mk]?.[A.kind]||"")} · เขียนอัตโนมัติ ${when(A.ts)} น.</div><h2 class="br-t">${esc(A.title)}</h2><p class="br-lead">${esc(A.lead)}</p>
+   ${A.sec.map(x=>`<h3>${esc(x.h)}</h3>${x.p.map(t=>`<p>${para(t)}</p>`).join("")}${x.li?.length?`<ul class="br-ul">${x.li.map(t=>`<li>${para(t)}</li>`).join("")}</ul>`:""}`).join("")}
+   <p class="muted br-sub">บทความเขียนจากราคา ดัชนี ข่าว และสัญญาณระบบโดยอัตโนมัติตามรอบ (หุ้นไทย 06:00 และ 12:00 น. · หุ้นสหรัฐฯ ก่อนเปิดตลาดและระหว่างวัน) ไม่ใช่คำแนะนำการลงทุน</p></article>`}
 function vBrief(){const mk=S.bm==="US"?"US":S.bm==="TH"?"TH":(S.mkt==="US"?"US":"TH"),nm=mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ",ixn=mk==="TH"?"SET":"S&P 500";
   const st=brState(mk),ix=st.ix,H=S.learn?.market?.[mk]||[],r=H.at(-1),r5=H[Math.max(0,H.length-6)],sn=k=>SECTORS[k]?.th||k;
   const U=(S.universe||[]).filter(i=>i.m===mk&&(i.mc||0)>=TK_MC[mk]),mv=U.map(i=>({i,c:brMove(i)})).filter(o=>o.c!=null&&isFinite(o.c));
@@ -1190,6 +1200,8 @@ function vBrief(){const mk=S.bm==="US"?"US":S.bm==="TH"?"TH":(S.mkt==="US"?"US":
      ${ern.length||ahead.length?`<h3>สิ่งที่ต้องติดตาม</h3><ul class="br-ul">${ern.length?`<li>ประกาศงบ${st.closed?"ในสัปดาห์หน้า":"วันทำการถัดไป"}: ${ern.slice(0,10).map(o=>`<a href="#s-${esc(o.i.s)}">${esc(dsym(o.i.s))}</a>${st.closed?` <span class="muted">${thDate(o.d)}</span>`:""}`).join(" · ")}${ern.length>10?` +${ern.length-10}`:""}</li>`:""}${ahead.map(o=>`<li>${esc(o.cat)}: <a href="${esc(safeUrl(o.x.url))}" target="_blank" rel="noopener">${esc(nT(o.x)||"")}</a></li>`).join("")}</ul>`:""}
      <p class="muted br-sub">ประเมินจากปัจจัยที่วัดได้ด้านบนรวมกัน ไม่ใช่คำทำนายแน่นอน ข่าวใหม่ระหว่างคืนเปลี่ยนภาพได้ · ใช้ประกอบกับจุดซื้อ / TP / SL ของระบบ</p></section>`;
   return `<div class="br-top"><div><h1>สรุปตลาด${nm}</h1><p class="muted" style="margin:4px 0 0">${thDate(st.today)} · ${st.closed?(st.weekend?"เสาร์–อาทิตย์ ตลาดปิด":"ตลาดปิด (วันหยุด)"):"วันทำการ"} · อัปเดตอัตโนมัติจากราคาและข่าวล่าสุด</p></div>${tabs}</div>
+   ${briefArticle(mk)}
+   <h2 class="br-live">ข้อมูลสดตอนนี้</h2>
    <section class="card br-hero"><p>${head}</p></section>
    ${st.closed?events+outlook:overview+events+sectors+outlook}`}
 function vSignals(){const mk=S.mkt==="US"?"US":"TH",cap=+(lsGet("cap"+mk)||(mk==="TH"?100000:10000)),h=holds(),lot=mk==="TH"?100:1,P=rulesFor(mk),bm=S.calibData?.baseM?.[mk];

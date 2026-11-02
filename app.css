@@ -642,3 +642,6 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .br-sh{display:flex;justify-content:space-between;font-size:14.5px}.br-sm,.br-sn{margin-top:4px;overflow-wrap:anywhere}
 .br-out.br-up{border-left:4px solid var(--up)}.br-out.br-down{border-left:4px solid var(--down)}.br-out.br-mid{border-left:4px solid var(--warn)}
 .br-out h2{margin:2px 0 6px}.br-out h3{margin:12px 0 2px;font-size:14px}.br-f{display:inline-block;width:14px}
+.br-art{line-height:1.75}.br-art h3{margin:18px 0 4px;font-size:16px}.br-art p{margin:6px 0}
+.br-t{font-size:22px;line-height:1.35;margin:4px 0 8px}.br-lead{font-size:16px;font-weight:500}
+.br-eds{margin-bottom:10px;flex-wrap:wrap}.br-live{margin:22px 0 8px;font-size:17px}
