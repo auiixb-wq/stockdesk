@@ -187,7 +187,7 @@ async function article() {
   const prevS = sessions()[0], repU = gain.filter(o => prevS?.mv?.up?.includes(o.i.s)), repD = lose.filter(o => prevS?.mv?.dn?.includes(o.i.s));
   if (repU.length) link.push(`${repU.map(o => name(o.i.s)).join(", ")} ขึ้นแรงต่อเนื่องจากวันก่อน แรงซื้อยังตามต่อ`);
   if (repD.length) link.push(`${repD.map(o => name(o.i.s)).join(", ")} ลงแรงต่อเนื่องจากวันก่อน ยังไม่มีแรงซื้อกลับ`);
-  if (live) { const am = MEM.find(e => e.kind === fwdKind && e.date === today); if (am?.view && ix.chg != null && ix.date === today) link.push(`เช้านี้ประเมินว่า "${am.view.t}" ระหว่างวัน${ixN} ${sg(ix.chg)} → ${judge(am.view.s, ix.chg) ? "เป็นไปตามที่ประเมิน" : "สวนทางกับที่ประเมิน"}`) }
+  if (live) { const am = MEM.find(e => e.kind === fwdKind && e.date === today); if (am?.view && ix.chg != null && ix.date === today) link.push(`เช้านี้ประเมินว่า "${am.view.t}" ระหว่างวัน ${ixN} ${sg(ix.chg)} → ${judge(am.view.s, ix.chg) ? "เป็นไปตามที่ประเมิน" : "สวนทางกับที่ประเมิน"}`) }
   else { const vc = viewCheck(myS); if (vc) link.push(vc) }
 
   // ย่อหน้า: สิ่งที่เกิดขึ้น
