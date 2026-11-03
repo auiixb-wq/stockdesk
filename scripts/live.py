@@ -95,7 +95,7 @@ def brief_due():
 def run_agents():
     """ทีม Agent (scripts/agents.js) แล้วเปิด/ปิด Issue ตามผลตรวจเว็บของไอซ์ · พังได้โดยไม่กระทบงานหลัก"""
     r = subprocess.run(["node", "scripts/agents.js"], cwd=ROOT, capture_output=True, text=True, timeout=120)
-    print((r.stdout.strip() or r.stderr[-300:])[-400:])
+    print(r.stdout.strip()[-400:] + (("\n" + r.stderr.strip()[:600]) if r.returncode or r.stderr.strip() else ""))
     try:
         sync_issues()
     except Exception as e:  # noqa: BLE001

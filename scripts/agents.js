@@ -14,7 +14,7 @@ const S = { v: 1, updated: NS, sig: ST.sig || { pos: {}, feed: [] }, earn: ST.ea
 const UI = Object.fromEntries(U.map(i => [i.s, i]));
 const TZ = m => m === "TH" ? "Asia/Bangkok" : "America/New_York";
 const dayIn = (m, ms) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ(m) }).format(new Date(ms));
-const sg = v => (v >= 0 ? "+" : "") + v.toFixed(2) + "%", sg1 = v => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
+const sg = v => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "") + v.toFixed(2) + "%", sg1 = v => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
 const num = v => v == null ? "–" : Math.abs(v) >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : (+v).toFixed(2);
 const name = s => (s || "").replace(/\.(US|BK)$/, "");
 const TEAM = { "g-th": { name: "ซัน", role: "ติดตามสัญญาณหุ้นไทย" }, "g-us": { name: "ริน", role: "ติดตามสัญญาณหุ้นสหรัฐฯ" }, "e-pre": { name: "นนท์", role: "พรีวิวงบก่อนประกาศ" }, "e-post": { name: "มายด์", role: "สรุปงบหลังประกาศ" }, "w-site": { name: "ไอซ์", role: "ดูแลเว็บ" } };
@@ -104,8 +104,9 @@ function earnings() {
       if (!fresh && !late && !nw.length) continue;
       const L = [], p = QQ[u.s]?.p, p0 = pre?.p0;
       if (fresh) { const b = pre?.base, cmp = (v, w) => v != null && w != null ? ` (เทียบไตรมาสเดียวกันปีก่อน ${sg1(yoy(v, w))})` : "";
-        L.push(`${qName(F.d[n])}: รายได้ ${money(F.rev?.[n], u.m)}${cmp(F.rev?.[n], b?.rev ?? F.rev?.[n - 4])} · กำไรสุทธิ ${money(F.ni?.[n], u.m)}${cmp(F.ni?.[n], b?.ni ?? F.ni?.[n - 4])}${F.eps?.[n] != null ? ` · EPS ${num(F.eps[n])}${b?.eps != null ? ` (ปีก่อน ${num(b.eps)})` : ""}` : ""}`);
-        if (F.ni?.[n - 1] != null) L.push(`เทียบไตรมาสก่อนหน้า: กำไรสุทธิ ${sg1(yoy(F.ni[n], F.ni[n - 1]))}`) }
+        L.push(`${qName(F.d[n])}: ` + [F.rev?.[n] != null ? `รายได้ ${money(F.rev[n], u.m)}${cmp(F.rev[n], b?.rev ?? F.rev?.[n - 4])}` : null, F.ni?.[n] != null ? `กำไรสุทธิ ${money(F.ni[n], u.m)}${cmp(F.ni[n], b?.ni ?? F.ni?.[n - 4])}` : null,
+          F.eps?.[n] != null ? `EPS ${num(F.eps[n])}${b?.eps != null ? ` (ปีก่อน ${num(b.eps)})` : ""}` : null].filter(Boolean).join(" · "));
+        if (yoy(F.ni?.[n], F.ni?.[n - 1]) != null) L.push(`เทียบไตรมาสก่อนหน้า: กำไรสุทธิ ${sg1(yoy(F.ni[n], F.ni[n - 1]))}`) }
       else L.push("ตัวเลขงบไตรมาสใหม่ยังไม่เข้าระบบข้อมูลฟรี สรุปจากราคาและข่าวก่อน");
       if (p && p0) L.push(`ราคาตั้งแต่ก่อนประกาศ ${num(p0)} → ${num(p)} (${sg1((p / p0 - 1) * 100)})`);
       items.unshift({ id: rid, k: "post", s: u.s, m: u.m, ed, ts: NS, lines: L, news: nw.map(x => ({ t: (x.titleTh || x.title || "").slice(0, 160), u: x.url || "", s: x.source || "" })), full: fresh });
@@ -142,7 +143,9 @@ function web() {
   act("w-site", "web", bad.length ? `พบ ${bad.length} เรื่องต้องดู: ${bad[0].t.slice(0, 70)}` : `ตรวจ ${R.length} ข้อ ปกติทั้งหมด`);
 }
 
-signals(); earnings(); web();
+// แต่ละทีมพังได้โดยไม่ลากทีมอื่น (บันทึกข้อผิดพลาดไว้ให้ไอซ์และหน้าสถานะเห็น)
+S.err = [];
+for (const [n, f] of [["signals", signals], ["earnings", earnings], ["web", web]]) try { f() } catch (e) { S.err.push(`${n}: ${String(e.message || e).slice(0, 120)}`); console.error(n, e) }
 S.team = TEAM;
 fs.writeFileSync(path.join(DATA, "agents.json"), JSON.stringify(S));
 const open = Object.values(S.sig.pos).filter(p => p.st !== "done").length;
