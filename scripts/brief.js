@@ -33,10 +33,13 @@ const EARN = /earnings|quarterly (?:results|profit)|Q[1-4] (?:results|profit|ear
 const JUNK = /stock price & latest news|\| stock price|\bETF\b.*(?:buffer|july|june)|prediction:|could be worth|should you buy|is it time to buy|(?:best|top) \d+|\d+ (?:stocks?|reasons|things)|here's why|millionaire|forecast:|การคาดการณ์:|ควรซื้อ|น่าซื้อ|\d+ ตัว|ตัวไหนดีกว่า|จะมีมูลค่า|เศรษฐี/i;
 const STOP = new Set("stock stocks market markets shares share says said after ahead week year years company price prices could would about from with that this will their than more over into what when have been report reports news latest update today หุ้น ตลาด".split(" "));
 const tt = x => (x.title || "") + " " + (x.titleTh || "");
+const TMON = ["ม.ค", "ก.พ", "มี.ค", "เม.ย", "พ.ค", "มิ.ย", "ก.ค", "ส.ค", "ก.ย", "ต.ค", "พ.ย", "ธ.ค"], curM = new Date(NOW).getUTCMonth();
+// หัวข่าวที่ระบุวันที่ของเดือนอื่น (เช่น "หุ้นไทยวันนี้ (17 ก.ค.)") เป็นข่าวเก่าที่ถูกดึงซ้ำ
+const stale = x => { const m = tt(x).match(/\(\s*\d{1,2}\s*(ม\.ค|ก\.พ|มี\.ค|เม\.ย|พ\.ค|มิ\.ย|ก\.ค|ส\.ค|ก\.ย|ต\.ค|พ\.ย|ธ\.ค)\.?\s*\)/); if (!m) return false; const k = TMON.indexOf(m[1]); return k !== curM && k !== (curM + 11) % 12 };
 const cat = x => { for (const [n, w, re] of CAT) if (re.test(tt(x))) return [n, w]; return EARN.test(tt(x)) ? ["งบบริษัท", 1] : ["หุ้นรายตัว", 0] };
 const bigSet = new Set(U.filter(i => i.m === MK).sort((a, b) => (b.mc || 0) - (a.mc || 0)).slice(0, 40).map(i => i.s));
 function topNews(m, since) {
-  const xs = NEWS.filter(x => (x.market === m || x.market === "ALL") && (+x.ts || 0) >= since && !JUNK.test(tt(x)) && head(x).length >= 30 && head(x) !== x.source).map(x => { const [c, w] = cat(x);
+  const xs = NEWS.filter(x => (x.market === m || x.market === "ALL") && (+x.ts || 0) >= since && !JUNK.test(tt(x)) && !stale(x) && head(x).length >= 30 && head(x) !== x.source).map(x => { const [c, w] = cat(x);
     return { x, c, sc: (4 - (x.tier || 3)) + w + ((x.tickers || []).some(t => bigSet.has(t)) ? 1.5 : 0), w: new Set((tt(x).toLowerCase().match(/[a-z]{4,}|[฀-๿]{4,}/g) || []).filter(w => !STOP.has(w))) } });
   xs.sort((a, b) => b.sc - a.sc || b.x.ts - a.x.ts); const out = [];
   for (const a of xs) { const d = out.find(o => { let k = 0; for (const w of a.w) if (o.w.has(w)) k++; return k >= 3 && k / Math.max(1, Math.min(a.w.size, o.w.size)) >= .55 || (o.c === a.c && Math.abs(o.x.ts - a.x.ts) < 12 * 3600 && (a.x.tickers || []).length && (a.x.tickers || []).every(t => (o.x.tickers || []).includes(t))) });
@@ -109,7 +112,8 @@ function crossCtx(US, TH, chg) {
   return `ย้อนหลัง 1 ปี ทุกครั้งที่ S&P 500 ${chg < 0 ? "ลง" : "ขึ้น"}เกิน ${thr.toFixed(1)}% (${res.length} ครั้ง) SET วันทำการถัดไป${chg < 0 ? `ลง ${dn}` : `ขึ้น ${res.length - dn}`} ครั้ง เฉลี่ย ${sg(avg)}`;
 }
 const closeKinds = MK === "TH" ? ["morning", "weekend"] : ["preopen", "weekend"];
-const sessions = () => { const m = new Map(); for (const e of MEM) if (closeKinds.includes(e.kind) && e.ix?.date && !m.has(e.ix.date)) m.set(e.ix.date, e); return [...m.values()].sort((a, b) => b.ix.date.localeCompare(a.ix.date)) };
+let CUR_IXD = "9";  // วันทำการของดัชนีในฉบับนี้ — ความจำนับเฉพาะวันทำการก่อนหน้า
+const sessions = () => { const m = new Map(); for (const e of MEM) if (closeKinds.includes(e.kind) && e.ix?.date && e.ix.date < CUR_IXD && !m.has(e.ix.date)) m.set(e.ix.date, e); return [...m.values()].sort((a, b) => b.ix.date.localeCompare(a.ix.date)) };
 function secStreak(k, cur) { let n = cur > 0 ? 1 : cur < 0 ? -1 : 0; if (!n) return 0; for (const e of sessions()) { const v = e.sec?.[k]; if (v == null || Math.sign(v) !== Math.sign(n)) break; n += Math.sign(n) } return n }
 // ประเด็นนี้อยู่ในข่าวหลัก (10 อันดับแรกของวัน) ติดต่อกันกี่วัน — นับจากคลังข่าวย้อนหลัง
 function themeDays(c) {
@@ -171,6 +175,7 @@ async function article() {
   }
 
   // ---------- เชื่อมโยงกับวันก่อน ๆ ----------
+  CUR_IXD = ix.date || today;
   const [HS, HU] = await Promise.all([ixHist("^SET.BK"), ixHist("^GSPC")]), SS = ixSeries(HS, set), SU = ixSeries(HU, spx), myS = MK === "TH" ? SS : SU;
   console.log("index history:", "SET", HS?.length ?? 0, HS?.proxy ? "(proxy)" : "", "SPX", HU?.length ?? 0, "· memory", MEM.length);
   const link = [], ctx = ixCtx(myS, ixN);
@@ -179,7 +184,7 @@ async function article() {
   if (MK === "TH" && !live && !weekend) { const x = crossCtx(SU, SS, spx.chg ?? 0); if (x) link.push(x) }
   const themes = [...new Set(N.slice(0, 12).map(o => o.c).filter(c => c !== "หุ้นรายตัว" && c !== "งบบริษัท"))].slice(0, 6);
   for (const c of themes.slice(0, 2)) { const k = themeDays(c); if (k >= 2) link.push(`ประเด็น${c}อยู่ในข่าวหลักติดต่อกัน ${k} วัน ตลาดยังให้น้ำหนักกับเรื่องนี้ต่อเนื่อง`) }
-  const prevS = sessions().find(e => e.date < today || live), repU = gain.filter(o => prevS?.mv?.up?.includes(o.i.s)), repD = lose.filter(o => prevS?.mv?.dn?.includes(o.i.s));
+  const prevS = sessions()[0], repU = gain.filter(o => prevS?.mv?.up?.includes(o.i.s)), repD = lose.filter(o => prevS?.mv?.dn?.includes(o.i.s));
   if (repU.length) link.push(`${repU.map(o => name(o.i.s)).join(", ")} ขึ้นแรงต่อเนื่องจากวันก่อน แรงซื้อยังตามต่อ`);
   if (repD.length) link.push(`${repD.map(o => name(o.i.s)).join(", ")} ลงแรงต่อเนื่องจากวันก่อน ยังไม่มีแรงซื้อกลับ`);
   if (live) { const am = MEM.find(e => e.kind === fwdKind && e.date === today); if (am?.view && ix.chg != null && ix.date === today) link.push(`เช้านี้ประเมินว่า "${am.view.t}" ระหว่างวัน${ixN} ${sg(ix.chg)} → ${judge(am.view.s, ix.chg) ? "เป็นไปตามที่ประเมิน" : "สวนทางกับที่ประเมิน"}`) }
