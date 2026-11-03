@@ -34,6 +34,8 @@ const TEAM = {
   data: [{ id: "d-qa", name: "ใบเตย", team: "data", role: "Data: ตรวจสอบข้อมูล" },
     { id: "d-ed", name: "อาร์ม", team: "data", role: "Data: บรรณาธิการและเผยแพร่" }],
   web: [{ id: "w-site", name: "ไอซ์", team: "web", role: "ดูแลเว็บ: ไล่ตรวจหน้าเว็บและความสดของข้อมูล" }],
+  sig: [{ id: "g-th", name: "ซัน", team: "sig", role: "ติดตามสัญญาณหุ้นไทย" }, { id: "g-us", name: "ริน", team: "sig", role: "ติดตามสัญญาณหุ้นสหรัฐฯ" }],
+  earn: [{ id: "e-pre", name: "นนท์", team: "earn", role: "งบประกาศ: พรีวิวก่อนประกาศ" }, { id: "e-post", name: "มายด์", team: "earn", role: "งบประกาศ: สรุปหลังประกาศ" }],
   boss: [{ id: "boss", name: "บอสเบค", team: "boss", role: "บอส: รับสรุปตลาดทุกฉบับหลังทีมตรวจแล้ว" }],
 };
 const LOG = [], act = (who, a, t, at) => LOG.push(at ? { by: who.id, a, t, at } : { by: who.id, a, t });
@@ -215,18 +217,32 @@ function webCheck(a) {
   const id = `${MK}-${KIND}-${today}`, A = BRIEF.items?.find(x => x.id === id);
   if (!A) { console.log("desk: ไม่พบบทความ", id); return }
   const sector = TEAM.sector.map(sectorNote).filter(Boolean).sort((x, y) => y.chg - x.chg);
+  // ทีมติดตามสัญญาณและทีมงบประกาศทำงานต่อเนื่องทั้งวัน (scripts/agents.js) ฉบับนี้หยิบผลล่าสุดของตลาดนี้มาใส่
+  const AG = load("agents.json", {}), gid = MK === "TH" ? "g-th" : "g-us", ga = TEAM.sig.find(t => t.id === gid);
+  const fd = (AG.sig?.feed || []).filter(e => e.m === MK && e.ts >= NOW / 1000 - (weekend ? 72 : 24) * 3600 && e.k !== "new"), wk = AG.sig?.week?.[MK];
+  act(ga, "board", `ไล่ดูสัญญาณที่ติดตาม ${Object.values(AG.sig?.pos || {}).filter(p => p.m === MK && p.st !== "done").length} ไม้`);
+  const sig = wk ? [{ by: gid, h: MK === "TH" ? "ติดตามสัญญาณหุ้นไทย" : "ติดตามสัญญาณหุ้นสหรัฐฯ", lines: [
+    `ถืออยู่ ${wk.held} ไม้ · รอได้ของ ${wk.wait} ไม้ · 7 วันล่าสุดปิด ${wk.closed} ไม้ ชนะ ${wk.win}${wk.avg != null ? ` เฉลี่ย ${sg(wk.avg)}/ไม้` : ""}${wk.all?.closed ? ` · ทั้งหมด ชนะ ${wk.all.win}/${wk.all.closed} เฉลี่ย ${sg(wk.all.avg)}` : ""}`,
+    ...(fd.length ? fd.slice(0, 6).map(e => `${e.s ? name(e.s) + ": " : ""}${e.t}`) : ["ช่วงนี้ยังไม่มีไม้ได้ของ ชน TP/TP1 หรือโดน SL"])] }] : [];
+  if (sig.length) act(ga, "write", `สรุปสัญญาณ ${fd.length} เหตุการณ์`);
+  const until = NOW / 1000 + 3 * 86400, E = (AG.earn?.items || []).filter(x => x.m === MK && (x.k === "pre" ? x.ed <= until && x.ed > NOW / 1000 - 3600 : x.ts >= NOW / 1000 - 30 * 3600));
+  const big1 = s => -(U.find(i => i.s === s)?.mc || 0), pick = k => E.filter(x => x.k === k).sort((x, y) => big1(x.s) - big1(y.s)).slice(0, 5);
+  const earn = [...pick("pre").map(x => ({ by: "e-pre", h: `พรีวิวงบ ${name(x.s)} · ประกาศ ${dm(dayIn(MK, x.ed * 1000))}`, lines: x.lines })),
+    ...pick("post").map(x => ({ by: "e-post", h: `สรุปงบ ${name(x.s)}`, lines: x.lines, news: (x.news || []).map(n => ({ ...n, c: "งบบริษัท", n: 1 })) }))];
+  for (const x of earn) act(TEAM.earn.find(t => t.id === x.by), "earn", x.h);
   const byM = Object.fromEntries(["pol", "th", "glob"].map(k => [k, macroNote(TEAM.macro.find(a => a.spec === k))]));  // ไทยเลือกข่าวก่อนโลก
   const macro = TEAM.macro.map(a => byM[a.spec]).filter(Boolean);
   const tech = [breadthNote(TEAM.tech[0]), signalNote(TEAM.tech[1]), momentumNote(TEAM.tech[2])].filter(Boolean);
-  for (const x of [...sector, ...macro, ...tech]) act(TEAM.sector.concat(TEAM.macro, TEAM.tech).find(t => t.id === x.by), "submit", "ส่งบทให้ทีม Data");
-  const check = qa(TEAM.data[0], A, [...sector, ...macro, ...tech]);
+  const ALLN = [...sector, ...macro, ...tech, ...sig, ...earn], WR = Object.values(TEAM).flat();
+  for (const by of [...new Set(ALLN.map(x => x.by))]) act(WR.find(t => t.id === by), "submit", `ส่งบทให้ทีม Data ${ALLN.filter(x => x.by === by).length} บท`);
+  const check = qa(TEAM.data[0], A, ALLN);
   act(TEAM.data[1], "publish", check.st === "fail" ? "เผยแพร่พร้อมคำเตือน ทีม Data พบปัญหา" : "จัดเรียงและเผยแพร่");
   const web = webCheck(TEAM.web[0]);
   const ok = check.items.filter(i => i.st === "ok").length;
   act(TEAM.data[1], "deliver", `บอสครับ สรุปตลาดฉบับนี้: ${A.title} · ทีม Data ตรวจผ่าน ${ok}/${check.items.length} ข้อ`);
   act(TEAM.boss[0], "read", check.st === "pass" ? "ได้รับแล้ว ตรวจครบดีมาก ขอบคุณทีม" : check.st === "warn" ? `ได้รับแล้ว ฝากดูข้อที่เตือนด้วย: ${(check.items.find(i => i.st !== "ok")?.t || "").slice(0, 60)}` : "ข้อมูลมีปัญหา ทีม Data ช่วยตรวจซ้ำก่อนนะ");
   const roster = Object.values(TEAM).flat().map(({ id, name, team, role }) => ({ id, name, team, role }));
-  A.desk = { v: 2, ts: Math.floor(Date.now() / 1000), roster, sector, macro, tech, qa: check, web, log: LOG };
+  A.desk = { v: 3, ts: Math.floor(Date.now() / 1000), roster, sector, macro, tech, sig, earn, qa: check, web, log: LOG };
   // เก็บบทของทีมไว้เฉพาะ 3 ฉบับล่าสุดต่อตลาด ให้ brief.json ยังเล็กพอโหลดเร็ว
   BRIEF.items.filter(x => x.mk === MK && x.desk).sort((x, y) => y.ts - x.ts).slice(3).forEach(x => delete x.desk);
   fs.writeFileSync(path.join(DATA, "brief.json"), JSON.stringify(BRIEF));

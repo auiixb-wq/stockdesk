@@ -447,7 +447,8 @@ def cluster(items):
     return groups
 
 
-def fetch_news():
+def fetch_news(fast=False):
+    """fast=True: รอบข่าวด่วนทุก ~5 นาที ดึงเฉพาะฟีดข่าวโดยตรง (ไม่ยิง Google/ค้นรายหุ้น) แล้วรวมกับข่าวเดิม"""
     t0 = time.time()
     uni = load("universe.json", {"items": []})["items"] or [{"s": s["s"], "n": s.get("n", s["s"]), "m": s["m"], "sec": s["sec"]} for s in CFG["stocks"]]
     for s in CFG["stocks"]:
@@ -468,21 +469,24 @@ def fetch_news():
 
     jobs = []  # (kind, arg, market, queried_ticker)
     jobs += [("feed", (src, url), m, None) for src, m, url in FEEDS]
-    jobs += [("gq", (q, lang, 2), m, None) for q, lang, m in SITE_Q]
-    for q in CFG["macroQueries"]:
+    if fast:
+        for i in range(0, 120, 10):
+            jobs.append(("yrss", ",".join(plain(x) for x in us[i:i + 10]), "US", None))
+    jobs += [] if fast else [("gq", (q, lang, 2), m, None) for q, lang, m in SITE_Q]
+    for q in ([] if fast else CFG["macroQueries"]):
         jobs.append(("macro", q, q.get("m", "ALL"), None))
     th_q = list(dict.fromkeys([s["s"] for s in CFG["stocks"] if s["m"] == "TH"] + th[:150]))
     us_q = list(dict.fromkeys([s["s"] for s in CFG["stocks"] if s["m"] == "US"] + us[:250]))
-    for s in rot(th_q, 30, 50):
+    for s in ([] if fast else rot(th_q, 30, 50)):
         jobs.append(("gq", (f'"{plain(s)}" หุ้น', "th", 3), "TH", s))
-    for s in rot(us_q, 12, 18):
+    for s in ([] if fast else rot(us_q, 12, 18)):
         nm = TG.us_name.get(s, s)
         jobs.append(("gq", (f'"{nm}" stock', "en", 2), "US", s))
-    for s in us_q[:200]:
+    for s in ([] if fast else us_q[:200]):
         jobs.append(("yahoo", plain(s), "US", s))
-    for s in rot([x for x in us_q if "-" not in x], 20, 20)[:40]:  # Seeking Alpha ไม่มีฟีดของหุ้นหลายคลาส (BRK-B)
+    for s in ([] if fast else rot([x for x in us_q if "-" not in x], 20, 20)[:40]):  # Seeking Alpha ไม่มีฟีดของหุ้นหลายคลาส (BRK-B)
         jobs.append(("sa", plain(s), "US", s))
-    for i in range(0, 120, 10):
+    for i in ([] if fast else range(0, 120, 10)):
         jobs.append(("yrss", ",".join(plain(x) for x in us_q[i:i + 10]), "US", None))
 
     def run(job):
@@ -622,6 +626,8 @@ def fetch_news():
         for k in ("summary", "factors", "sectors"):
             if not G.get(k):
                 G.pop(k, None)
+    if fast:  # รอบด่วนไม่ได้ดึงทุกแหล่ง เก็บสถิติแหล่งข่าวของรอบเต็มล่าสุดไว้ (หน้าสถานะข้อมูล)
+        stats = {**{k: [v.get("ok", 0), v.get("items", 0), v.get("fail", 0)] for k, v in (load("news.json", {}).get("sources") or {}).items()}, **stats}
     out = {"updated": int(time.time()), "sources": {k: {"ok": v[0], "items": v[1], "fail": v[2]} for k, v in sorted(stats.items())},
            "seconds": round(time.time() - t0, 1), "items": groups}
     save("news.json", out)

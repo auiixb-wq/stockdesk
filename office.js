@@ -6,7 +6,7 @@ const W = 640, H = 400, CY = 246;
 let RUN = null;
 window.Office = { mount(o) { if (RUN) RUN.stop(); RUN = make(o); return RUN }, stop() { if (RUN) RUN.stop(); RUN = null } };
 
-const TEAMC = { sector: "#4C7DD6", macro: "#D9783F", tech: "#9A66D8", data: "#D4A52A", web: "#2FA39A", boss: "#2B2D3A" };
+const TEAMC = { sector: "#4C7DD6", macro: "#D9783F", tech: "#9A66D8", data: "#D4A52A", web: "#2FA39A", boss: "#2B2D3A", sig: "#D45D86", earn: "#8A9A3A" };
 const UP = "#3BC46E", DN = "#E5534B";
 const shade = (h, f) => { const n = parseInt(h.slice(1), 16); return "#" + [n >> 16, n >> 8 & 255, n & 255].map(v => Math.max(0, Math.min(255, Math.round(v * f))).toString(16).padStart(2, "0")).join("") };
 const hash = s => { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h };
@@ -21,6 +21,8 @@ const SD = []; for (let i = 0; i < 12; i++) { const c = i % 4, r = i >> 2, x0 = 
 [45, 75, 105].forEach((x, i) => P["mac" + i] = { x, y: 132, ax: 76, seat: 1 });
 const TD = [12, 62, 112]; TD.forEach((x0, i) => P["tec" + i] = { x: x0 + 20, y: 306, ax: x0 + 45, seat: 1 });
 const DD = [186, 252]; DD.forEach((x0, i) => P["dat" + i] = { x: x0 + 24, y: 306, ax: x0 + 56, seat: 1 });
+const GD = [14, 82]; GD.forEach((x0, i) => P["sig" + i] = { x: x0 + 25, y: 216, ax: i ? 142 : 74, seat: 1 });
+const ED = [508, 578]; ED.forEach((x0, i) => P["ern" + i] = { x: x0 + 25, y: 216, ax: 568, seat: 1 });
 
 function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
   const D = A.desk, ctx = cv.getContext("2d");
@@ -32,9 +34,9 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
 
   // ---------- ทีม ----------
   const homeOf = { "w-site": "web", boss: "boss", "d-qa": "dat0", "d-ed": "dat1" };
-  let si = 0, mi = 0, ti = 0;
+  let si = 0, mi = 0, ti = 0, gi = 0, ei = 0;
   const agents = (D.roster || []).map(r => {
-    const h = hash(r.id), home = homeOf[r.id] || (r.team === "sector" ? "sec" + si++ : r.team === "macro" ? "mac" + mi++ : r.team === "tech" ? "tec" + ti++ : "dat0");
+    const h = hash(r.id), home = homeOf[r.id] || (r.team === "sector" ? "sec" + si++ : r.team === "macro" ? "mac" + mi++ : r.team === "tech" ? "tec" + ti++ : r.team === "sig" ? "sig" + gi++ : r.team === "earn" ? "ern" + ei++ : "dat0");
     const p = P[home];
     return { ...r, home, x: p.x, y: p.y, place: home, q: [], cur: null, t: 0, path: [], bubble: null, st: "พร้อมทำงาน", ph: h % 6, moving: false,
       jit: (h % 21) - 10, hair: HAIR[h % HAIR.length], skin: SKIN[(h >> 3) % SKIN.length], style: r.id === "boss" ? 0 : (h >> 5) % 3, glasses: r.id !== "boss" && (h >> 7) % 4 === 0,
@@ -63,6 +65,8 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
       case "deliver": return [{ go: "bossv", st: "นำสรุปตลาดไปส่งบอส", m }, { fn: () => { delivered = true; onBoss?.("delivered") }, say: t, wait: 3200 }, { go: a.home, st: "กลับโต๊ะ" }];
       case "read": return [{ waitFor: () => delivered, st: "รอสรุปตลาดจากทีม", m }, { fn: () => onBoss?.("read"), say: t, wait: 3600, st: "อ่านสรุปตลาด" }];
       case "web": return [{ go: e.at || "web", st: "ไล่ตรวจเว็บ", m }, { say: t, wait: 1900 }];
+      case "sig": case "earn": return [{ go: a.home, st: e.a === "sig" ? "ติดตามสัญญาณ" : "อ่านงบ", m }, { say: t, wait: 2000 }];
+      case "sigweek": return [{ go: "bossv", st: "รายงานผลสัญญาณรายสัปดาห์", m }, { say: t, wait: 3000 }, { go: a.home }];
       default: return [{ say: t, wait: 1500, m }];
     }
   }
@@ -168,6 +172,11 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
     R(B, 544, 100, 8, 9, "#EDE6D6"); R(B, 544, 98, 8, 2, "#B9B3A0");
     R(B, 506, 120, 14, 40, "#596A85"); R(B, 506, 120, 14, 3, "#6E80A0"); R(B, 507, 128, 12, 1, "#4B5A72"); R(B, 507, 142, 12, 1, "#4B5A72");
     plant(604, 140, 1);
+    // ห้องติดตามสัญญาณ (ใต้ห้องประชุม) และห้องงบประกาศ (ใต้ห้องบอส)
+    for (const [x0, x1] of [[0, 150], [500, W]]) for (let y = 176; y < 234; y += 10) for (let x = x0; x < x1; x += 10) R(B, x, y, 10, 10, ((x + y) / 10) % 2 ? "#3A2F45" : "#3E3349");
+    glassV(150, 172, 234); glassV(500, 172, 234);
+    GD.forEach((x0, i) => { desk(x0, 186, 50, [6, 26], i ? 2 : 4); chairBase(P["sig" + i].x, P["sig" + i].y) });
+    ED.forEach((x0, i) => { desk(x0, 186, 50, [6, 26], i ? 1 : 2); chairBase(P["ern" + i].x, P["ern" + i].y) });
     // ชั้นนักวิเคราะห์
     SD.forEach((d, i) => { if (i < 11) { desk(d.x0, d.top, 56, [10, 30], [1, 2, 4, 3, 1, 6, 2, 1, 5, 2, 3][i]); chairBase(P["sec" + i].x, P["sec" + i].y) } });
     R(B, SD[11].x0 + 8, SD[11].top + 2, 38, 20, "#C9C5B8"); R(B, SD[11].x0 + 10, SD[11].top + 4, 34, 8, "#E8E4D6"); R(B, SD[11].x0 + 12, SD[11].top + 14, 20, 3, "#2B2E3A");
@@ -240,6 +249,8 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
     DD.forEach((x0, i) => [6, 26].forEach(mx => { const x = x0 + mx + 1, y = 266; R(O, x, y, 16, 10, "#1E1C10"); for (let k = 0; k < 4; k++) R(O, x + 1, y + 1 + k * 2, k === (((clock * 2.5) | 0) + i) % 4 ? 14 : 9, 1, "#D9B23A") }));
     for (let k = 0; k < Math.min(tray, 8); k++) R(O, 304 + (k % 2), 266 - k * 2, 22, 2, k % 2 ? "#F2EEDF" : "#DCD6C3");
     for (const x of [280, 306]) for (let y = 338; y < 390; y += 6) R(O, x + 15 + ((y / 6) % 2) * 2, y + 1, 2, 2, ((clock * 3 + y + x) | 0) % 5 ? UP : "#E2B33C");
+    GD.forEach((x0, i) => [6, 26].forEach((mx, j) => { const x = x0 + mx + 1, y = 176; R(O, x, y, 16, 10, "#1A0F16"); for (let k = 0; k < 5; k++) R(O, x + 1 + k * 3, y + 3 + ((k * 3 + ((clock * 2) | 0) + i + j) % 5), 2, 2, (k + j + ((clock | 0))) % 3 ? UP : DN) }));
+    ED.forEach((x0, i) => [6, 26].forEach((mx, j) => { const x = x0 + mx + 1, y = 176; R(O, x, y, 16, 10, "#141A0D"); for (let k = 0; k < 4; k++) { const h = 2 + ((k * 5 + i * 3 + j + ((clock * .5) | 0)) % 7); R(O, x + 2 + k * 3, y + 9 - h, 2, h, "#B9C96A") } }));
     const wst = D.web?.items || [];
     [2, 24, 46].forEach((mx, j) => { const x = 351 + mx, y = 266; R(O, x, y, 16, 10, "#0F1A1A"); wst.slice(j * 2, j * 2 + 2).forEach((w, k) => R(O, x + 2, y + 2 + k * 4, 12, 2, w.st === "ok" ? UP : "#E2B33C")) });
     R(O, 348, 360, 96, 28, "#0F1A1A"); for (let k = 0; k < 30; k++) { const h = 4 + Math.round((Math.sin(k * .8 + clock * .4) + 1) * 6); R(O, 352 + k * 3, 386 - h, 2, h, "#2FA39A") }
@@ -269,7 +280,7 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
     if (tot) { let x = 230 * sc - ((clock * 26 * sc) % tot); while (x < 410 * sc) for (const [s, v, c, w1, w2] of M) { ctx.fillStyle = "#E8E4D6"; ctx.fillText(s, x, 19 * sc); ctx.fillStyle = c >= 0 ? UP : DN; ctx.fillText(v, x + w1, 19 * sc); x += w1 + w2 } }
     ctx.restore();
     ctx.font = `600 ${Math.round(Math.min(10 * d, 6.5 * sc))}px ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    for (const [t, x, y, c] of [["ห้องประชุมมหภาค", 75, 162, "rgba(236,232,218,.55)"], ["ห้องบอส", 600, 162, "rgba(236,232,218,.6)"], ["ชั้นนักวิเคราะห์รายกลุ่ม", 326, 228, "rgba(236,232,218,.42)"], ["ทีมเทคนิค", 84, 264, "rgba(236,232,218,.5)"],
+    for (const [t, x, y, c] of [["ห้องประชุมมหภาค", 75, 162, "rgba(236,232,218,.55)"], ["ติดตามสัญญาณ", 75, 230, "rgba(236,232,218,.5)"], ["งบประกาศ", 570, 230, "rgba(236,232,218,.5)"], ["ห้องบอส", 600, 162, "rgba(236,232,218,.6)"], ["ชั้นนักวิเคราะห์รายกลุ่ม", 326, 228, "rgba(236,232,218,.42)"], ["ทีมเทคนิค", 84, 264, "rgba(236,232,218,.5)"],
       ["ทีม Data", 210, 330, "rgba(236,232,218,.5)"], ["ดูแลเว็บ", 394, 330, "rgba(236,232,218,.5)"], ["แพนทรี", 590, 340, "rgba(40,40,48,.55)"], ["ถาดส่งบท", 315, 280, "rgba(236,232,218,.6)"]]) { ctx.fillStyle = c; ctx.fillText(t, x * sc, y * sc) }
     ctx.font = `700 ${Math.round(7 * sc)}px ${FONT}`; ctx.fillStyle = "#2B2D3A"; ctx.fillText("BOSS", 597 * sc, 107 * sc);
     const fs = Math.round(12 * d); ctx.font = `500 ${fs}px ${FONT}`; ctx.textBaseline = "top"; ctx.textAlign = "left";

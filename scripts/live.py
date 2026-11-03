@@ -1,6 +1,8 @@
 """รันต่อเนื่องตลอดวัน (ต่อคิวกันทีละงาน งานละไม่เกิน ~5 ชม. 40 นาที ตามเพดานของ GitHub Actions)
 - ช่วงตลาดไทยหรือสหรัฐฯ เปิด: ราคาทุก ~30 วินาที เก็บภาพราคาเข้าคลังทุก ~15 นาที และรอบใหญ่ (ข่าว ปัจจัย คะแนน) ทุก ~30 นาที
-- นอกเวลาตลาด: อัปเดตข่าวทุก ~20 นาที (วันหยุดทุกชั่วโมง) เพราะข่าวออกตลอดเวลา
+- นอกเวลาตลาด: อัปเดตข่าวเต็มรอบทุก ~20 นาที (วันหยุดทุกชั่วโมง) เพราะข่าวออกตลอดเวลา
+- ข่าวด่วน: ดึงฟีดข่าวโดยตรงทุก ~5 นาทีทั้งวัน (ข่าวต้องไวที่สุด) แล้วส่งขึ้น branch live ทันที
+- ทีม Agent (scripts/agents.js): ติดตามสัญญาณ งบประกาศ และดูแลเว็บ ทำงานทุก ~2 นาทีช่วงตลาดเปิด และหลังรอบข่าวทุกครั้ง
 ก่อนรอบใหญ่ทุกครั้งดึงไฟล์ที่งานรายคืนสร้าง (งบ รายชื่อหุ้น ราคาย้อนหลัง) มาใช้ ไม่เอาของเก่าไปทับของใหม่
 """
 import datetime as dt, json, os, subprocess, sys, time
@@ -15,6 +17,8 @@ ROOT = update.ROOT
 INTERVAL = int(os.environ.get("LIVE_INTERVAL", "30"))
 FULL_EVERY = int(os.environ.get("FULL_EVERY", "1800"))
 NEWS_EVERY = int(os.environ.get("NEWS_EVERY", "1200"))
+FAST_NEWS = int(os.environ.get("FAST_NEWS", "300"))
+AGENTS_EVERY = int(os.environ.get("AGENTS_EVERY", "120"))
 MAX_RUN = int(os.environ.get("MAX_RUN", str(5 * 3600 + 40 * 60)))
 _hist_sha = [None]
 
@@ -32,7 +36,7 @@ def sh(cmd):
 
 
 def publish_live():
-    sh("rm -rf _live && mkdir -p _live && cp data/quotes.json data/meta.json _live/")
+    sh("rm -rf _live && mkdir -p _live && cp data/quotes.json data/meta.json _live/ && cp data/news.json data/agents.json _live/ 2>/dev/null; true")
     r = sh('cd _live && git init -q -b live && git add -A && git -c user.name=stockdesk-bot '
            '-c user.email=actions@users.noreply.github.com commit -qm live && '
            f'git push -qf "https://x-access-token:{os.environ["GITHUB_TOKEN"]}@github.com/{os.environ["GITHUB_REPOSITORY"]}.git" live')
@@ -46,7 +50,7 @@ def publish_site():
         print("publish failed:", r.stderr[-300:])
 
 
-OWN = {"quotes.json", "news.json", "meta.json", "archive_state.json", "brief.json"}  # ไฟล์ที่งานนี้เขียนเองตลอด (ของในเครื่องใหม่กว่าเสมอ)
+OWN = {"quotes.json", "news.json", "meta.json", "archive_state.json", "brief.json", "agents.json"}  # ไฟล์ที่งานนี้เขียนเองตลอด (ของในเครื่องใหม่กว่าเสมอ)
 
 
 def sync_shared():
@@ -88,6 +92,54 @@ def brief_due():
     return out
 
 
+def run_agents():
+    """ทีม Agent (scripts/agents.js) แล้วเปิด/ปิด Issue ตามผลตรวจเว็บของไอซ์ · พังได้โดยไม่กระทบงานหลัก"""
+    r = subprocess.run(["node", "scripts/agents.js"], cwd=ROOT, capture_output=True, text=True, timeout=120)
+    print((r.stdout.strip() or r.stderr[-300:])[-400:])
+    try:
+        sync_issues()
+    except Exception as e:  # noqa: BLE001
+        print("issues:", e)
+
+
+ISSUE_LABEL = "ดูแลเว็บ"
+
+
+def _gh(method, path, body=None):
+    import urllib.request
+    req = urllib.request.Request(f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}{path}", method=method,
+                                 data=json.dumps(body).encode() if body is not None else None,
+                                 headers={"Authorization": f"Bearer {os.environ['GITHUB_TOKEN']}", "Accept": "application/vnd.github+json", "User-Agent": "stockdesk-bot"})
+    with urllib.request.urlopen(req, timeout=20) as r:
+        return json.loads(r.read() or b"null")
+
+
+def sync_issues():
+    """ไอซ์ (คนดูแลเว็บ): ปัญหาที่เจอซ้ำ 2 รอบติดกันเปิดเป็น Issue · ปัญหาที่หายไปแล้วปิด Issue พร้อมบอกว่าตรวจรอบล่าสุดไม่พบ"""
+    if not os.environ.get("GITHUB_TOKEN") or not os.environ.get("GITHUB_REPOSITORY"):
+        return
+    want = {x["key"]: x for x in (update.load("agents.json", {}).get("web") or {}).get("issues", [])}
+    try:
+        _gh("POST", "/labels", {"name": ISSUE_LABEL, "color": "2FA39A", "description": "ไอซ์ (Agent ดูแลเว็บ) เปิดอัตโนมัติ"})
+    except Exception:  # ป้ายมีอยู่แล้ว
+        pass
+    import urllib.parse
+    have = {}
+    for it in _gh("GET", f"/issues?state=open&per_page=100&labels={urllib.parse.quote(ISSUE_LABEL)}") or []:
+        m = (it.get("body") or "").split("<!-- key:")
+        if len(m) > 1:
+            have[m[1].split(" -->")[0]] = it["number"]
+    for k, x in want.items():
+        if k not in have:
+            n = _gh("POST", "/issues", {"title": x["title"], "body": x["body"] + f"\n\n<!-- key:{k} -->", "labels": [ISSUE_LABEL]})["number"]
+            print("เปิด Issue", n, x["title"])
+    for k, n in have.items():
+        if k not in want:
+            _gh("POST", f"/issues/{n}/comments", {"body": "ไอซ์ตรวจรอบล่าสุดไม่พบปัญหานี้แล้ว ปิด Issue อัตโนมัติ ถ้ายังเจออยู่เปิดใหม่ได้"})
+            _gh("PATCH", f"/issues/{n}", {"state": "closed", "state_reason": "completed"})
+            print("ปิด Issue", n)
+
+
 def write_briefs():
     made = False
     for mk, kind in brief_due():
@@ -95,6 +147,7 @@ def write_briefs():
         print(r.stdout.strip() or r.stderr[-300:])
         made = made or r.returncode == 0
         if r.returncode == 0:
+            run_agents()  # ให้บทสรุปได้ข้อมูลสัญญาณและงบล่าสุด
             # ทีมวิจัย (scripts/desk.js) เขียนบทแยกตามทีมและตรวจตัวเลขของฉบับนี้ · พังได้โดยไม่กระทบบทความหลัก
             d = subprocess.run(["node", "scripts/desk.js", mk, kind], cwd=ROOT, capture_output=True, text=True)
             print(d.stdout.strip() or d.stderr[-300:])
@@ -103,7 +156,7 @@ def write_briefs():
 
 def main():
     t0 = time.time()
-    last_big, big = 0, None
+    last_big, big, kind, last_fast, last_agents = 0, None, "", 0, 0
     _hist_sha[0] = (sh("git ls-remote origin refs/heads/hist").stdout.split() or [None])[0]
     while time.time() - t0 < MAX_RUN:
         tick = time.time()
@@ -113,16 +166,27 @@ def main():
         every = FULL_EVERY if trading else NEWS_EVERY if now.weekday() < 5 else 3600
         # รอบใหญ่รันแยกอีก process ราคาจะได้อัปเดตทุก 2 นาทีต่อไม่สะดุด
         if big is not None and big.poll() is not None:
-            print("รอบใหญ่เสร็จ", big.returncode)
-            sync_shared()
-            publish_site()
-            archive.push()
+            print("ข่าวด่วนเสร็จ" if kind == "fast" else "รอบใหญ่เสร็จ", big.returncode)
+            if kind == "fast":
+                run_agents()
+                last_agents = time.time()
+                publish_live()
+            else:
+                sync_shared()
+                run_agents()
+                last_agents = time.time()
+                publish_site()
+                publish_live()
+                archive.push()
             big = None
+        env = {**os.environ, "ARCHIVE_PUSH": "0"}
         if big is None and tick - last_big >= every:
             sync_shared()
-            env = {**os.environ, "ARCHIVE_PUSH": "0"}
-            big = subprocess.Popen([sys.executable, "scripts/update.py"] + ([] if trading else ["--news"]), cwd=ROOT, env=env)
-            last_big = tick
+            big, kind = subprocess.Popen([sys.executable, "scripts/update.py"] + ([] if trading else ["--news"]), cwd=ROOT, env=env), "full"
+            last_big = last_fast = tick
+        elif big is None and tick - last_fast >= FAST_NEWS:
+            big, kind = subprocess.Popen([sys.executable, "scripts/update.py", "--news-fast"], cwd=ROOT, env=env), "fast"
+            last_fast = tick
         if write_briefs() and big is None:
             publish_site()
         if trading:
@@ -135,6 +199,9 @@ def main():
                 meta["quotesUpdated"] = int(time.time())
                 meta["quotesTiming"] = {**update.QUOTE_T, "total": round(time.time() - tick, 1)}
                 update.save("meta.json", meta)
+                if big is None and time.time() - last_agents >= AGENTS_EVERY:
+                    run_agents()
+                    last_agents = time.time()
                 publish_live()
                 if archive.snap_quotes(q, open_m) and big is None:
                     archive.push()

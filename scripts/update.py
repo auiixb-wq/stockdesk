@@ -26,12 +26,14 @@ def summarize():
         ERRORS.append("summarize: " + r.stderr[-200:])
 
 
-def news_only():
-    """นอกเวลาตลาด: อัปเดตแค่ข่าว (ข่าวออกตลอดเวลา แต่ราคาไม่ขยับ) แล้วเก็บเข้าคลัง"""
+def news_only(fast=False):
+    """นอกเวลาตลาด: อัปเดตแค่ข่าว (ข่าวออกตลอดเวลา แต่ราคาไม่ขยับ) แล้วเก็บเข้าคลัง
+    fast=True (--news-fast): รอบข่าวด่วนทุก ~5 นาทีทั้งวัน ดึงเฉพาะฟีดข่าวโดยตรง"""
     t0 = time.time()
-    news = fetch_news()
+    news = fetch_news(fast=fast)
     archive.snap_news(news.get("items", []), load("macro.json", {}))
-    health_report()
+    if not fast:
+        health_report()
     meta = load("meta.json", {})
     meta.update({"newsUpdated": news.get("updated"), "newsSeconds": round(time.time() - t0, 1)})
     save("meta.json", meta)
@@ -41,6 +43,8 @@ def news_only():
 
 
 def main():
+    if "--news-fast" in sys.argv:
+        return news_only(fast=True)
     if "--news" in sys.argv:
         return news_only()
     t0 = time.time()
