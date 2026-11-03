@@ -9,7 +9,7 @@ const meta = load("meta.json", {}), Q = load("quotes.json", {}).q || {}, U = loa
 const NEWS = load("news.json", {}).items || [], LEARN = load("learn.json", {}).market || {}, MACRO = load("macro.json", {}), CAL = load("calib.json", {});
 const HEALTH = load("health.json", {}), MAN = load("manual.json", {}, ROOT), BRIEF = load("brief.json", { items: [] });
 
-const SEC = { energy: "พลังงาน", bank: "ธนาคาร/การเงิน", tech: "เทคโนโลยี/อิเล็กทรอนิกส์", comm: "สื่อสาร", consumer: "ค้าปลีก/อุปโภค", health: "การแพทย์", transport: "ขนส่ง/ท่องเที่ยว", utility: "โรงไฟฟ้า/สาธารณูปโภค", property: "อสังหาฯ", materials: "วัสดุ/ปิโตรเคมี", industrial: "อุตสาหกรรม" };
+const { SEC, ROSTER } = require("./team.js");
 const TZ = m => m === "TH" ? "Asia/Bangkok" : "America/New_York";
 const dayIn = (m, ms) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ(m) }).format(new Date(ms));
 const sg = v => (v >= 0 ? "+" : "") + v.toFixed(2) + "%", sg1 = v => (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
@@ -22,22 +22,8 @@ const bigN = MK === "TH" ? 5e9 : 2e9, BIG = U.filter(i => i.m === MK && (i.mc ||
 const ixK = MK === "TH" ? "set" : "spx", ixN = MK === "TH" ? "SET" : "S&P 500", IX = (meta.indices || {})[ixK] || {};
 
 // ---------- ทีมงาน ----------
-const TEAM = {
-  sector: [["energy", "ต้น"], ["bank", "บีม"], ["tech", "เก่ง"], ["comm", "มิ้นท์"], ["consumer", "ปลา"], ["health", "ฝน"], ["transport", "โอ๊ต"], ["utility", "แพร"], ["property", "ข้าวหอม"], ["materials", "ปั้น"], ["industrial", "ตาล"]]
-    .map(([k, n]) => ({ id: "s-" + k, name: n, team: "sector", role: "นักวิเคราะห์กลุ่ม" + SEC[k], sec: k })),
-  macro: [{ id: "m-pol", name: "พี่หน่อย", team: "macro", role: "มหภาค: การเมืองและภูมิรัฐศาสตร์", spec: "pol" },
-    { id: "m-glob", name: "ภูมิ", team: "macro", role: "มหภาค: เศรษฐกิจโลก", spec: "glob" },
-    { id: "m-th", name: "จูน", team: "macro", role: "มหภาค: เศรษฐกิจไทย", spec: "th" }],
-  tech: [{ id: "t-breadth", name: "ไนท์", team: "tech", role: "เทคนิค: ดัชนีและความกว้างตลาด" },
-    { id: "t-signal", name: "เฟิร์น", team: "tech", role: "เทคนิค: สัญญาณระบบ" },
-    { id: "t-mom", name: "กันต์", team: "tech", role: "เทคนิค: โมเมนตัมหุ้นใหญ่" }],
-  data: [{ id: "d-qa", name: "ใบเตย", team: "data", role: "Data: ตรวจสอบข้อมูล" },
-    { id: "d-ed", name: "อาร์ม", team: "data", role: "Data: บรรณาธิการและเผยแพร่" }],
-  web: [{ id: "w-site", name: "ไอซ์", team: "web", role: "ดูแลเว็บ: ไล่ตรวจหน้าเว็บและความสดของข้อมูล" }],
-  sig: [{ id: "g-th", name: "ซัน", team: "sig", role: "ติดตามสัญญาณหุ้นไทย" }, { id: "g-us", name: "ริน", team: "sig", role: "ติดตามสัญญาณหุ้นสหรัฐฯ" }],
-  earn: [{ id: "e-pre", name: "นนท์", team: "earn", role: "งบประกาศ: พรีวิวก่อนประกาศ" }, { id: "e-post", name: "มายด์", team: "earn", role: "งบประกาศ: สรุปหลังประกาศ" }],
-  boss: [{ id: "boss", name: "บอสเบค", team: "boss", role: "บอส: รับสรุปตลาดทุกฉบับหลังทีมตรวจแล้ว" }],
-};
+const TEAM = {};  // จัดกลุ่มจากรายชื่อกลาง scripts/team.js
+for (const r of ROSTER) (TEAM[r.team] ||= []).push(r);
 const LOG = [], act = (who, a, t, at) => LOG.push(at ? { by: who.id, a, t, at } : { by: who.id, a, t });
 
 // ---------- ราคา (หลักเดียวกับ brief.js) ----------

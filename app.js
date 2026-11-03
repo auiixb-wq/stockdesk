@@ -461,15 +461,19 @@ function headline(R){const P=R.plan,w=R.why.wait;const up=R.I.wk.at(-1)>0?"แ�
   const nx=w.find(x=>x.startsWith("รอ"));return P.tone==="sell"?`${up} ยังไม่ควรซื้อ${nx?` · ${nx}`:""}`:`${up} ยังไม่ใช่จังหวะ${nx?` · ${nx}`:""}`}
 function gauge(x){return `<div class="gauge" role="img" aria-label="คะแนน ${x} จาก 100"><div class="gtrack"><i style="left:${clamp(x,2,98)}%"></i></div><div class="glab"><span>หลีกเลี่ยง</span><span>ระวัง</span><span>ถือ/รอ</span><span>น่าซื้อ</span><span>ซื้อแรง</span></div></div>`}
 function tally(rows){const b=rows.filter(r=>r.v>0).length,s=rows.filter(r=>r.v<0).length,n=rows.length-b-s;return `<div class="tally" aria-label="ซื้อ ${b} กลาง ${n} ขาย ${s}"><i style="flex:${b};background:var(--up)"></i><i style="flex:${n};background:var(--line)"></i><i style="flex:${s};background:var(--down)"></i></div><div class="tl"><span class="up">ซื้อ ${b}</span><span class="muted">กลาง ${n}</span><span class="down">ขาย ${s}</span></div>`}
+// ทีมในออฟฟิศตรวจข้อมูลหุ้นทุกตัวในเว็บ (agents.json audit): แจ้งในหน้าหุ้นเมื่อพบปัญหาที่ยืนยันแล้ว (เจอซ้ำ 2 รอบ)
+function auditNote(s){const F=S.agents?.audit?.flag?.[s];if(!F?.length)return "";const w=S.agents.roster?.find(r=>r.sec===stockBySym(s)?.sec);
+  return `<div class="notice warn" role="note"><b>ทีมตรวจข้อมูลพบ</b><span>${F.slice(0,3).map(esc).join(" · ")}${w?` · ตรวจโดย ${esc(w.name)}`:""} · ตัวเลขในหน้านี้อาจคลาดเคลื่อน ตรวจกับแหล่งอื่นก่อนใช้</span></div>`}
 function vStock(sym){
   const st=stockBySym(sym);if(!st)return `<a class="back" href="#market">← กลับไปหน้าตลาด</a><div class="card empty">ไม่พบหุ้น ${esc(sym)}</div>`;
-  if(!hasBars(st)){loadHist([st.s]);const L=info(st);return `<a class="back" href="#market">← ตลาด</a><div class="shead">${logo(st.s,true)}<div style="min-width:0;flex:1"><div class="sym" style="font-size:22px">${esc(dsym(st.s))} <span class="mk">${st.m}</span></div><div class="nm">${esc(st.n)} · ${esc(SECTORS[st.sec]?.th||st.sec)}</div></div><div style="text-align:right"><div class="big" data-q="${esc(st.s)}">${L.last!=null?cur(st.m)+fmt(L.last):"–"}</div>${chgPill(L.chg,st.s)}</div></div><section class="card empty">${S.histFail?.[st.s]?"โหลดราคาย้อนหลังของหุ้นนี้ไม่สำเร็จ ลองใหม่ภายหลัง":"กำลังโหลดราคาย้อนหลัง 3 ปีและวิเคราะห์…"}</section>`}
+  if(!hasBars(st)){loadHist([st.s]);const L=info(st);return `<a class="back" href="#market">← ตลาด</a><div class="shead">${logo(st.s,true)}<div style="min-width:0;flex:1"><div class="sym" style="font-size:22px">${esc(dsym(st.s))} <span class="mk">${st.m}</span></div><div class="nm">${esc(st.n)} · ${esc(SECTORS[st.sec]?.th||st.sec)}</div></div><div style="text-align:right"><div class="big" data-q="${esc(st.s)}">${L.last!=null?cur(st.m)+fmt(L.last):"–"}</div>${chgPill(L.chg,st.s)}</div></div>${auditNote(st.s)}<section class="card empty">${S.histFail?.[st.s]?"โหลดราคาย้อนหลังของหุ้นนี้ไม่สำเร็จ ลองใหม่ภายหลัง":"กำลังโหลดราคาย้อนหลัง 3 ปีและวิเคราะห์…"}</section>`}
   if(S.fin[st.s]===undefined)loadFin(st.s);
   const R=analyze(st),P=R.plan,m=st.m,c=cur(m),fav=S.watch.includes(st.s),tab=S.tab||"sum";
   const head=`<a class="back" href="#market">← ตลาด</a>
   <div class="shead">${logo(st.s,true)}<div style="min-width:0;flex:1"><div class="sym" style="font-size:22px">${esc(dsym(st.s))} <span class="mk">${m}</span><button class="star" id="favBtn" aria-pressed="${fav}" aria-label="${fav?"เอาออกจากรายการโปรด":"เพิ่มในรายการโปรด"}" title="รายการโปรด">${fav?"★":"☆"}</button></div><div class="nm">${esc(st.n)} · ${esc(SECTORS[st.sec]?.th||st.sec)}</div></div>
     <div style="text-align:right"><div class="big" data-q="${esc(st.s)}">${c}${fmt(R.last)}</div><div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:4px">${chgPill(R.chg,st.s)}${dataChip(R)}</div></div></div>
   ${R.sample?`<div class="notice"><b>ราคาจำลอง</b><span>หุ้นตัวนี้ยังไม่มีราคาจริง ตัวเลขทั้งหมดใช้ดูหน้าตาเท่านั้น <button class="linkbtn" data-tab="data">นำเข้าราคาจริง</button></span></div>`:""}
+  ${auditNote(st.s)}
   <nav class="stabs" aria-label="ส่วนของหน้าหุ้น">${TABS.map(([k,l])=>`<button data-tab="${k}" aria-current="${tab===k?"page":"false"}">${l}</button>`).join("")}</nav>`;
   return head+(tab==="chart"?tChart(R):tab==="bt"?tBt(R):tab==="fa"?tFa(R):tab==="news"?tNews(R):tab==="data"?tData(R):tab==="val"?tVal(R):tab==="risk"?tRisk(R):tab==="peers"?tPeers(R):tSum(R));
 }
@@ -1171,7 +1175,8 @@ function deskTeam(D){if(!D?.roster)return "";const by=id=>{const r=D.roster.find
    ${M.length?`<h4>ทีมมหภาค</h4>${M.map(note).join("")}`:""}${T.length?`<h4>ทีมเทคนิค</h4>${T.map(note).join("")}`:""}${(D.earn||[]).length?`<h4>ทีมงบประกาศ</h4>${D.earn.map(note).join("")}`:""}${(D.sig||[]).length?`<h4>ทีมติดตามสัญญาณ</h4>${D.sig.map(note).join("")}`:""}${G.length?`<h4>นักวิเคราะห์รายกลุ่ม</h4><div class="br-secs">${G.map(sec).join("")}</div>`:""}
    <p class="muted br-sub">ทีมวิจัยเป็นโปรแกรม (Agent) ที่แบ่งงานตามหน้าที่ เขียนจากราคา ข่าว ปัจจัย และสัญญาณระบบที่แอปมีอยู่เท่านั้น แล้วให้ทีม Data ตรวจตัวเลขก่อนเผยแพร่</p></details>`}
 // ออฟฟิศทีมวิจัย (office.js): เล่นซ้ำงานจริงของทีมจาก desk.log · กล่องบอส · ผลไล่ตรวจเว็บ · บันทึกการทำงาน
-const OF_TEAM=[["boss","บอส"],["data","ทีม Data"],["web","ดูแลเว็บ"],["sig","ทีมติดตามสัญญาณ"],["earn","ทีมงบประกาศ"],["macro","ทีมมหภาค"],["tech","ทีมเทคนิค"],["sector","นักวิเคราะห์รายกลุ่ม"]];
+const OF_TEAM=[["boss","บอส"],["data","ทีม Data"],["web","ดูแลเว็บ"],["sig","ทีมติดตามสัญญาณ"],["earn","ทีมงบประกาศ"],["macro","ทีมมหภาค"],["tech","ทีมเทคนิค"],["sector","นักวิเคราะห์รายกลุ่ม"],["bot","ห้องระบบ (ระบบเดิมของเว็บ)"]];
+function ofRoster(D){const R=[...(D.roster||[])];for(const r of S.agents?.roster||[])if(!R.some(x=>x.id===r.id))R.push(r);return R}
 function officeEd(){const L=(S.briefs||[]).filter(x=>x.desk?.log&&x.desk.roster).sort((a,b)=>b.ts-a.ts);return{L,A:L.find(x=>x.id===S.oed)||L[0]}}
 // ประตูออฟฟิศ: ใส่รหัสก่อนดู (เก็บเป็นค่า SHA-256 ไม่เก็บรหัสตรง ๆ) · เป็นแค่ประตูกันคนทั่วไป ไม่ใช่ระบบความปลอดภัย เพราะข้อมูลของทีมอยู่ใน brief.json ที่เปิดอ่านได้
 const OF_PIN="9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0",ofOpen=()=>lsGet("ofok")===OF_PIN;
@@ -1187,6 +1192,7 @@ function vOffice(){if(!ofOpen())return vOfficeLock();const{L,A}=officeEd();
   const st=x=>x==="ok"?"✓":x==="warn"?"!":"✕",ws=D.web?.items||[];
   const eds=`<div class="chips br-eds" role="group" aria-label="เลือกรอบทำงาน">${L.map(x=>`<button type="button" class="chip" data-oed="${esc(x.id)}" aria-pressed="${x.id===A.id}">${x.mk==="TH"?"ไทย":"สหรัฐฯ"} · ${esc(BR_KIND[x.mk]?.[x.kind]||x.kind)} · ${when(x.ts)}</button>`).join("")}</div>`;
   return `<div class="br-top"><div><h1>ออฟฟิศทีมวิจัย</h1><p class="muted" style="margin:4px 0 0">เล่นซ้ำงานจริงของทีม ${D.roster.length} คนในรอบที่เลือก ตั้งแต่ดูราคา เขียนบท ตรวจข้อมูล จนส่งสรุปถึงบอส · แตะตัวละครเพื่อดูชื่อ</p></div></div>${eds}
+   <div class="of-mode" id="ofMode"></div>
    <section class="card of-stage"><canvas id="ofCv" role="img" aria-label="ออฟฟิศพิกเซลของทีมวิจัย"></canvas>
     <div class="of-bar"><button type="button" class="chip" id="ofReplay">เล่นใหม่ตั้งแต่ต้น</button><button type="button" class="chip" data-oflock="1">ล็อกออฟฟิศ</button><button type="button" class="chip" id="ofSpd" data-s="1">ความเร็ว 1×</button><span class="muted" id="ofNow">ทีมเริ่มงาน…</span></div></section>
    <div class="grid g2 of-g">
@@ -1196,19 +1202,26 @@ function vOffice(){if(!ofOpen())return vOfficeLock();const{L,A}=officeEd();
     <section class="card"><div class="eyebrow">ห้องดูแลเว็บ · ${esc(who("w-site").name)}</div><h2>ไล่ตรวจเว็บรอบนี้</h2>
      ${ws.length?`<ul class="of-chk">${ws.map(i=>`<li><span class="dk-i ${esc(i.st)}">${st(i.st)}</span><span>${esc(i.t)}</span></li>`).join("")}</ul><p class="muted br-sub">คนดูแลเว็บรายงานปัญหาที่เจอ การแก้โค้ดยังทำผ่าน Pull Request</p>`:`<p class="muted">ฉบับนี้ยังไม่มีผลไล่ตรวจเว็บ</p>`}</section>
    </div>
-   ${sigFeed("TH",1)}${ofEarn()}
+   ${ofAudit()}${sigFeed("TH",1)}${ofEarn()}
    <section class="card"><h2>บันทึกการทำงานรอบนี้</h2><ol class="of-log" id="ofLog">${D.log.map((e,i)=>`<li data-i="${i}"><b>${esc(who(e.by).name)}</b><span>${esc(e.t)}</span></li>`).join("")}</ol></section>
-   <section class="card"><h2>ทีม ${D.roster.length} คน</h2><div class="of-team">${OF_TEAM.map(([k,n])=>{const m=D.roster.filter(r=>r.team===k);return m.length?`<div><h3><i class="of-dot of-${k}"></i>${n}</h3><ul>${m.map(r=>`<li><b>${esc(r.name)}</b><span class="muted" data-ofs="${esc(r.id)}" title="${esc(r.role)}">${esc(r.role)}</span></li>`).join("")}</ul></div>`:""}).join("")}</div></section>`}
+   <section class="card"><h2>ทีม ${ofRoster(D).length} คน</h2><div class="of-team">${OF_TEAM.map(([k,n])=>{const m=ofRoster(D).filter(r=>r.team===k);return m.length?`<div><h3><i class="of-dot of-${k}"></i>${n}</h3><ul>${m.map(r=>`<li><b>${esc(r.name)}</b><span class="muted" data-ofs="${esc(r.id)}" title="${esc(r.role)}">${esc(r.role)}</span></li>`).join("")}</ul></div>`:""}).join("")}</div></section>`}
+function ofAudit(){const A=S.agents?.audit,H=S.agents?.help,W=id=>S.agents?.roster?.find(r=>r.id===id)?.name||id;if(!A?.ts)return "";const c=A.cnt||{};
+  return `<section class="card"><div class="eyebrow">ทุกฝ่ายตรวจข้อมูลหุ้นทุกตัวในเว็บ · ${ago(A.ts)}</div><h2 style="margin:2px 0 6px">ตรวจหุ้น ${A.n.toLocaleString()} ตัว</h2>
+   <div class="chips" style="margin-bottom:8px"><span class="pill sm ${c[3]?"p-sell":"p-buy"}">ผิดแน่ ${c[3]||0}</span><span class="pill sm ${c[2]?"p-hold":"p-buy"}">น่าสงสัย ${c[2]||0}</span><span class="pill sm p-hold">ควรดู ${c[1]||0}</span></div>
+   ${H?.sig||H?.earn?`<p class="muted" style="margin:0 0 8px;font-size:13px">คนช่วยรอบนี้ (${esc(H.why||"")}): ทีมสัญญาณ ${esc(W(H.sig))} · ทีมงบ ${esc(W(H.earn))} · นักวิเคราะห์ของกลุ่มช่วยตามสัญญาณและเขียนงบของหุ้นในกลุ่มตัวเอง</p>`:""}
+   ${(A.items||[]).length?`<ul class="of-chk">${A.items.slice(0,12).map(i=>`<li><span class="dk-i ${i.sev>=3?"fail":"warn"}">${i.sev>=3?"✕":"!"}</span><span>${i.s.startsWith("macro:")?"":`<a href="#s-${esc(i.s)}"><b>${esc(dsym(i.s))}</b></a> `}${esc(i.t)} <span class="muted">· ${esc(W(i.by))}</span></span></li>`).join("")}</ul>`:`<p class="muted" style="margin:0">ไม่พบปัญหาในรอบล่าสุด</p>`}</section>`}
 function ofEarn(){const E=(S.agents?.earn?.items||[]).slice().sort((a,b)=>b.ts-a.ts).slice(0,8);if(!E.length)return "";
   return `<section class="card"><div class="eyebrow">ทีมงบประกาศ · นนท์ · มายด์</div><h2 style="margin:2px 0 6px">งบประกาศล่าสุด</h2><div class="of-earn">${E.map(x=>`<div class="dk-note"><div class="dk-nh"><b>${x.k==="pre"?"พรีวิว":"สรุป"}งบ <a href="#s-${esc(x.s)}">${esc(dsym(x.s))}</a></b><span class="dk-by">${x.k==="pre"?"ประกาศ ":"ประกาศเมื่อ "}${new Date(x.ed*1e3).toLocaleDateString(LOC(),{day:"numeric",month:"short"})}</span></div>${(x.lines||[]).map(t=>`<p>${esc(t)}</p>`).join("")}${(x.news||[]).map(n=>`<p class="muted">ข่าว: <a href="${esc(safeUrl(n.u))}" target="_blank" rel="noopener">${esc(n.t)}</a> — ${esc(n.s)}</p>`).join("")}</div>`).join("")}</div></section>`}
 function mountOffice(){const f=$("#ofForm");if(f){f.addEventListener("submit",e=>{e.preventDefault();ofTry()});setTimeout(()=>$("#ofPin")?.focus(),50);return}
   const{A}=officeEd(),cv=$("#ofCv");if(!A||!cv)return;if(!window.Office){setTimeout(mountOffice,300);return}
   const lis=[...document.querySelectorAll("#ofLog li")],now=$("#ofNow"),box=$("#ofBoss"),bh=$("#ofBossH"),sts=Object.fromEntries([...document.querySelectorAll("[data-ofs]")].map(e=>[e.dataset.ofs,e]));
-  const R=window.Office.mount({cv,A,ix:S.meta,
+  const md=$("#ofMode"),fmtT=t=>new Date(t*1e3).toLocaleString(LOC(),{timeZone:"Asia/Bangkok",weekday:"short",hour:"2-digit",minute:"2-digit"});
+  const R=window.Office.mount({cv,A,ix:S.meta,live:()=>S.agents,
+    onMode:M=>{if(!md)return;const w=M?.st!=="rest";md.className="of-mode "+(w?"on":"off");md.innerHTML=`<span class="dot"></span><b>${w?"ทีมกำลังทำงาน":"ทีมพัก"}</b><span>${esc(M?.why||"")}${!w&&M?.next?` · เริ่มงานอีกครั้ง ${fmtT(M.next)} น.`:""} · ห้องระบบ (บอท) ทำงานตลอด 24 ชม.</span>`},
     onLog:(i,c)=>{const li=lis[i];if(!li)return;li.className=c;if(c==="active"&&now){now.textContent=(li.firstChild.textContent+": "+li.lastChild.textContent).slice(0,90);const ol=li.parentElement;if(ol.scrollHeight>ol.clientHeight)ol.scrollTop=li.offsetTop-ol.offsetTop-ol.clientHeight/2}},
     onBoss:s=>{if(!box)return;box.dataset.st=s;bh.textContent=s==="waiting"?"รอทีมส่งสรุปตลาด…":s==="delivered"?"สรุปตลาดมาถึงแล้ว":"บอสอ่านสรุปแล้ว"},
     onStatus:L=>{for(const[id,t]of L){const e=sts[id];if(e&&e.textContent!==t)e.textContent=t}},
-    onDone:()=>{if(now)now.textContent="ทีมทำงานรอบนี้เสร็จแล้ว ตอนนี้พักและทำงานทั่วไป"}});
+    onDone:()=>{if(now)now.textContent=S.agents?.mode?.st==="rest"?"ทีมพักอยู่ กด \"เล่นใหม่ตั้งแต่ต้น\" เพื่อดูงานของฉบับนี้":"ทีมทำงานฉบับนี้เสร็จแล้ว ตอนนี้ทำงานต่อเนื่องตามข้อมูลสด"}});
   $("#ofReplay")?.addEventListener("click",()=>R.replay());
   $("#ofSpd")?.addEventListener("click",e=>{const b=e.currentTarget,s=b.dataset.s==="1"?2:b.dataset.s==="2"?4:1;b.dataset.s=s;b.textContent=`ความเร็ว ${s}×`;R.speed(s)})}
 function vBrief(){const mk=S.bm==="US"?"US":S.bm==="TH"?"TH":(S.mkt==="US"?"US":"TH"),nm=mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ",ixn=mk==="TH"?"SET":"S&P 500";

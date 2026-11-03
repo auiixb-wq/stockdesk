@@ -1,4 +1,6 @@
-// ทีม Agent ที่ทำงานต่อเนื่องทั้งวัน (เรียกจาก live.py ทุก ~2 นาทีช่วงตลาดเปิด และหลังรอบข่าวทุกครั้ง) → data/agents.json
+// ทีม Agent ที่ทำงานต่อเนื่อง (live.py เรียกทุก ~2 นาทีในเวลางาน) → data/agents.json
+// เวลางาน: ตลาดไทยหรือสหรัฐฯ เปิด และก่อนเปิด 30 นาที · พักเมื่อตลาดปิดหรือพักเที่ยง (live.py ส่ง AGENTS_MODE=rest มา)
+// - ทุกฝ่ายตรวจข้อมูลหุ้นทุกตัวในเว็บ: นักวิเคราะห์รายกลุ่มตรวจราคาของหุ้นในกลุ่มตัวเอง ทีมเทคนิคตรวจแผนซื้อขาย ทีมงบตรวจ P/E ทีมมหภาคตรวจปัจจัย
 // - ทีมติดตามสัญญาณ (ซัน: ไทย · ริน: สหรัฐฯ): สัญญาณใหม่ ได้ของ ชน TP1 ชน TP โดน SL หมดอายุ + สรุปผล 7 วัน
 // - ทีมงบประกาศ (นนท์: พรีวิวก่อนประกาศ · มายด์: สรุปหลังประกาศ) สำหรับบริษัทใหญ่
 // - ไอซ์ (ดูแลเว็บ): ไล่ตรวจความสดของข้อมูลและผลตรวจหน้าเว็บ ปัญหาที่เจอซ้ำ 2 รอบส่งให้ live.py เปิดเป็น GitHub Issue
@@ -9,23 +11,26 @@ const load = (f, d) => { try { return JSON.parse(fs.readFileSync(path.join(DATA,
 const NOW = Date.now(), NS = Math.floor(NOW / 1000), DAY = 86400;
 const Q = load("quotes.json", {}), QQ = Q.q || {}, U = load("universe.json", {}).items || [], SUM = load("summary.json", {}).s || {};
 const CAL = load("calib.json", {}), NEWS = load("news.json", {}).items || [], meta = load("meta.json", {}), HEALTH = load("health.json", {});
-const ST = load("agents.json", {}), first = !ST.sig;
-const S = { v: 1, updated: NS, sig: ST.sig || { pos: {}, feed: [] }, earn: ST.earn || { items: [] }, web: ST.web || { seen: {} }, log: [] };
+const ST = load("agents.json", {}), first = !ST.sig, FUND = load("fund.json", {}), MACRO = load("macro.json", {});
+const { SEC, ROSTER } = require("./team.js"), WHO = Object.fromEntries(ROSTER.map(r => [r.id, r])), SECBY = Object.fromEntries(ROSTER.filter(r => r.sec).map(r => [r.sec, r.id]));
+const MODE = { st: process.env.AGENTS_MODE || "work", why: process.env.AGENTS_WHY || "", next: +process.env.AGENTS_NEXT || null };
+const S = { v: 2, updated: NS, mode: MODE, sig: ST.sig || { pos: {}, feed: [] }, earn: ST.earn || { items: [] }, web: ST.web || { seen: {} }, audit: ST.audit || { seen: {} }, help: ST.help || {}, log: [] };
 const UI = Object.fromEntries(U.map(i => [i.s, i]));
 const TZ = m => m === "TH" ? "Asia/Bangkok" : "America/New_York";
 const dayIn = (m, ms) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ(m) }).format(new Date(ms));
 const sg = v => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "") + v.toFixed(2) + "%", sg1 = v => v == null || !isFinite(v) ? "–" : (v >= 0 ? "+" : "") + v.toFixed(1) + "%";
 const num = v => v == null ? "–" : Math.abs(v) >= 1000 ? v.toLocaleString("en-US", { maximumFractionDigits: 2 }) : (+v).toFixed(2);
 const name = s => (s || "").replace(/\.(US|BK)$/, "");
-const TEAM = { "g-th": { name: "ซัน", role: "ติดตามสัญญาณหุ้นไทย" }, "g-us": { name: "ริน", role: "ติดตามสัญญาณหุ้นสหรัฐฯ" }, "e-pre": { name: "นนท์", role: "พรีวิวงบก่อนประกาศ" }, "e-post": { name: "มายด์", role: "สรุปงบหลังประกาศ" }, "w-site": { name: "ไอซ์", role: "ดูแลเว็บ" } };
 const act = (by, a, t, x) => S.log.push({ by, a, t, ts: NS, ...x });
+const secOf = s => SECBY[UI[s]?.sec];
 
 // ---------- ทีมติดตามสัญญาณ ----------
 // ใช้ราคาสูง/ต่ำของวันจาก quotes.json (ล่าช้า ~15 นาที) ตัดสินระหว่างวัน แล้วยึดผลทางการรายวัน (calib.json fwdSys) เมื่อมี
 const HOW = { tp: "ชน TP", tp1: "ชน TP1 แล้วปิดที่ทุน", sl: "โดน SL", time: "ครบเวลาถือ", miss: "ไม่ได้ของ หมดอายุ" };
 function signals() {
   const pos = S.sig.pos, feed = S.sig.feed, official = CAL.fwdSys?.S || {};
-  const ev = (p, k, t, ret) => { const e = { ts: NS, m: p.m, s: p.s, k, t, ...(ret != null ? { r: +ret.toFixed(2) } : {}) }; if (!first) feed.unshift(e); act(p.m === "TH" ? "g-th" : "g-us", "sig", `${name(p.s)}: ${t}`, { k }) };
+  const ev = (p, k, t, ret) => { const e = { ts: NS, m: p.m, s: p.s, k, t, ...(ret != null ? { r: +ret.toFixed(2) } : {}) }; if (!first) feed.unshift(e); act(p.m === "TH" ? "g-th" : "g-us", "sig", `${name(p.s)}: ${t}`, { k });
+    const co = secOf(p.s); if (co && k !== "new") { e.h = co; act(co, "sig", `ช่วยตามหุ้นกลุ่มตัวเอง ${name(p.s)}: ${t}`, { k }) } };
   const live = new Map();
   for (const [s, v] of Object.entries(SUM)) {
     const y = v.sy, u = UI[s]; if (!y || !u || !y[4]) continue;
@@ -93,6 +98,7 @@ function earnings() {
         items.unshift({ id: `p|${u.s}|${edD}`, k: "pre", s: u.s, m: u.m, ed, ts: NS, lq, base: ya >= 0 ? { rev: F.rev?.[ya] ?? null, ni: F.ni?.[ya] ?? null, eps: F.eps?.[ya] ?? null, d: F.d[ya] } : null, p0: QQ[u.s]?.p ?? u.p ?? null, lines: L });
       } else items.unshift({ id: `p|${u.s}|${edD}`, k: "pre", s: u.s, m: u.m, ed, ts: NS, lq: null, base: null, p0: QQ[u.s]?.p ?? null, lines: ["ยังไม่มีงบย้อนหลังของบริษัทนี้ในระบบ"] });
       act("e-pre", "earn", `พรีวิวงบ ${name(u.s)} ประกาศ ${edD.slice(8)}/${edD.slice(5, 7)}`);
+      const co = secOf(u.s); if (co) { items[0].h = co; act(co, "earn", `ช่วยพรีวิวงบ ${name(u.s)} (หุ้นกลุ่มที่ดูแล)`) }
     }
     // สรุป: ประกาศไปแล้วไม่เกิน 5 วัน · รอจนตัวเลขไตรมาสใหม่เข้าระบบ (หรือครบ 5 วันจึงสรุปจากราคาและข่าว)
     const rid = `r|${u.s}|${edD}`, pre = items.find(x => x.id === `p|${u.s}|${edD}`);
@@ -111,12 +117,58 @@ function earnings() {
       if (p && p0) L.push(`ราคาตั้งแต่ก่อนประกาศ ${num(p0)} → ${num(p)} (${sg1((p / p0 - 1) * 100)})`);
       items.unshift({ id: rid, k: "post", s: u.s, m: u.m, ed, ts: NS, lines: L, news: nw.map(x => ({ t: (x.titleTh || x.title || "").slice(0, 160), u: x.url || "", s: x.source || "" })), full: fresh });
       act("e-post", "earn", `สรุปงบ ${name(u.s)}${fresh ? "" : " (รอตัวเลขเต็ม)"}`);
+      const co = secOf(u.s); if (co) { items[0].h = co; act(co, "earn", `ช่วยสรุปงบ ${name(u.s)} (หุ้นกลุ่มที่ดูแล)`) }
     }
     // สรุปที่ยังไม่มีตัวเลขเต็ม: อัปเดตเมื่อไตรมาสใหม่เข้าระบบ
     const r = items.find(x => x.id === rid);
     if (r && !r.full && F?.d?.length && newQ(F.d.at(-1), ed, pre)) { S.earn.items = items.filter(x => x !== r); return earnings() }
   }
   S.earn.items = items.filter(x => x.ts >= NS - 21 * DAY).sort((a, b) => b.ts - a.ts).slice(0, 200);
+}
+
+// ---------- ทุกฝ่ายตรวจข้อมูลหุ้นทุกตัวในเว็บ ----------
+// ปัญหาต้องเจอซ้ำ 2 รอบติดกันจึงรายงาน (กันจังหวะที่ข้อมูลกำลังอัปเดต) · sev 3 = ผิดแน่ 2 = น่าสงสัย 1 = ควรดู
+function audit() {
+  const found = [], add = (s, by, sev, t) => found.push({ key: `${s}|${by}|${t.replace(/[\d.,%+–-]+/g, "#").slice(0, 40)}`, s, by, sev, t }), per = {};
+  const d = new Date(NOW), wd = m => { const P = new Intl.DateTimeFormat("en-US", { timeZone: TZ(m), weekday: "short", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(NOW)), g = k => P.find(x => x.type === k)?.value; return [g("weekday"), +g("hour") * 60 + +g("minute")] };
+  const open = m => { const [w, t] = wd(m); if (w === "Sat" || w === "Sun") return false; return m === "TH" ? (t >= 615 && t <= 750 || t >= 885 && t <= 1000) : t >= 585 && t <= 960 };
+  const OPEN = { TH: open("TH"), US: open("US") }, BIGM = { TH: 5e9, US: 2e9 };
+  for (const u of U) {
+    const by = SECBY[u.sec] || "d-qa", q = QQ[u.s], sm = SUM[u.s]; per[by] = (per[by] || 0) + 1;
+    if (!q || q.p == null) { if ((u.mc || 0) >= BIGM[u.m]) add(u.s, by, 2, "ไม่มีราคาล่าสุดในเว็บ"); continue }
+    // ตลาดไทยขยับได้ไม่เกิน ±30% ต่อวัน (หุ้นราคาต่ำกว่า 2 บาทเกินได้จากช่วงราคาขั้นต่ำ จึงเป็นแค่ "ควรดู")
+    if (q.chg != null && Math.abs(q.chg) > (u.m === "TH" ? 30.5 : 60)) add(u.s, by, u.m === "TH" && q.p < 2 ? 1 : 3, `เปลี่ยนแปลง ${sg1(q.chg)} เกินกว่าที่ตลาดจะเป็นไปได้`);
+    if (q.h != null && q.l != null && q.h > 0 && (q.l > q.h * 1.0001 || q.p > q.h * 1.002 || q.p < q.l * .998)) add(u.s, by, 2, `ราคา ${num(q.p)} อยู่นอกช่วงต่ำ-สูงของวัน ${num(q.l)}–${num(q.h)}`);
+    if (sm?.p && Math.abs(Math.log(q.p / sm.p)) > .35 && Math.abs(q.chg || 0) < 25) add(u.s, by, 3, `ราคาล่าสุด ${num(q.p)} ต่างจากราคาที่ใช้คำนวณคะแนน ${num(sm.p)} เกิน 40%`);
+    if (OPEN[u.m] && (u.mc || 0) >= BIGM[u.m] * 4 && q.ts && NS - q.ts > 50 * 60) add(u.s, by, 1, `ราคาไม่อัปเดตมา ${Math.round((NS - q.ts) / 60)} นาทีระหว่างตลาดเปิด`);
+    const y = sm?.sy; per["t-signal"] = (per["t-signal"] || 0) + (y ? 1 : 0);
+    if (y) { const [lp, tp, sl, , , , t1] = y;
+      if (!(sl < lp && lp < tp) || (t1 != null && !(t1 > lp && t1 <= tp))) add(u.s, "t-signal", 3, `แผนซื้อขายลำดับราคาผิด: SL ${num(sl)} ซื้อ ${num(lp)}${t1 != null ? ` TP1 ${num(t1)}` : ""} TP ${num(tp)}`);
+      else if (Math.abs(lp / q.p - 1) > .25) add(u.s, "t-signal", 2, `จุดตั้งซื้อ ${num(lp)} ห่างราคาปัจจุบัน ${num(q.p)} เกิน 25%`) }
+    const f = FUND[u.s]; per["e-pre"] = (per["e-pre"] || 0) + (f ? 1 : 0);
+    if (f?.pe > 0 && u.eps > 0 && q.p > 0) { const pe = q.p / u.eps; if (pe < 400 && Math.abs(f.pe / pe - 1) > .6) add(u.s, "e-pre", 1, `P/E ในหน้างบ ${f.pe.toFixed(1)} ต่างจากราคา÷EPS ${pe.toFixed(1)}`) }
+  }
+  for (const [id, f] of Object.entries(MACRO)) { if (!f || typeof f !== "object" || !f.asOf) continue; const by = /th|bot|usdthb|flow|tourism/.test(id) ? "m-th" : /tariff|vix/.test(id) ? "m-pol" : "m-glob"; per[by] = (per[by] || 0) + 1;
+    const age = (NOW - Date.parse(f.asOf + "T00:00:00Z")) / 864e5, lim = f.chg1 != null ? 6 : 75; if (age > lim) add("macro:" + id, by, 2, `ปัจจัย ${id} ข้อมูลล่าสุด ${f.asOf} เก่า ${Math.round(age)} วัน`) }
+  // ยืนยันด้วยการเจอซ้ำ แล้วล้างของที่หายไปออกจากความจำ
+  const seen = {}; for (const x of found) seen[x.key] = (S.audit.seen?.[x.key] || 0) + 1;
+  const ok = found.filter(x => seen[x.key] >= 2).sort((a, b) => b.sev - a.sev || (UI[b.s]?.mc || 0) - (UI[a.s]?.mc || 0));
+  const flag = {}; for (const x of ok) if (x.sev >= 2 && !x.s.startsWith("macro:") && Object.keys(flag).length < 300) (flag[x.s] ||= []).push(x.t);  // หน้าหุ้นแสดงเฉพาะผิดแน่/น่าสงสัย
+  S.audit = { ts: NS, n: U.length, per, seen, cnt: { 3: ok.filter(x => x.sev === 3).length, 2: ok.filter(x => x.sev === 2).length, 1: ok.filter(x => x.sev === 1).length }, items: ok.slice(0, 80).map(({ s, by, sev, t }) => ({ s, by, sev, t })), flag };
+  for (const [by, n] of Object.entries(per)) { const mine = ok.filter(x => x.by === by), w = WHO[by]; if (!w) continue;
+    act(by, "audit", `ตรวจ${w.sec ? "หุ้นกลุ่ม" + SEC[w.sec] : w.team === "macro" ? "ปัจจัยมหภาค" : by === "t-signal" ? "แผนซื้อขาย" : "P/E ในหน้างบ"} ${n} รายการ · ${mine.length ? `พบ ${mine.length} เรื่อง: ${mine[0].s.startsWith("macro:") ? "" : name(mine[0].s) + " "}${mine[0].t.slice(0, 60)}` : "ปกติ"}`) }
+  act("d-qa", "audit", `รวมผลตรวจหุ้นทุกตัว ${U.length} ตัว: ผิดแน่ ${S.audit.cnt[3]} · น่าสงสัย ${S.audit.cnt[2]} · ควรดู ${S.audit.cnt[1]}`);
+}
+
+// ---------- คนช่วยทีมสัญญาณและทีมงบ: คนที่งานน้อยที่สุดในรอบก่อน (ไม่นับหัวหน้าทีม บอส ทีม Data และบอท) ----------
+function helpers() {
+  const load0 = ST.work || {}, pool = ROSTER.filter(r => ["sector", "macro", "tech"].includes(r.team)).map(r => [r.id, load0[r.id] || 0]).sort((a, b) => a[1] - b[1] || a[0].localeCompare(b[0]));
+  S.help = { sig: pool[0]?.[0], earn: pool[1]?.[0], why: "งานน้อยที่สุดในรอบก่อน" };
+  const hs = S.help.sig, he = S.help.earn, pos = Object.values(S.sig.pos).filter(p => p.st !== "done");
+  const bad = pos.filter(p => !(p.sl < p.lp && p.lp < p.tp) || (p.fill && !(p.fill > 0)));
+  if (hs) act(hs, "help", `ช่วยทีมสัญญาณ: ไล่ตรวจไม้ที่ติดตาม ${pos.length} ไม้ ${bad.length ? `พบระดับราคาผิด ${bad.length} ไม้ (${bad.slice(0, 3).map(p => name(p.s)).join(", ")})` : "ระดับราคาครบถูกต้อง"}`, { to: "sig" });
+  const miss = S.earn.items.filter(x => x.ts >= NS - 3 * DAY && (!x.lines?.length || x.lines.some(l => /–/.test(l))));
+  if (he) act(he, "help", `ช่วยทีมงบ: ตรวจบทงบ ${S.earn.items.filter(x => x.ts >= NS - 3 * DAY).length} บท ${miss.length ? `ตัวเลขขาด ${miss.length} บท (${miss.slice(0, 3).map(x => name(x.s)).join(", ")})` : "ตัวเลขครบ"}`, { to: "earn" });
 }
 
 // ---------- ไอซ์: ดูแลเว็บ ----------
@@ -132,10 +184,11 @@ function web() {
   for (const x of UX?.issues || []) for (const e of (x.err?.length ? x.err : [x.bad ? "ตัวเลขเสีย (NaN)" : x.ow > 2 ? "หน้าล้นจอ" : "หน้าแสดงไม่ครบ"]))
     (grp[e.replace(/^กดปุ่มกรอบ \S+ ไม่ได้$/, "กดปุ่มเลือกกรอบเวลาของกราฟไม่ได้").replace(/^กดแท็บ \S+ ไม่ได้$/, "กดแท็บในหน้าหุ้นไม่ได้")] ||= new Set()).add(x.r.split(" ")[0] + (x.w < 600 ? " (มือถือ)" : " (คอม)"));
   for (const [e, w] of Object.entries(grp)) add("ux:" + e, "warn", `${e}: ${[...w].slice(0, 4).join(", ")}`);
+  if (S.audit?.cnt?.[3]) { const x = S.audit.items.filter(i => i.sev === 3); add("audit", "warn", `ข้อมูลหุ้นผิดแน่ ${x.length} ตัว: ${x.slice(0, 4).map(i => (i.s.startsWith("macro:") ? "" : name(i.s) + " ") + i.t.slice(0, 50)).join(" · ")}`) }
   for (const c of HEALTH.checks || []) if (c.st && c.st !== "ok") add("health:" + c.id, c.st === "warn" ? "note" : "warn", `สถานะข้อมูล "${c.name}": ${c.detail || c.st}`);
   // ปัญหาที่เจอซ้ำ 2 รอบติดกันขึ้นไปเท่านั้นที่เปิด Issue · ปัญหาที่หายไปลบออกจากความจำ
   const seen = {}; for (const r of R) if (r.st === "warn") seen[r.key] = (S.web.seen[r.key] || 0) + 1;
-  const TITLE = { quotes: "ราคาไม่อัปเดตระหว่างตลาดเปิด", news: "ข่าวไม่อัปเดตเกิน 1 ชั่วโมง", "ux-stale": "ไล่ตรวจหน้าเว็บอัตโนมัติ (ux_check) ไม่ได้รันตามรอบ" };
+  const TITLE = { audit: "ข้อมูลหุ้นในเว็บผิดปกติ (ทีมตรวจข้อมูลหุ้นทุกตัวพบ)", quotes: "ราคาไม่อัปเดตระหว่างตลาดเปิด", news: "ข่าวไม่อัปเดตเกิน 1 ชั่วโมง", "ux-stale": "ไล่ตรวจหน้าเว็บอัตโนมัติ (ux_check) ไม่ได้รันตามรอบ" };
   S.web = { seen, st: R.some(r => r.st === "warn") ? "warn" : "pass", items: R.map(({ st, t }) => ({ st: st === "note" ? "warn" : st, t })),
     issues: R.filter(r => r.st === "warn" && seen[r.key] >= 2).map(r => ({ key: r.key, title: `[ดูแลเว็บ] ${TITLE[r.key] || r.t.split(":")[0].slice(0, 80)}`,
       body: `ไอซ์ (Agent ดูแลเว็บ) เจอปัญหานี้ซ้ำ ${seen[r.key]} รอบติดกัน\n\n- ${r.t}\n\nที่มา: data/ux.json (ไล่ตรวจหน้าเว็บรายคืน), data/health.json และเวลาอัปเดตของข้อมูลแต่ละชุด · Issue นี้ปิดเองเมื่อตรวจรอบถัดไปไม่พบปัญหา` })) };
@@ -145,8 +198,12 @@ function web() {
 
 // แต่ละทีมพังได้โดยไม่ลากทีมอื่น (บันทึกข้อผิดพลาดไว้ให้ไอซ์และหน้าสถานะเห็น)
 S.err = [];
-for (const [n, f] of [["signals", signals], ["earnings", earnings], ["web", web]]) try { f() } catch (e) { S.err.push(`${n}: ${String(e.message || e).slice(0, 120)}`); console.error(n, e) }
-S.team = TEAM;
+if (MODE.st === "rest") { for (const r of ROSTER) if (r.team !== "bot") act(r.id, "rest", MODE.why || "พัก ตลาดปิด") }
+else for (const [n, f] of [["signals", signals], ["earnings", earnings], ["audit", audit], ["helpers", helpers], ["web", web]]) try { f() } catch (e) { S.err.push(`${n}: ${String(e.message || e).slice(0, 120)}`); console.error(n, e) }
+// ภาระงานรอบนี้ (ใช้เลือกคนช่วยรอบหน้า) · งานของระบบเดิม (ops.json จาก live.py) 3 ชม.ล่าสุด
+S.work = MODE.st === "rest" ? ST.work || {} : S.log.reduce((a, l) => (a[l.by] = (a[l.by] || 0) + (l.a === "audit" ? 0 : 1), a), {});
+S.ops = (load("ops.json", []) || []).filter(o => o.ts >= NS - 3 * 3600).slice(-80);
+S.roster = ROSTER.map(({ id, name, team, role, sec }) => ({ id, name, team, role, ...(sec ? { sec } : {}) }));
 fs.writeFileSync(path.join(DATA, "agents.json"), JSON.stringify(S));
 const open = Object.values(S.sig.pos).filter(p => p.st !== "done").length;
-console.log(`agents: สัญญาณติดตาม ${open} ไม้ · ฟีด ${S.sig.feed.length} · งบ ${S.earn.items.length} · เว็บ ${S.web.st} (${S.web.issues.length} issue)${first ? " · รอบแรก: บันทึกสัญญาณเดิมโดยไม่แจ้งเตือน" : ""}`);
+console.log(MODE.st === "rest" ? `agents: พัก (${MODE.why})` : `agents: สัญญาณติดตาม ${open} ไม้ · ฟีด ${S.sig.feed.length} · งบ ${S.earn.items.length} · ตรวจหุ้น ${S.audit.n} ตัว ผิดแน่ ${S.audit.cnt?.[3] ?? 0} น่าสงสัย ${S.audit.cnt?.[2] ?? 0} · คนช่วย สัญญาณ=${WHO[S.help.sig]?.name} งบ=${WHO[S.help.earn]?.name} · เว็บ ${S.web.st} (${S.web.issues?.length ?? 0} issue)${first ? " · รอบแรก: บันทึกสัญญาณเดิมโดยไม่แจ้งเตือน" : ""}`);

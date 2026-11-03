@@ -2,11 +2,12 @@
 // วาดด้วย canvas ความละเอียด 640×400 แล้วขยายแบบพิกเซล · ข้อความ (ชื่อ คำพูด ตัวเลขบนจอ) วาดทับด้วยความละเอียดจริงให้คมชัด
 (() => {
 "use strict";
-const W = 640, H = 400, CY = 246;
+const W = 640, H = 460, CY = 246;
 let RUN = null;
 window.Office = { mount(o) { if (RUN) RUN.stop(); RUN = make(o); return RUN }, stop() { if (RUN) RUN.stop(); RUN = null } };
 
-const TEAMC = { sector: "#4C7DD6", macro: "#D9783F", tech: "#9A66D8", data: "#D4A52A", web: "#2FA39A", boss: "#2B2D3A", sig: "#D45D86", earn: "#8A9A3A" };
+const TEAMC = { sector: "#4C7DD6", macro: "#D9783F", tech: "#9A66D8", data: "#D4A52A", web: "#2FA39A", boss: "#2B2D3A", sig: "#D45D86", earn: "#8A9A3A", bot: "#8C95A8" };
+const BOTLED = { "b-quote": "#3BC46E", "b-news": "#E5534B", "b-calc": "#B48AF0", "b-brief": "#E2B33C", "b-pub": "#5BB8F0" };
 const UP = "#3BC46E", DN = "#E5534B";
 const shade = (h, f) => { const n = parseInt(h.slice(1), 16); return "#" + [n >> 16, n >> 8 & 255, n & 255].map(v => Math.max(0, Math.min(255, Math.round(v * f))).toString(16).padStart(2, "0")).join("") };
 const hash = s => { let h = 7; for (const c of s) h = (h * 31 + c.charCodeAt(0)) >>> 0; return h };
@@ -23,8 +24,12 @@ const TD = [12, 62, 112]; TD.forEach((x0, i) => P["tec" + i] = { x: x0 + 20, y: 
 const DD = [186, 252]; DD.forEach((x0, i) => P["dat" + i] = { x: x0 + 24, y: 306, ax: x0 + 56, seat: 1 });
 const GD = [14, 82]; GD.forEach((x0, i) => P["sig" + i] = { x: x0 + 25, y: 216, ax: i ? 142 : 74, seat: 1 });
 const ED = [508, 578]; ED.forEach((x0, i) => P["ern" + i] = { x: x0 + 25, y: 216, ax: 568, seat: 1 });
+// ห้องระบบ (ระบบเดิมของเว็บ) แถบล่างสุด ทางขึ้นลงทางเดินแนวตั้ง x=460 · จุดพักผ่อนในแพนทรี · จุดยืนคนช่วยทีมสัญญาณ/งบ
+const BX = ["b-quote", "b-news", "b-calc", "b-brief", "b-pub"]; BX.forEach((id, i) => P["bot" + i] = { x: 36 + i * 84, y: 446, ax: 460 });
+P.tvspot = { x: 76, y: 152, ax: 76, crowd: 1 }; P.sigv = { x: 118, y: 230, ax: 142, crowd: 1 }; P.ernv = { x: 540, y: 230, ax: 568, crowd: 1 };
+[532, 560, 590].forEach((x, i) => P["lng" + i] = { x, y: 338, ax: 500, crowd: 1 });
 
-function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
+function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode }) {
   const D = A.desk, ctx = cv.getContext("2d");
   const bg = document.createElement("canvas"); bg.width = W; bg.height = H; const B = bg.getContext("2d");
   const off = document.createElement("canvas"); off.width = W; off.height = H; const O = off.getContext("2d");
@@ -33,9 +38,10 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
   let alive = true, raf = 0, speed = 1, clock = 0, tray = 0, tvOn = 0, steam = 0, hover = null, pick = null;
 
   // ---------- ทีม ----------
-  const homeOf = { "w-site": "web", boss: "boss", "d-qa": "dat0", "d-ed": "dat1" };
+  const homeOf = { "w-site": "web", boss: "boss", "d-qa": "dat0", "d-ed": "dat1" }; BX.forEach((id, i) => homeOf[id] = "bot" + i);
+  const L0 = live?.() || {}, R0 = [...(D.roster || [])]; for (const r of L0.roster || []) if (!R0.some(x => x.id === r.id)) R0.push(r);
   let si = 0, mi = 0, ti = 0, gi = 0, ei = 0;
-  const agents = (D.roster || []).map(r => {
+  const agents = R0.map(r => {
     const h = hash(r.id), home = homeOf[r.id] || (r.team === "sector" ? "sec" + si++ : r.team === "macro" ? "mac" + mi++ : r.team === "tech" ? "tec" + ti++ : r.team === "sig" ? "sig" + gi++ : r.team === "earn" ? "ern" + ei++ : "dat0");
     const p = P[home];
     return { ...r, home, x: p.x, y: p.y, place: home, q: [], cur: null, t: 0, path: [], bubble: null, st: "พร้อมทำงาน", ph: h % 6, moving: false,
@@ -67,17 +73,33 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
       case "web": return [{ go: e.at || "web", st: "ไล่ตรวจเว็บ", m }, { say: t, wait: 1900 }];
       case "sig": case "earn": return [{ go: a.home, st: e.a === "sig" ? "ติดตามสัญญาณ" : "อ่านงบ", m }, { say: t, wait: 2000 }];
       case "sigweek": return [{ go: "bossv", st: "รายงานผลสัญญาณรายสัปดาห์", m }, { say: t, wait: 3000 }, { go: a.home }];
+      case "audit": return [{ go: a.home, st: "ตรวจข้อมูลหุ้นในเว็บ", m }, { say: t, wait: 2000 }];
+      case "help": return [{ go: e.to === "earn" ? "ernv" : "sigv", st: e.to === "earn" ? "ช่วยทีมงบประกาศ" : "ช่วยทีมสัญญาณ", m }, { say: t, wait: 2400 }, { go: a.home }];
+      case "rest": return [];
+      case "quote": return [{ go: "board", st: "อัปเดตราคา", m }, { say: t, wait: 1500 }, { go: a.home, st: "รอรอบถัดไป" }];
+      case "news": return [{ go: "tvspot", st: "ส่งข่าวใหม่", m }, { fn: () => tvOn = 3, say: t, wait: 1700 }, { go: a.home, st: "รอรอบถัดไป" }];
+      case "start": case "done": return [{ go: a.id === "b-news" ? "tvspot" : "chart", st: e.a === "start" ? "กำลังคำนวณ" : "คำนวณเสร็จ", m }, { say: t, wait: 1800 }, { go: a.home, st: "รอรอบถัดไป" }];
+      case "brief": return [{ go: "inbox", st: "ส่งบทสรุปตลาด", m }, { say: t, wait: 1800 }, { go: a.home }];
+      case "publish": return [{ go: "webdash", st: "ส่งขึ้นเว็บ", m }, { say: t, wait: 1500 }, { go: a.home, st: "รอรอบถัดไป" }];
       default: return [{ say: t, wait: 1500, m }];
     }
   }
-  function load() {
+  function load(auto) {
     submitted = 0; qaDone = false; delivered = false; tray = 0; replay = true; clock = 0;
-    for (const a of agents) { const p = P[a.home]; Object.assign(a, { x: p.x, y: p.y, place: a.home, q: [], cur: null, path: [], bubble: null, st: "พร้อมทำงาน", mark: null });
+    // ช่วงพัก: เปิดหน้ามาเห็นทีมพักเลย (กด "เล่นใหม่ตั้งแต่ต้น" เพื่อดูงานของฉบับนี้)
+    const rest = auto && MODE.st === "rest";
+    for (const a of agents) { const p = P[a.home]; Object.assign(a, { x: p.x, y: p.y, place: a.home, q: [], cur: null, path: [], bubble: null, st: rest && a.team !== "bot" ? MODE.why || "พัก" : "พร้อมทำงาน", mark: null });
+      if (rest) continue;
       a.q.push({ wait: a.id === "boss" ? 0 : 300 + (hash(a.id) % 3200) }); for (const e of LOG.filter(x => x.by === a.id)) a.q.push(...steps(a, e)) }
+    if (rest) { replay = false; LOG.forEach(e => onLog?.(e.i, "done")); onBoss?.("read"); onDone?.(); pull(true); return }
     LOG.forEach(e => onLog?.(e.i, ""));
-    onBoss?.("waiting");
+    onBoss?.("waiting"); pull(true);
   }
+  let MODE = L0.mode || { st: "work" };
   const ambient = a => {
+    if (a.team === "bot") { a.q.push({ go: a.home, st: "รอรอบถัดไป" }, { wait: 4000 + Math.random() * 4000 }); return }
+    if (MODE.st === "rest" && a.id !== "boss") { const r = Math.random(), sp = r < .35 ? "lng" + ((Math.random() * 3) | 0) : r < .55 ? "coffee" : r < .7 ? "cooler" : a.home;
+      a.q.push({ go: sp, st: MODE.why || "พัก" }, { say: Math.random() < .3 ? pickOne(["☕", "zz", "…", "ตลาดปิดแล้ว", "พักก่อน"]) : null, wait: 6000 + Math.random() * 8000 }); return }
     if (a.id === "boss") { a.q.push({ wait: 4000 + Math.random() * 5000, st: delivered ? "อ่านสรุปตลาด" : "ทำงาน" }); return }
     const r = Math.random();
     if (r < .18) a.q.push({ go: Math.random() < .6 ? "coffee" : "cooler", st: "พักดื่มกาแฟ" }, { say: Math.random() < .5 ? "☕" : "…", wait: 2200 }, { go: a.home, st: "กลับโต๊ะ" });
@@ -85,18 +107,32 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
     else a.q.push({ go: a.home, st: "ทำงานที่โต๊ะ" }, { wait: 3000 + Math.random() * 6000 });
   };
 
+  // ---------- เล่นสด: งานใหม่จาก agents.json (ทีม Agent) และ ops (ระบบเดิม) ที่หน้าเว็บดึงมาทุก 2 นาที ----------
+  let lastTs = 0, lastOps = 0;
+  function pull(initial) {
+    const X = live?.(); if (!X) return;
+    if (X.mode && (X.mode.st !== MODE.st || X.mode.why !== MODE.why)) { MODE = X.mode; onMode?.(MODE) } else if (initial) onMode?.(MODE);
+    const lg = (X.log || []).filter(e => e.a !== "rest"), maxT = Math.max(0, ...lg.map(e => e.ts || 0));
+    const fresh = initial ? lg.filter(e => e.ts === maxT) : lg.filter(e => (e.ts || 0) > lastTs);
+    const per = {}; for (const e of fresh) { const a = byId[e.by]; if (!a || (per[e.by] = (per[e.by] || 0) + 1) > 3) continue; a.q.push(...steps(a, { ...e, i: null })) }
+    lastTs = Math.max(lastTs, maxT);
+    const op = (X.ops || []), oMax = Math.max(0, ...op.map(o => o.ts || 0)), of = initial ? op.slice(-5) : op.filter(o => (o.ts || 0) > lastOps);
+    for (const o of of) { const a = byId[o.by]; if (a && a.q.length < 6) a.q.push(...steps(a, { ...o, i: null })) }
+    lastOps = Math.max(lastOps, oMax);
+  }
+
   // ---------- เดิน ----------
   function route(a, k) {
     const c = P[a.place] || P[a.home], t = P[k], j = t.crowd ? a.jit : 0;
     if (a.place === k) return [{ x: t.x + j, y: t.y }];
     return [{ x: c.ax, y: a.y }, { x: c.ax, y: CY }, { x: t.ax, y: CY }, { x: t.ax, y: t.y }, { x: t.x + j, y: t.y }];
   }
-  const val = v => typeof v === "function" ? v() : v;
+  const val = v => typeof v === "function" ? v() : v, pickOne = L => L[(Math.random() * L.length) | 0];
   function begin(a, s) {
     a.t = 0;
     if (s.m != null) { if (a.mark != null && a.mark !== s.m) onLog?.(a.mark, "done"); a.mark = s.m; onLog?.(s.m, "active") }
     if (s.go) { a.path = route(a, s.go); a.place = null }
-    if (s.fn) s.fn(); if (s.st) a.st = val(s.st); if (s.say) a.bubble = { t: val(s.say), ttl: (s.wait || 1500) + 250 };
+    if (s.fn) s.fn(); if (s.st) a.st = val(s.st); const sy = val(s.say); if (sy) a.bubble = { t: sy, ttl: (s.wait || 1500) + 250 };
   }
   function step(a, dt) {
     if (a.bubble && (a.bubble.ttl -= dt * 1000) <= 0) a.bubble = null;
@@ -141,7 +177,7 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
     for (let y = 44; y < 170; y += 8) for (let x = 504; x < W; x += 24) R(B, x + (y / 8 % 2) * 12, y, 23, 7, "#6E4E38");
     R(B, 528, 76, 96, 56, "#7A2F35"); R(B, 530, 78, 92, 52, "#8D3A40"); for (let x = 534; x < 620; x += 8) R(B, x, 80, 4, 48, "#9A454B");
     for (let y = 44; y < 170; y += 10) for (let x = 0; x < 150; x += 10) R(B, x, y, 10, 10, ((x + y) / 10) % 2 ? "#2C4A47" : "#30504D");
-    for (let y = 258; y < H; y += 12) for (let x = 452; x < W; x += 12) R(B, x, y, 12, 12, ((x + y) / 12) % 2 ? "#D9D3C4" : "#CBC4B3");
+    for (let y = 258; y < 400; y += 12) for (let x = 452; x < W; x += 12) R(B, x, y, 12, 12, ((x + y) / 12) % 2 ? "#D9D3C4" : "#CBC4B3");
     // ผนังบนและหน้าต่าง
     R(B, 0, 0, W, 40, "#3B3552"); R(B, 0, 37, W, 3, "#262236");
     const sky = night ? ["#0B1630", "#13224A"] : dusk ? ["#F08A4B", "#6C4E8E"] : ["#7EC3F0", "#BFE3F7"];
@@ -203,12 +239,28 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
     R(B, 470, 282, 14, 30, "#D9DDE6"); R(B, 471, 274, 12, 10, "#7FB6E8"); R(B, 472, 276, 10, 6, "#A9D3F5");
     R(B, 532, 300, 58, 16, "#A8714A"); R(B, 532, 300, 58, 2, "#C08558"); for (const x of [528, 556, 586]) R(B, x, 320, 8, 6, "#3C3F55");
     R(B, 552, 302, 12, 6, "#EDE6D6"); R(B, 554, 300, 3, 3, "#E5534B"); R(B, 558, 300, 3, 3, "#F2C744"); R(B, 560, 302, 3, 3, "#4FA85B");
-    plant(456, 264, 1);
+    plant(572, 262, 0);
+    // ห้องระบบ: ระบบเดิมของเว็บ (บอท) ทำงานตลอด 24 ชม.
+    for (let y = 400; y < H; y += 10) for (let x = 0; x < W; x += 10) R(B, x, y, 10, 10, ((x + y) / 10) % 2 ? "#1F2433" : "#232838");
+    R(B, 0, 397, 454, 4, "#59617A"); R(B, 466, 397, W - 466, 4, "#59617A");
+    for (let x = 6; x < 440; x += 28) { R(B, x, 404, 22, 22, "#2A2D38"); R(B, x, 404, 22, 2, "#3A3D4C"); for (let y = 408; y < 424; y += 4) R(B, x + 2, y, 18, 2, "#1C1E28") }
+    for (let x = 476; x < 630; x += 40) { R(B, x, 410, 30, 14, "#15171F"); R(B, x + 13, 424, 4, 3, "#15171F") }
+    for (let i = 0; i < 5; i++) { R(B, 28 + i * 84, 452, 16, 3, "#3A3F52"); R(B, 30 + i * 84, 451, 12, 1, "#50566C") }
   }
   drawBg();
 
   // ---------- ตัวละคร ----------
+  function bot(a) {
+    const x = Math.round(a.x) - 5, y = Math.round(a.y) - 16, C = (dx, dy, w, h, c) => R(O, x + dx, y + dy, w, h, c), led = BOTLED[a.id] || "#9FB4C8", bob = a.moving ? ((a.ph | 0) % 2) : 0;
+    O.fillStyle = "rgba(0,0,0,.3)"; O.fillRect(x + 1, y + 16, 9, 2);
+    C(5, -2 + bob, 1, 2, "#9AA3B5"); C(4, -3 + bob, 3, 1, led);
+    C(1, bob, 9, 6, "#B9C1D0"); C(2, 1 + bob, 7, 4, "#1B1F2A"); C(3, 2 + bob, 2, 1, led); C(6, 2 + bob, 2, 1, led);
+    C(0, 7, 11, 7, "#8C95A8"); C(0, 7, 11, 1, "#A6AEBF"); C(3, 9, 5, 3, "#5E6678"); if (((clock * 3) | 0) % 2) C(4, 10, 3, 1, led);
+    C(1, 14, 3, 2, "#2B2D3A"); C(7, 14, 3, 2, "#2B2D3A");
+    if (a === pick || a === hover) { O.strokeStyle = "#F2CF6B"; O.lineWidth = 1; O.strokeRect(x - 1.5, y - 4.5, 14, 23) }
+  }
   function person(a) {
+    if (a.team === "bot") return bot(a);
     const p = a.place && P[a.place], sit = !a.moving && p?.seat && !a.path.length, front = sit && p.front, back = sit && !front;
     const x = Math.round(a.x) - 5, y = Math.round(a.y) - 18 + (sit ? 3 : 0), C = (dx, dy, w, h, c) => R(O, x + dx, y + dy, w, h, c);
     if (front) { R(O, x - 2, y + 2, 14, 12, "#1E2030"); R(O, x - 2, y + 2, 14, 2, "#33364A") }
@@ -260,6 +312,7 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
     O.beginPath(); O.moveTo(cx, cy); O.lineTo(cx + Math.sin((h % 12 + mi / 60) / 12 * 6.283) * 4, cy - Math.cos((h % 12 + mi / 60) / 12 * 6.283) * 4); O.stroke();
     O.beginPath(); O.moveTo(cx, cy); O.lineTo(cx + Math.sin(mi / 60 * 6.283) * 6, cy - Math.cos(mi / 60 * 6.283) * 6); O.stroke();
     [...agents].sort((p, q) => p.y - q.y).forEach(person);
+    if (MODE.st === "rest" && PH !== "night") { O.fillStyle = "rgba(8,12,34,.14)"; O.fillRect(0, 40, W, 357) }
     if (PH === "night") { O.fillStyle = "rgba(8,12,34,.32)"; O.fillRect(0, 40, W, H - 40);
       O.globalCompositeOperation = "lighter"; for (const d of SD.slice(0, 11)) { O.fillStyle = "rgba(255,200,110,.07)"; O.fillRect(d.x0 - 4, d.top - 8, 64, 44) } O.globalCompositeOperation = "source-over" }
   }
@@ -280,7 +333,7 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
     if (tot) { let x = 230 * sc - ((clock * 26 * sc) % tot); while (x < 410 * sc) for (const [s, v, c, w1, w2] of M) { ctx.fillStyle = "#E8E4D6"; ctx.fillText(s, x, 19 * sc); ctx.fillStyle = c >= 0 ? UP : DN; ctx.fillText(v, x + w1, 19 * sc); x += w1 + w2 } }
     ctx.restore();
     ctx.font = `600 ${Math.round(Math.min(10 * d, 6.5 * sc))}px ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    for (const [t, x, y, c] of [["ห้องประชุมมหภาค", 75, 162, "rgba(236,232,218,.55)"], ["ติดตามสัญญาณ", 75, 230, "rgba(236,232,218,.5)"], ["งบประกาศ", 570, 230, "rgba(236,232,218,.5)"], ["ห้องบอส", 600, 162, "rgba(236,232,218,.6)"], ["ชั้นนักวิเคราะห์รายกลุ่ม", 326, 228, "rgba(236,232,218,.42)"], ["ทีมเทคนิค", 84, 264, "rgba(236,232,218,.5)"],
+    for (const [t, x, y, c] of [["ห้องระบบ · ระบบเดิมของเว็บทำงานตลอด 24 ชม.", 220, 436, "rgba(236,232,218,.45)"], ["ห้องประชุมมหภาค", 75, 162, "rgba(236,232,218,.55)"], ["ติดตามสัญญาณ", 75, 230, "rgba(236,232,218,.5)"], ["งบประกาศ", 570, 230, "rgba(236,232,218,.5)"], ["ห้องบอส", 600, 162, "rgba(236,232,218,.6)"], ["ชั้นนักวิเคราะห์รายกลุ่ม", 326, 228, "rgba(236,232,218,.42)"], ["ทีมเทคนิค", 84, 264, "rgba(236,232,218,.5)"],
       ["ทีม Data", 210, 330, "rgba(236,232,218,.5)"], ["ดูแลเว็บ", 394, 330, "rgba(236,232,218,.5)"], ["แพนทรี", 590, 340, "rgba(40,40,48,.55)"], ["ถาดส่งบท", 315, 280, "rgba(236,232,218,.6)"]]) { ctx.fillStyle = c; ctx.fillText(t, x * sc, y * sc) }
     ctx.font = `700 ${Math.round(7 * sc)}px ${FONT}`; ctx.fillStyle = "#2B2D3A"; ctx.fillText("BOSS", 597 * sc, 107 * sc);
     const fs = Math.round(12 * d); ctx.font = `500 ${fs}px ${FONT}`; ctx.textBaseline = "top"; ctx.textAlign = "left";
@@ -300,7 +353,7 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
   const ro = new ResizeObserver(fit); ro.observe(cv); fit();
   const at = e => { const r = cv.getBoundingClientRect(), lx = (e.clientX - r.left) / r.width * W, ly = (e.clientY - r.top) / r.height * H; let b = null, bd = 14; for (const a of agents) { const d = Math.hypot(a.x - lx, a.y - 9 - ly); if (d < bd) { bd = d; b = a } } return b };
   cv.addEventListener("pointermove", e => hover = at(e)); cv.addEventListener("pointerleave", () => hover = null); cv.addEventListener("click", e => pick = at(e));
-  let last = performance.now(), ui = 0, mint = 0;
+  let last = performance.now(), ui = 0, mint = 0, pl = 0;
   function frame(now) {
     if (!alive) return; if (!cv.isConnected) { stop(); return }
     const raw = Math.min(.05, (now - last) / 1000); last = now; const dt = raw * speed;
@@ -309,12 +362,13 @@ function make({ cv, A, ix, onLog, onBoss, onStatus, onDone }) {
       if (replay && agents.every(a => !a.cur || (!a.cur.go && !a.cur.waitFor && !a.q.length && a.cur.wait === 600)) && clock > 3) { replay = false; LOG.forEach(e => onLog?.(e.i, "done")); onDone?.() }
       if ((mint += raw) > 60) { mint = 0; if (phase() !== PH) drawBg() }
       if ((ui += raw) > .35) { ui = 0; onStatus?.(agents.map(a => [a.id, a.st])) }
+      if ((pl += raw) > 5) { pl = 0; pull(false) }
       dyn(); ctx.imageSmoothingEnabled = false; ctx.drawImage(off, 0, 0, cv.width, cv.height); overlay();
     }
     raf = requestAnimationFrame(frame);
   }
   function stop() { alive = false; cancelAnimationFrame(raf); ro.disconnect() }
-  load(); raf = requestAnimationFrame(frame);
+  load(true); raf = requestAnimationFrame(frame);
   return { stop, replay() { load() }, speed(v) { speed = v }, select(id) { pick = byId[id] || null } };
 }
 })();

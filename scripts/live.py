@@ -2,7 +2,9 @@
 - ช่วงตลาดไทยหรือสหรัฐฯ เปิด: ราคาทุก ~30 วินาที เก็บภาพราคาเข้าคลังทุก ~15 นาที และรอบใหญ่ (ข่าว ปัจจัย คะแนน) ทุก ~30 นาที
 - นอกเวลาตลาด: อัปเดตข่าวเต็มรอบทุก ~20 นาที (วันหยุดทุกชั่วโมง) เพราะข่าวออกตลอดเวลา
 - ข่าวด่วน: ดึงฟีดข่าวโดยตรงทุก ~5 นาทีทั้งวัน (ข่าวต้องไวที่สุด) แล้วส่งขึ้น branch live ทันที
-- ทีม Agent (scripts/agents.js): ติดตามสัญญาณ งบประกาศ และดูแลเว็บ ทำงานทุก ~2 นาทีช่วงตลาดเปิด และหลังรอบข่าวทุกครั้ง
+- ทีม Agent (scripts/agents.js): ทำงานทุก ~2 นาทีในเวลางาน = ตลาดไทยหรือสหรัฐฯ เปิด + ก่อนเปิด 30 นาที พักเมื่อตลาดปิด/พักเที่ยง
+  บทของทีมสำหรับฉบับสรุปที่ออกนอกเวลางาน (เช่นฉบับเช้า 06:00 น.) ทำตอนเริ่มงาน
+- ระบบเดิม (ราคา ข่าว รอบใหญ่ สรุป เผยแพร่) บันทึกงานลง data/ops.json ให้หน้าออฟฟิศเห็นเป็นทีมบอท
 ก่อนรอบใหญ่ทุกครั้งดึงไฟล์ที่งานรายคืนสร้าง (งบ รายชื่อหุ้น ราคาย้อนหลัง) มาใช้ ไม่เอาของเก่าไปทับของใหม่
 """
 import datetime as dt, json, os, subprocess, sys, time
@@ -45,12 +47,13 @@ def publish_live():
 
 
 def publish_site():
+    ops("b-pub", "publish", "ส่งข้อมูลชุดใหม่ขึ้นหน้าเว็บ")
     r = sh("bash scripts/publish.sh")
     if r.returncode:
         print("publish failed:", r.stderr[-300:])
 
 
-OWN = {"quotes.json", "news.json", "meta.json", "archive_state.json", "brief.json", "agents.json"}  # ไฟล์ที่งานนี้เขียนเองตลอด (ของในเครื่องใหม่กว่าเสมอ)
+OWN = {"quotes.json", "news.json", "meta.json", "archive_state.json", "brief.json", "agents.json", "ops.json"}  # ไฟล์ที่งานนี้เขียนเองตลอด (ของในเครื่องใหม่กว่าเสมอ)
 
 
 def sync_shared():
@@ -92,10 +95,64 @@ def brief_due():
     return out
 
 
+# เวลางานของทีม Agent: ตลาดเปิด + ก่อนเปิด 30 นาที (ไทยรวมช่วงก่อนเปิดภาคบ่าย) · ตามเขตเวลาของแต่ละตลาด
+WORK = {"TH": ("Asia/Bangkok", [((9, 30), (12, 30)), ((14, 0), (16, 40))]), "US": ("America/New_York", [((9, 0), (16, 10))])}
+MK_TH = {"TH": "หุ้นไทย", "US": "หุ้นสหรัฐฯ"}
+
+
+def work_window(now=None):
+    """คืน (ทำงานไหม, คำอธิบาย, เวลาเริ่มงานรอบถัดไปเป็น epoch)"""
+    now = now or dt.datetime.now(dt.timezone.utc)
+    on, nxt = [], None
+    for m, (tz, wins) in WORK.items():
+        z = ZoneInfo(tz)
+        loc = now.astimezone(z)
+        for d in range(8):
+            day = (loc + dt.timedelta(days=d)).date()
+            if day.weekday() >= 5:
+                continue
+            for (h1, m1), (h2, m2) in wins:
+                a = dt.datetime(day.year, day.month, day.day, h1, m1, tzinfo=z)
+                b = dt.datetime(day.year, day.month, day.day, h2, m2, tzinfo=z)
+                if a <= loc < b:
+                    on.append(m)
+                elif a > loc and (nxt is None or a < nxt):
+                    nxt = a
+    bkk = now.astimezone(ZoneInfo("Asia/Bangkok"))
+    if on:
+        why = "ทำงาน: " + " และ ".join(MK_TH[m] for m in dict.fromkeys(on))
+    elif bkk.weekday() < 5 and (12, 30) <= (bkk.hour, bkk.minute) < (14, 0):
+        why = "พักเที่ยง ตลาดหุ้นไทยพักครึ่งวัน"
+    else:
+        why = "พัก ตลาดปิด"
+    return bool(on), why, int(nxt.timestamp()) if nxt else None
+
+
+def ops(by, a, t):
+    """บันทึกงานของระบบเดิมให้หน้าออฟฟิศเห็น (เก็บ 120 รายการล่าสุด)"""
+    try:
+        L = update.load("ops.json", []) or []
+        L.append({"by": by, "a": a, "t": t, "ts": int(time.time())})
+        update.save("ops.json", L[-120:])
+    except Exception as e:  # noqa: BLE001
+        print("ops:", e)
+
+
+_mode = [None]
+
+
 def run_agents():
-    """ทีม Agent (scripts/agents.js) แล้วเปิด/ปิด Issue ตามผลตรวจเว็บของไอซ์ · พังได้โดยไม่กระทบงานหลัก"""
-    r = subprocess.run(["node", "scripts/agents.js"], cwd=ROOT, capture_output=True, text=True, timeout=120)
+    """ทีม Agent (scripts/agents.js) แล้วเปิด/ปิด Issue ตามผลตรวจเว็บของไอซ์ · พังได้โดยไม่กระทบงานหลัก
+    นอกเวลางาน รันครั้งเดียวตอนเปลี่ยนเป็นช่วงพัก เพื่อบันทึกว่าทีมพักและจะเริ่มงานเมื่อไร"""
+    on, why, nxt = work_window()
+    if not on and _mode[0] == "rest":
+        return
+    _mode[0] = "work" if on else "rest"
+    env = {**os.environ, "AGENTS_MODE": _mode[0], "AGENTS_WHY": why, "AGENTS_NEXT": str(nxt or "")}
+    r = subprocess.run(["node", "scripts/agents.js"], cwd=ROOT, capture_output=True, text=True, timeout=120, env=env)
     print(r.stdout.strip()[-400:] + (("\n" + r.stderr.strip()[:600]) if r.returncode or r.stderr.strip() else ""))
+    if not on:
+        return
     try:
         sync_issues()
     except Exception as e:  # noqa: BLE001
@@ -147,16 +204,31 @@ def write_briefs():
         print(r.stdout.strip() or r.stderr[-300:])
         made = made or r.returncode == 0
         if r.returncode == 0:
-            run_agents()  # ให้บทสรุปได้ข้อมูลสัญญาณและงบล่าสุด
-            # ทีมวิจัย (scripts/desk.js) เขียนบทแยกตามทีมและตรวจตัวเลขของฉบับนี้ · พังได้โดยไม่กระทบบทความหลัก
-            d = subprocess.run(["node", "scripts/desk.js", mk, kind], cwd=ROOT, capture_output=True, text=True)
+            ops("b-brief", "brief", f"เขียนสรุปตลาด{MK_TH[mk]} ฉบับ {kind}")
+    return desk_pending() or made
+
+
+def desk_pending():
+    """ทีมวิจัย (scripts/desk.js) เขียนบทของฉบับสรุปที่ยังไม่มีบทของทีม เฉพาะในเวลางาน (ฉบับที่ออกตอนพักทำตอนเริ่มงาน)
+    ดูแค่ 2 ฉบับล่าสุดต่อตลาดในรอบ 36 ชม. · พังได้โดยไม่กระทบบทความหลัก"""
+    if not work_window()[0]:
+        return False
+    now, done = time.time(), False
+    items = sorted(update.load("brief.json", {}).get("items", []), key=lambda x: -x.get("ts", 0))
+    for mk in ("TH", "US"):
+        for x in [i for i in items if i.get("mk") == mk][:2]:
+            if x.get("desk") or now - x.get("ts", 0) > 36 * 3600:
+                continue
+            run_agents()  # ให้บทของทีมได้ข้อมูลสัญญาณและงบล่าสุด
+            d = subprocess.run(["node", "scripts/desk.js", mk, x["kind"], x["date"]], cwd=ROOT, capture_output=True, text=True)
             print(d.stdout.strip() or d.stderr[-300:])
-    return made
+            done = done or d.returncode == 0
+    return done
 
 
 def main():
     t0 = time.time()
-    last_big, big, kind, last_fast, last_agents = 0, None, "", 0, 0
+    last_big, big, kind, last_fast, last_agents, started = 0, None, "", 0, 0, 0
     _hist_sha[0] = (sh("git ls-remote origin refs/heads/hist").stdout.split() or [None])[0]
     while time.time() - t0 < MAX_RUN:
         tick = time.time()
@@ -167,6 +239,11 @@ def main():
         # รอบใหญ่รันแยกอีก process ราคาจะได้อัปเดตทุก 2 นาทีต่อไม่สะดุด
         if big is not None and big.poll() is not None:
             print("ข่าวด่วนเสร็จ" if kind == "fast" else "รอบใหญ่เสร็จ", big.returncode)
+            if kind == "fast":
+                n = sum(1 for x in update.load("news.json", {}).get("items", []) if (x.get("seen") or 0) >= started)
+                ops("b-news", "news", f"ข่าวด่วน: ข่าวใหม่ {n} ข่าว" if n else "ข่าวด่วน: ยังไม่มีข่าวใหม่")
+            else:
+                ops("b-calc", "done", "รอบใหญ่เสร็จ: ข่าว ปัจจัย คะแนน และสัญญาณอัปเดตแล้ว" if trading else "รอบข่าวเต็มเสร็จ")
             if kind == "fast":
                 run_agents()
                 last_agents = time.time()
@@ -183,10 +260,11 @@ def main():
         if big is None and tick - last_big >= every:
             sync_shared()
             big, kind = subprocess.Popen([sys.executable, "scripts/update.py"] + ([] if trading else ["--news"]), cwd=ROOT, env=env), "full"
-            last_big = last_fast = tick
+            last_big = last_fast = started = tick
+            ops("b-calc" if trading else "b-news", "start", "เริ่มรอบใหญ่: ข่าว ปัจจัย คะแนน สัญญาณ" if trading else "เริ่มรอบข่าวเต็ม ~400 แหล่ง")
         elif big is None and tick - last_fast >= FAST_NEWS:
             big, kind = subprocess.Popen([sys.executable, "scripts/update.py", "--news-fast"], cwd=ROOT, env=env), "fast"
-            last_fast = tick
+            last_fast = started = tick
         if write_briefs() and big is None:
             publish_site()
         if trading:
@@ -200,6 +278,7 @@ def main():
                 meta["quotesTiming"] = {**update.QUOTE_T, "total": round(time.time() - tick, 1)}
                 update.save("meta.json", meta)
                 if big is None and time.time() - last_agents >= AGENTS_EVERY:
+                    ops("b-quote", "quote", f"อัปเดตราคา {len(update.load('quotes.json', {}).get('q', {}))} ตัว ใช้ {round(time.time() - tick, 1)} วินาที")
                     run_agents()
                     last_agents = time.time()
                 publish_live()
