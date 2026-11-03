@@ -1116,7 +1116,7 @@ const SLOTS=5,PORT_BT={TH:"ไทย ~4 ปี: เงิน 100,000 → 350,096
    คำนวณในเบราว์เซอร์จากข้อมูลที่มีอยู่แล้ว (ราคา ดัชนี ข่าว วิเคราะห์ตลาดรายคืน) · เสาร์–อาทิตย์/วันหยุด สรุปเฉพาะข่าว + สิ่งที่ต้องติดตาม */
 // หมวดเหตุการณ์และน้ำหนักความสำคัญ (ข่าวที่กระทบทั้งตลาดสำคัญกว่าข่าวหุ้นรายตัว)
 const BR_CAT=[
-  ["การเมือง/เลือกตั้ง",5,/\belection|midterm|ballot|\bvote|polls? show|congress|senate|white house|shutdown|เลือกตั้ง|รัฐบาล|นายกฯ|นายกรัฐมนตรี|สภา|ยุบสภา|งบประมาณ/i],
+  ["การเมือง/เลือกตั้ง",5,/\belection|midterm|ballot|\bvote|polls? show|congress|senate|white house|shutdown|เลือกตั้ง|รัฐบาลไทย|ครม\.|คณะรัฐมนตรี|นายกฯ|นายกรัฐมนตรี|สภา|ยุบสภา|งบประมาณ/i],
   ["ดอกเบี้ย/นโยบายการเงิน",4,/\bFed\b|FOMC|Powell|rate (?:cut|hike|decision)|interest rate|central bank|\bBOJ\b|\bECB\b|treasury yield|bond yield|กนง|ดอกเบี้ย|ธปท|แบงก์ชาติ|นโยบายการเงิน|อัตราผลตอบแทนพันธบัตร/i],
   ["การค้า/ภาษีนำเข้า",4,/tariff|trade (?:war|deal|talks)|export control|ภาษีนำเข้า|กำแพงภาษี|สงครามการค้า|ข้อตกลงการค้า/i],
   ["เศรษฐกิจ",3,/\bCPI\b|inflation|\bGDP\b|jobs report|payrolls?|unemployment|\bPMI\b|retail sales|recession|consumer (?:confidence|spending)|เงินเฟ้อ|จีดีพี|GDP|ส่งออก|เศรษฐกิจ|ว่างงาน|ดัชนีผู้บริโภค/i],
