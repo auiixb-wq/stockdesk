@@ -56,7 +56,7 @@ jobs:
       - name: Market brief (manual)
         if: ${{ github.event.inputs.brief != '' && github.event.inputs.brief != null }}
         continue-on-error: true
-        run: node scripts/brief.js ${{ github.event.inputs.brief }}
+        run: node scripts/brief.js ${{ github.event.inputs.brief }} && (node scripts/desk.js ${{ github.event.inputs.brief }} || true)
       - name: Publish site with data
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
