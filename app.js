@@ -20,7 +20,8 @@ const ICONS={
  moon:'<path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/>',
  trend:'<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
  rocket:'<path d="M5 15c-1.5 1.5-2 5-2 5s3.5-.5 5-2"/><path d="M9 15l-3-3c1.5-4.5 5.5-9 13-9 0 7.5-4.5 11.5-9 13z"/><circle cx="14.5" cy="9.5" r="1.6"/>',
- auto:'<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>'};
+ auto:'<circle cx="12" cy="12" r="8.5"/><path d="M12 3.5v17a8.5 8.5 0 0 0 0-17z" fill="currentColor"/>',
+ lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>'};
 const svgI=(k,sz=18)=>`<svg viewBox="0 0 24 24" width="${sz}" height="${sz}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k]||""}</svg>`;
 const ic=k=>`<span class="ico" aria-hidden="true">${svgI(k)}</span>`;
 /* ---------- small renderers ---------- */
@@ -814,6 +815,7 @@ document.addEventListener("click",e=>{
   else if(t.dataset.bm){S.bm=t.dataset.bm;S.bed=null;lsSet("bm",S.bm);render()}
   else if(t.dataset.bed){S.bed=t.dataset.bed;render()}
   else if(t.dataset.oed){S.oed=t.dataset.oed;render()}
+  else if(t.dataset.oflock){lsSet("ofok",null);render()}
   else if(t.dataset.ofgo!=null){S.bed=t.dataset.ofgo;S.bm=t.dataset.ofmk;location.hash="#brief"}
   else if(t.dataset.sort){S.sort=t.dataset.sort;render()}
   else if(t.dataset.scr){S.scr=t.dataset.scr;render()}
@@ -1171,14 +1173,22 @@ function deskTeam(D){if(!D?.roster)return "";const by=id=>{const r=D.roster.find
 // ออฟฟิศทีมวิจัย (office.js): เล่นซ้ำงานจริงของทีมจาก desk.log · กล่องบอส · ผลไล่ตรวจเว็บ · บันทึกการทำงาน
 const OF_TEAM=[["boss","บอส"],["data","ทีม Data"],["web","ดูแลเว็บ"],["macro","ทีมมหภาค"],["tech","ทีมเทคนิค"],["sector","นักวิเคราะห์รายกลุ่ม"]];
 function officeEd(){const L=(S.briefs||[]).filter(x=>x.desk?.log&&x.desk.roster).sort((a,b)=>b.ts-a.ts);return{L,A:L.find(x=>x.id===S.oed)||L[0]}}
-function vOffice(){const{L,A}=officeEd();
+// ประตูออฟฟิศ: ใส่รหัสก่อนดู (เก็บเป็นค่า SHA-256 ไม่เก็บรหัสตรง ๆ) · เป็นแค่ประตูกันคนทั่วไป ไม่ใช่ระบบความปลอดภัย เพราะข้อมูลของทีมอยู่ใน brief.json ที่เปิดอ่านได้
+const OF_PIN="9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0",ofOpen=()=>lsGet("ofok")===OF_PIN;
+async function ofTry(){const i=$("#ofPin"),m=$("#ofMsg");if(!i)return;const v=i.value.trim();
+  let h="";try{h=[...new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v)))].map(b=>b.toString(16).padStart(2,"0")).join("")}catch{}
+  if(h===OF_PIN){lsSet("ofok",OF_PIN);render()}else{i.value="";i.focus();if(m)m.textContent="รหัสไม่ถูกต้อง ลองอีกครั้ง"}}
+function vOfficeLock(){return `<h1>ออฟฟิศทีมวิจัย</h1><section class="card of-lock"><div class="of-lockic">${svgI("lock",40)}</div><h2>ใส่รหัสเพื่อเข้าออฟฟิศ</h2>
+  <form id="ofForm" class="of-pinrow" autocomplete="off"><label class="sr" for="ofPin">รหัสเข้าออฟฟิศ</label><input id="ofPin" type="password" inputmode="numeric" maxlength="8" placeholder="••••" autofocus>
+  <button type="submit" class="btn primary">เข้าออฟฟิศ</button></form><p class="muted" id="ofMsg" role="status" aria-live="polite"></p></section>`}
+function vOffice(){if(!ofOpen())return vOfficeLock();const{L,A}=officeEd();
   if(!A)return `<h1>ออฟฟิศทีมวิจัย</h1><div class="card empty">ยังไม่มีรอบทำงานของทีม จะเริ่มเมื่อมีสรุปตลาดฉบับถัดไป</div>`;
   const D=A.desk,who=id=>D.roster.find(r=>r.id===id)||{name:id,role:""},when=t=>new Date(t*1e3).toLocaleString(LOC(),{timeZone:"Asia/Bangkok",weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
   const st=x=>x==="ok"?"✓":x==="warn"?"!":"✕",ws=D.web?.items||[];
   const eds=`<div class="chips br-eds" role="group" aria-label="เลือกรอบทำงาน">${L.map(x=>`<button type="button" class="chip" data-oed="${esc(x.id)}" aria-pressed="${x.id===A.id}">${x.mk==="TH"?"ไทย":"สหรัฐฯ"} · ${esc(BR_KIND[x.mk]?.[x.kind]||x.kind)} · ${when(x.ts)}</button>`).join("")}</div>`;
   return `<div class="br-top"><div><h1>ออฟฟิศทีมวิจัย</h1><p class="muted" style="margin:4px 0 0">เล่นซ้ำงานจริงของทีม ${D.roster.length} คนในรอบที่เลือก ตั้งแต่ดูราคา เขียนบท ตรวจข้อมูล จนส่งสรุปถึงบอส · แตะตัวละครเพื่อดูชื่อ</p></div></div>${eds}
    <section class="card of-stage"><canvas id="ofCv" role="img" aria-label="ออฟฟิศพิกเซลของทีมวิจัย"></canvas>
-    <div class="of-bar"><button type="button" class="chip" id="ofReplay">เล่นใหม่ตั้งแต่ต้น</button><button type="button" class="chip" id="ofSpd" data-s="1">ความเร็ว 1×</button><span class="muted" id="ofNow">ทีมเริ่มงาน…</span></div></section>
+    <div class="of-bar"><button type="button" class="chip" id="ofReplay">เล่นใหม่ตั้งแต่ต้น</button><button type="button" class="chip" data-oflock="1">ล็อกออฟฟิศ</button><button type="button" class="chip" id="ofSpd" data-s="1">ความเร็ว 1×</button><span class="muted" id="ofNow">ทีมเริ่มงาน…</span></div></section>
    <div class="grid g2 of-g">
     <section class="card of-boss" id="ofBoss" data-st="waiting"><div class="eyebrow">ห้องบอส · ${esc(who("boss").name)}</div><h2 id="ofBossH">รอทีมส่งสรุปตลาด…</h2>
      <div class="of-bossbody"><p class="br-t" style="font-size:17px;margin:2px 0 6px">${esc(A.title)}</p>${deskQA(D)}<p class="muted" style="margin:6px 0 10px">${esc(A.lead).slice(0,260)}${A.lead.length>260?"…":""}</p>
@@ -1188,7 +1198,8 @@ function vOffice(){const{L,A}=officeEd();
    </div>
    <section class="card"><h2>บันทึกการทำงานรอบนี้</h2><ol class="of-log" id="ofLog">${D.log.map((e,i)=>`<li data-i="${i}"><b>${esc(who(e.by).name)}</b><span>${esc(e.t)}</span></li>`).join("")}</ol></section>
    <section class="card"><h2>ทีม ${D.roster.length} คน</h2><div class="of-team">${OF_TEAM.map(([k,n])=>{const m=D.roster.filter(r=>r.team===k);return m.length?`<div><h3><i class="of-dot of-${k}"></i>${n}</h3><ul>${m.map(r=>`<li><b>${esc(r.name)}</b><span class="muted" data-ofs="${esc(r.id)}" title="${esc(r.role)}">${esc(r.role)}</span></li>`).join("")}</ul></div>`:""}).join("")}</div></section>`}
-function mountOffice(){const{A}=officeEd(),cv=$("#ofCv");if(!A||!cv)return;if(!window.Office){setTimeout(mountOffice,300);return}
+function mountOffice(){const f=$("#ofForm");if(f){f.addEventListener("submit",e=>{e.preventDefault();ofTry()});setTimeout(()=>$("#ofPin")?.focus(),50);return}
+  const{A}=officeEd(),cv=$("#ofCv");if(!A||!cv)return;if(!window.Office){setTimeout(mountOffice,300);return}
   const lis=[...document.querySelectorAll("#ofLog li")],now=$("#ofNow"),box=$("#ofBoss"),bh=$("#ofBossH"),sts=Object.fromEntries([...document.querySelectorAll("[data-ofs]")].map(e=>[e.dataset.ofs,e]));
   const R=window.Office.mount({cv,A,ix:S.meta,
     onLog:(i,c)=>{const li=lis[i];if(!li)return;li.className=c;if(c==="active"&&now){now.textContent=(li.firstChild.textContent+": "+li.lastChild.textContent).slice(0,90);const ol=li.parentElement;if(ol.scrollHeight>ol.clientHeight)ol.scrollTop=li.offsetTop-ol.offsetTop-ol.clientHeight/2}},
