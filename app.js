@@ -802,7 +802,8 @@ let curRange=126;
 function render(){queueMicrotask(renderTicker);
   const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",r.v!=="brief"&&b.dataset.mkt===S.mkt));document.querySelector(".mswitch .mbrief")?.setAttribute("aria-pressed",r.v==="brief");document.documentElement.dataset.mkt=S.mkt;document.querySelector('meta[name="theme-color"]')?.setAttribute("content",S.mkt==="US"?"#0F1E3D":"#11261B");document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
   killCharts();
-  $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="brief"?vBrief():r.v==="sync"?vSync():vHome()}</div>`;
+  $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="brief"?vBrief():r.v==="office"?vOffice():r.v==="sync"?vSync():vHome()}</div>`;
+  if(r.v==="office")mountOffice();else window.Office?.stop();
   if(r.v==="stock"){const st=stockBySym(r.sym);if(st&&hasBars(st)){const R=analyze(st),X=chartR(st);if($("#cMain")){if(X)drawCharts(X,$("#cRsi")?curRange:S.tf==="D"?126:S.tf==="W"?104:140);else $("#cMain").innerHTML=`<div class="empty">${(S.tf==="15m"?S.intra15:S.intra)?.[st.s]===null?"หุ้นนี้ยังไม่มีราคารายชั่วโมง":"กำลังโหลดราคารายชั่วโมง…"}</div>`}calc(R)}}
 }
 function calc(R){const out=$("#calcOut");if(!out)return;const cap=+$("#capIn").value||0,rk=+$("#riskIn").value||0,P=R.plan,m=R.st.m;const per=P.entry-P.sl;let sh=per>0?Math.floor(cap*rk/100/per):0;const lot=m==="TH"?100:1;sh=Math.floor(Math.min(sh,cap/P.entry)/lot)*lot;
@@ -812,6 +813,8 @@ document.addEventListener("click",e=>{
   if(t.dataset.mkt){S.mkt=t.dataset.mkt;lsSet("mkt",S.mkt);S.mlimit=60;S.sgl=20;S.nlim=20;S.nq="";S.sec=null;if(route().v==="brief")location.hash="#home";else render();window.scrollTo(0,0)}
   else if(t.dataset.bm){S.bm=t.dataset.bm;S.bed=null;lsSet("bm",S.bm);render()}
   else if(t.dataset.bed){S.bed=t.dataset.bed;render()}
+  else if(t.dataset.oed){S.oed=t.dataset.oed;render()}
+  else if(t.dataset.ofgo!=null){S.bed=t.dataset.ofgo;S.bm=t.dataset.ofmk;location.hash="#brief"}
   else if(t.dataset.sort){S.sort=t.dataset.sort;render()}
   else if(t.dataset.scr){S.scr=t.dataset.scr;render()}
   else if(t.dataset.nf){S.nf=t.dataset.nf;S.nlim=20;render()}
@@ -1165,6 +1168,35 @@ function deskTeam(D){if(!D?.roster)return "";const by=id=>{const r=D.roster.find
   return `<details class="dk"><summary>บทเจาะลึกจากทีมวิจัย ${M.length+T.length+G.length} บท · ${D.roster.length} คน</summary>
    ${M.length?`<h4>ทีมมหภาค</h4>${M.map(note).join("")}`:""}${T.length?`<h4>ทีมเทคนิค</h4>${T.map(note).join("")}`:""}${G.length?`<h4>นักวิเคราะห์รายกลุ่ม</h4><div class="br-secs">${G.map(sec).join("")}</div>`:""}
    <p class="muted br-sub">ทีมวิจัยเป็นโปรแกรม (Agent) ที่แบ่งงานตามหน้าที่ เขียนจากราคา ข่าว ปัจจัย และสัญญาณระบบที่แอปมีอยู่เท่านั้น แล้วให้ทีม Data ตรวจตัวเลขก่อนเผยแพร่</p></details>`}
+// ออฟฟิศทีมวิจัย (office.js): เล่นซ้ำงานจริงของทีมจาก desk.log · กล่องบอส · ผลไล่ตรวจเว็บ · บันทึกการทำงาน
+const OF_TEAM=[["boss","บอส"],["data","ทีม Data"],["web","ดูแลเว็บ"],["macro","ทีมมหภาค"],["tech","ทีมเทคนิค"],["sector","นักวิเคราะห์รายกลุ่ม"]];
+function officeEd(){const L=(S.briefs||[]).filter(x=>x.desk?.log&&x.desk.roster).sort((a,b)=>b.ts-a.ts);return{L,A:L.find(x=>x.id===S.oed)||L[0]}}
+function vOffice(){const{L,A}=officeEd();
+  if(!A)return `<h1>ออฟฟิศทีมวิจัย</h1><div class="card empty">ยังไม่มีรอบทำงานของทีม จะเริ่มเมื่อมีสรุปตลาดฉบับถัดไป</div>`;
+  const D=A.desk,who=id=>D.roster.find(r=>r.id===id)||{name:id,role:""},when=t=>new Date(t*1e3).toLocaleString(LOC(),{timeZone:"Asia/Bangkok",weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+  const st=x=>x==="ok"?"✓":x==="warn"?"!":"✕",ws=D.web?.items||[];
+  const eds=`<div class="chips br-eds" role="group" aria-label="เลือกรอบทำงาน">${L.map(x=>`<button type="button" class="chip" data-oed="${esc(x.id)}" aria-pressed="${x.id===A.id}">${x.mk==="TH"?"ไทย":"สหรัฐฯ"} · ${esc(BR_KIND[x.mk]?.[x.kind]||x.kind)} · ${when(x.ts)}</button>`).join("")}</div>`;
+  return `<div class="br-top"><div><h1>ออฟฟิศทีมวิจัย</h1><p class="muted" style="margin:4px 0 0">เล่นซ้ำงานจริงของทีม ${D.roster.length} คนในรอบที่เลือก ตั้งแต่ดูราคา เขียนบท ตรวจข้อมูล จนส่งสรุปถึงบอส · แตะตัวละครเพื่อดูชื่อ</p></div></div>${eds}
+   <section class="card of-stage"><canvas id="ofCv" role="img" aria-label="ออฟฟิศพิกเซลของทีมวิจัย"></canvas>
+    <div class="of-bar"><button type="button" class="chip" id="ofReplay">เล่นใหม่ตั้งแต่ต้น</button><button type="button" class="chip" id="ofSpd" data-s="1">ความเร็ว 1×</button><span class="muted" id="ofNow">ทีมเริ่มงาน…</span></div></section>
+   <div class="grid g2 of-g">
+    <section class="card of-boss" id="ofBoss" data-st="waiting"><div class="eyebrow">ห้องบอส · ${esc(who("boss").name)}</div><h2 id="ofBossH">รอทีมส่งสรุปตลาด…</h2>
+     <div class="of-bossbody"><p class="br-t" style="font-size:17px;margin:2px 0 6px">${esc(A.title)}</p>${deskQA(D)}<p class="muted" style="margin:6px 0 10px">${esc(A.lead).slice(0,260)}${A.lead.length>260?"…":""}</p>
+      <button type="button" class="btn sm primary" data-ofgo="${esc(A.id)}" data-ofmk="${esc(A.mk)}">อ่านสรุปฉบับเต็ม</button></div></section>
+    <section class="card"><div class="eyebrow">ห้องดูแลเว็บ · ${esc(who("w-site").name)}</div><h2>ไล่ตรวจเว็บรอบนี้</h2>
+     ${ws.length?`<ul class="of-chk">${ws.map(i=>`<li><span class="dk-i ${esc(i.st)}">${st(i.st)}</span><span>${esc(i.t)}</span></li>`).join("")}</ul><p class="muted br-sub">คนดูแลเว็บรายงานปัญหาที่เจอ การแก้โค้ดยังทำผ่าน Pull Request</p>`:`<p class="muted">ฉบับนี้ยังไม่มีผลไล่ตรวจเว็บ</p>`}</section>
+   </div>
+   <section class="card"><h2>บันทึกการทำงานรอบนี้</h2><ol class="of-log" id="ofLog">${D.log.map((e,i)=>`<li data-i="${i}"><b>${esc(who(e.by).name)}</b><span>${esc(e.t)}</span></li>`).join("")}</ol></section>
+   <section class="card"><h2>ทีม ${D.roster.length} คน</h2><div class="of-team">${OF_TEAM.map(([k,n])=>{const m=D.roster.filter(r=>r.team===k);return m.length?`<div><h3><i class="of-dot of-${k}"></i>${n}</h3><ul>${m.map(r=>`<li><b>${esc(r.name)}</b><span class="muted" data-ofs="${esc(r.id)}" title="${esc(r.role)}">${esc(r.role)}</span></li>`).join("")}</ul></div>`:""}).join("")}</div></section>`}
+function mountOffice(){const{A}=officeEd(),cv=$("#ofCv");if(!A||!cv)return;if(!window.Office){setTimeout(mountOffice,300);return}
+  const lis=[...document.querySelectorAll("#ofLog li")],now=$("#ofNow"),box=$("#ofBoss"),bh=$("#ofBossH"),sts=Object.fromEntries([...document.querySelectorAll("[data-ofs]")].map(e=>[e.dataset.ofs,e]));
+  const R=window.Office.mount({cv,A,ix:S.meta,
+    onLog:(i,c)=>{const li=lis[i];if(!li)return;li.className=c;if(c==="active"&&now){now.textContent=(li.firstChild.textContent+": "+li.lastChild.textContent).slice(0,90);const ol=li.parentElement;if(ol.scrollHeight>ol.clientHeight)ol.scrollTop=li.offsetTop-ol.offsetTop-ol.clientHeight/2}},
+    onBoss:s=>{if(!box)return;box.dataset.st=s;bh.textContent=s==="waiting"?"รอทีมส่งสรุปตลาด…":s==="delivered"?"สรุปตลาดมาถึงแล้ว":"บอสอ่านสรุปแล้ว"},
+    onStatus:L=>{for(const[id,t]of L){const e=sts[id];if(e&&e.textContent!==t)e.textContent=t}},
+    onDone:()=>{if(now)now.textContent="ทีมทำงานรอบนี้เสร็จแล้ว ตอนนี้พักและทำงานทั่วไป"}});
+  $("#ofReplay")?.addEventListener("click",()=>R.replay());
+  $("#ofSpd")?.addEventListener("click",e=>{const b=e.currentTarget,s=b.dataset.s==="1"?2:b.dataset.s==="2"?4:1;b.dataset.s=s;b.textContent=`ความเร็ว ${s}×`;R.speed(s)})}
 function vBrief(){const mk=S.bm==="US"?"US":S.bm==="TH"?"TH":(S.mkt==="US"?"US":"TH"),nm=mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ",ixn=mk==="TH"?"SET":"S&P 500";
   const st=brState(mk),ix=st.ix,H=S.learn?.market?.[mk]||[],r=H.at(-1),r5=H[Math.max(0,H.length-6)],sn=k=>SECTORS[k]?.th||k;
   const U=(S.universe||[]).filter(i=>i.m===mk&&(i.mc||0)>=TK_MC[mk]),mv=U.map(i=>({i,c:brMove(i)})).filter(o=>o.c!=null&&isFinite(o.c));
@@ -1258,8 +1290,8 @@ function pbSection(){const mk=S.mkt,so=S.sgs||"score",lim=S.sgl||20;
   ${near.length?`<details class="card sgn"><summary><b>ใกล้เข้าเงื่อนไข (${near.length})</b> <span class="muted">RSI(2) ต่ำกว่า 15 ยังไม่ถึง 5</span></summary>${near.slice(0,30).map(row).join("")}</details>`:""}
   </details>`}
 /* ---------- more ---------- */
-function vMore(){const MI={accuracy:"target",data:"data",method:"book",factors:"globe",signals:"dip",compare:"scale"};const it=(h,t,d)=>`<a class="card morei" href="#${h}">${ic(MI[h]||"spark")}<span class="mt"><b>${t}</b><span class="muted">${d}</span></span></a>`;
-  return `<h1>เพิ่มเติม</h1><div class="grid g2">${it("accuracy","ความแม่นยำของ rating","ทดสอบย้อนหลังว่าคะแนนทำนายผลได้จริงไหม และหาค่าที่ดีที่สุด")}${it("data","สถานะข้อมูล","ข้อมูลไหนสด ข้อมูลไหนขาด และมาจากไหน")}${it("method","วิธีคิดคะแนน","สูตรทั้งหมดที่ใช้ในเว็บ")}${it("signals","ซื้อตอนย่อวันนี้","รายชื่อหุ้นที่เข้าเงื่อนไขทั้งหมด เรียงและกรองได้")}${it("compare","เทียบหุ้น","วางหุ้นได้ 4 ตัวเทียบงบ มูลค่า ความเสี่ยง และผลตอบแทน")}${it("factors","ปัจจัยมหภาค","bond yield น้ำมัน ค่าเงิน เงินเฟ้อ และอื่นๆ")}</div>
+function vMore(){const MI={accuracy:"target",data:"data",method:"book",factors:"globe",signals:"dip",compare:"scale",office:"spark"};const it=(h,t,d)=>`<a class="card morei" href="#${h}">${ic(MI[h]||"spark")}<span class="mt"><b>${t}</b><span class="muted">${d}</span></span></a>`;
+  return `<h1>เพิ่มเติม</h1><div class="grid g2">${it("accuracy","ความแม่นยำของ rating","ทดสอบย้อนหลังว่าคะแนนทำนายผลได้จริงไหม และหาค่าที่ดีที่สุด")}${it("data","สถานะข้อมูล","ข้อมูลไหนสด ข้อมูลไหนขาด และมาจากไหน")}${it("method","วิธีคิดคะแนน","สูตรทั้งหมดที่ใช้ในเว็บ")}${it("signals","ซื้อตอนย่อวันนี้","รายชื่อหุ้นที่เข้าเงื่อนไขทั้งหมด เรียงและกรองได้")}${it("compare","เทียบหุ้น","วางหุ้นได้ 4 ตัวเทียบงบ มูลค่า ความเสี่ยง และผลตอบแทน")}${it("factors","ปัจจัยมหภาค","bond yield น้ำมัน ค่าเงิน เงินเฟ้อ และอื่นๆ")}${it("office","ออฟฟิศทีมวิจัย","ดูทีม Agent ทำสรุปตลาด ตรวจข้อมูล และส่งให้บอส")}</div>
   <section class="card"><h2 style="margin-bottom:6px">รูปแบบระบบซื้อขาย</h2><p class="muted" style="margin:0 0 10px;font-size:13.5px">ใช้กับจุดซื้อ / TP / SL และการทดสอบย้อนหลังของทุกหุ้น · ทั้งสองแบบซื้อเฉพาะหุ้นที่แข็งกว่าตลาดและมีแนวโน้มชัด (ADX) โดยตั้งซื้อต่ำกว่าราคาปิด 1 ATR · ทุกแบบตั้ง TP ไกลกว่า SL (ได้มากกว่าเสีย) ห้ามเลื่อน SL · ค่าแยกตามตลาด ทดสอบกับหุ้นจริงราคา 5 ปี (เลือกจาก ต.ค. 65–มี.ค. 67 ยืนยัน เม.ย. 67–ต.ค. 69)</p><div class="chips">
   <button class="chip" data-rules='${JSON.stringify(PRESETS.win)}' aria-pressed="${RULES.preset!=="edge"}">ระบบหลัก</button>
   <button class="chip" data-rules='${JSON.stringify(PRESETS.edge)}' aria-pressed="${RULES.preset==="edge"}">เน้นกำไรต่อไม้</button></div>

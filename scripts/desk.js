@@ -23,7 +23,7 @@ const ixK = MK === "TH" ? "set" : "spx", ixN = MK === "TH" ? "SET" : "S&P 500", 
 
 // ---------- ทีมงาน ----------
 const TEAM = {
-  sector: [["energy", "ต้น"], ["bank", "บอส"], ["tech", "เก่ง"], ["comm", "มิ้นท์"], ["consumer", "ปลา"], ["health", "ฝน"], ["transport", "โอ๊ต"], ["utility", "แพร"], ["property", "ข้าวหอม"], ["materials", "ปั้น"], ["industrial", "ตาล"]]
+  sector: [["energy", "ต้น"], ["bank", "บีม"], ["tech", "เก่ง"], ["comm", "มิ้นท์"], ["consumer", "ปลา"], ["health", "ฝน"], ["transport", "โอ๊ต"], ["utility", "แพร"], ["property", "ข้าวหอม"], ["materials", "ปั้น"], ["industrial", "ตาล"]]
     .map(([k, n]) => ({ id: "s-" + k, name: n, team: "sector", role: "นักวิเคราะห์กลุ่ม" + SEC[k], sec: k })),
   macro: [{ id: "m-pol", name: "พี่หน่อย", team: "macro", role: "มหภาค: การเมืองและภูมิรัฐศาสตร์", spec: "pol" },
     { id: "m-glob", name: "ภูมิ", team: "macro", role: "มหภาค: เศรษฐกิจโลก", spec: "glob" },
@@ -33,8 +33,10 @@ const TEAM = {
     { id: "t-mom", name: "กันต์", team: "tech", role: "เทคนิค: โมเมนตัมหุ้นใหญ่" }],
   data: [{ id: "d-qa", name: "ใบเตย", team: "data", role: "Data: ตรวจสอบข้อมูล" },
     { id: "d-ed", name: "อาร์ม", team: "data", role: "Data: บรรณาธิการและเผยแพร่" }],
+  web: [{ id: "w-site", name: "ไอซ์", team: "web", role: "ดูแลเว็บ: ไล่ตรวจหน้าเว็บและความสดของข้อมูล" }],
+  boss: [{ id: "boss", name: "บอสเบค", team: "boss", role: "บอส: รับสรุปตลาดทุกฉบับหลังทีมตรวจแล้ว" }],
 };
-const LOG = [], act = (who, a, t) => LOG.push({ by: who.id, a, t });
+const LOG = [], act = (who, a, t, at) => LOG.push(at ? { by: who.id, a, t, at } : { by: who.id, a, t });
 
 // ---------- ราคา (หลักเดียวกับ brief.js) ----------
 const mv = BIG.map(i => { const q = Q[i.s]; const ok = q?.chg != null && (!live || (q.ts && dayIn(MK, q.ts * 1000) === today)); return ok ? { i, c: q.chg, ts: q.ts } : (!live && i.chg != null ? { i, c: i.chg, ts: i.ts } : null) }).filter(Boolean);
@@ -185,6 +187,29 @@ function qa(a, art, notes) {
   return { st, by: a.id, items: R };
 }
 
+// ---------- คนดูแลเว็บ: ไล่ตรวจหน้าเว็บ (ผลตรวจรายคืน data/ux.json) และความสดของข้อมูลแต่ละชุด ----------
+// รายงานปัญหาให้ทีมเห็นในหน้าออฟฟิศ ไม่แก้โค้ดเอง (การแก้ยังต้องผ่าน Pull Request)
+function webCheck(a) {
+  const R = [], add = (st, t, at) => { R.push({ st, t }); act(a, "web", (st === "ok" ? "✓ " : "! ") + t, at) };
+  const age = ts => ts ? (NOW / 1000 - ts) / 3600 : null, hrs = h => h == null ? "ไม่ทราบ" : h < 1 ? `${Math.round(h * 60)} นาที` : `${h.toFixed(1)} ชม.`;
+  const UX = load("ux.json", null), Qu = load("quotes.json", {}), Nw = load("news.json", {});
+  if (!UX) add("warn", "ยังไม่มีผลไล่ตรวจหน้าเว็บรายคืน (ux.json)", "webdash");
+  else {
+    const h = age(UX.updated), grp = {};
+    for (const x of UX.issues || []) for (const e of (x.err?.length ? x.err : [x.bad ? "ตัวเลขเสีย (NaN)" : x.ow > 2 ? "หน้าล้นจอ" : "หน้าแสดงไม่ครบ"])) (grp[e.replace(/^กดปุ่มกรอบ \S+ ไม่ได้$/, "กดปุ่มเลือกกรอบเวลาของกราฟไม่ได้").replace(/^กดแท็บ \S+ ไม่ได้$/, "กดแท็บในหน้าหุ้นไม่ได้")] ||= new Set()).add(x.r.split(" ")[0] + (x.w < 600 ? " (มือถือ)" : " (คอม)"));
+    const g = Object.entries(grp);
+    add(h != null && h > 36 ? "warn" : "ok", `ไล่ตรวจหน้าเว็บล่าสุด ${hrs(h)}ก่อน · ${UX.pages} หน้าจอ · เปิดครั้งแรก มือถือ ${(UX.firstLoad?.mobile / 1000 || 0).toFixed(1)} วิ คอม ${(UX.firstLoad?.desktop / 1000 || 0).toFixed(1)} วิ`, "webdash");
+    if (g.length) g.slice(0, 3).forEach(([e, w]) => add("warn", `${e}: ${[...w].slice(0, 3).join(", ")}`, "web"));
+    else add("ok", "ไม่พบปัญหาในหน้าเว็บ", "web");
+  }
+  const fresh = [["ราคาล่าสุด", age(Qu.updated), live ? 1 : 30], ["ข่าว", age(meta.newsUpdated || Nw.updated), 3], ["ข้อมูลรอบใหญ่", age(meta.updated), 30]];
+  for (const [n, h, lim] of fresh) add(h == null || h > lim ? "warn" : "ok", `${n} อัปเดต ${hrs(h)}ก่อน`, "server");
+  const bad = (HEALTH.checks || []).filter(c => c.st && c.st !== "ok");
+  add(bad.length ? "warn" : "ok", bad.length ? `หน้าสถานะข้อมูลมีเรื่องต้องดู ${bad.length} ข้อ: ${bad[0].name}` : `หน้าสถานะข้อมูลปกติ ${(HEALTH.checks || []).length} ข้อ`, "board");
+  const st = R.some(r => r.st !== "ok") ? "warn" : "pass";
+  return { st, by: a.id, items: R };
+}
+
 // ---------- รันทั้งทีม ----------
 (() => {
   const id = `${MK}-${KIND}-${today}`, A = BRIEF.items?.find(x => x.id === id);
@@ -196,8 +221,12 @@ function qa(a, art, notes) {
   for (const x of [...sector, ...macro, ...tech]) act(TEAM.sector.concat(TEAM.macro, TEAM.tech).find(t => t.id === x.by), "submit", "ส่งบทให้ทีม Data");
   const check = qa(TEAM.data[0], A, [...sector, ...macro, ...tech]);
   act(TEAM.data[1], "publish", check.st === "fail" ? "เผยแพร่พร้อมคำเตือน ทีม Data พบปัญหา" : "จัดเรียงและเผยแพร่");
+  const web = webCheck(TEAM.web[0]);
+  const ok = check.items.filter(i => i.st === "ok").length;
+  act(TEAM.data[1], "deliver", `บอสครับ สรุปตลาดฉบับนี้: ${A.title} · ทีม Data ตรวจผ่าน ${ok}/${check.items.length} ข้อ`);
+  act(TEAM.boss[0], "read", check.st === "pass" ? "ได้รับแล้ว ตรวจครบดีมาก ขอบคุณทีม" : check.st === "warn" ? `ได้รับแล้ว ฝากดูข้อที่เตือนด้วย: ${(check.items.find(i => i.st !== "ok")?.t || "").slice(0, 60)}` : "ข้อมูลมีปัญหา ทีม Data ช่วยตรวจซ้ำก่อนนะ");
   const roster = Object.values(TEAM).flat().map(({ id, name, team, role }) => ({ id, name, team, role }));
-  A.desk = { v: 1, ts: Math.floor(Date.now() / 1000), roster, sector, macro, tech, qa: check, log: LOG };
+  A.desk = { v: 2, ts: Math.floor(Date.now() / 1000), roster, sector, macro, tech, qa: check, web, log: LOG };
   // เก็บบทของทีมไว้เฉพาะ 3 ฉบับล่าสุดต่อตลาด ให้ brief.json ยังเล็กพอโหลดเร็ว
   BRIEF.items.filter(x => x.mk === MK && x.desk).sort((x, y) => y.ts - x.ts).slice(3).forEach(x => delete x.desk);
   fs.writeFileSync(path.join(DATA, "brief.json"), JSON.stringify(BRIEF));
