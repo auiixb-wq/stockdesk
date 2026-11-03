@@ -66,14 +66,26 @@ function signals() {
 
 // ---------- ความจำตลาด: ประวัติดัชนี (Yahoo 1 ปี) + บันทึกของแต่ละฉบับ (brief.json → mem) ----------
 const CAL = load("calib.json", {}), OUT = load("brief.json", { items: [] }), MEM = (OUT.mem ||= {})[MK] ||= [];
-async function ixHist(sym) {
-  if (process.env.BRIEF_IX) { try { return JSON.parse(fs.readFileSync(path.join(process.env.BRIEF_IX, sym.replace(/\W/g, "") + ".json"), "utf8")) } catch { return null } }
-  try { const r = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=1y&interval=1d`, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(15000) });
+async function yahoo(sym, range, host = "query1") {
+  try { const r = await fetch(`https://${host}.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=${range}&interval=1d`, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(15000) });
     const R = (await r.json()).chart.result[0], c = R.indicators.quote[0].close, tz = R.meta.exchangeTimezoneName;
     return R.timestamp.map((t, i) => ({ d: new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date(t * 1000)), c: c[i] })).filter(o => o.c != null) } catch { return null }
 }
+// ดัชนีประมาณจากหุ้นใหญ่ (ถ่วงตามมูลค่าตลาด) ใช้เมื่อดึงประวัติดัชนีจริงไม่ได้ · ปรับให้จุดสุดท้ายเท่ากับดัชนีจริง
+function proxyIndex(m) {
+  const top = U.filter(i => i.m === m && i.mc).sort((a, b) => b.mc - a.mc).slice(0, 60), ret = {}, wsum = {};
+  for (const i of top) { let h; try { h = JSON.parse(fs.readFileSync(path.join(DATA, "hist", i.s + ".json"), "utf8")) } catch { continue }
+    for (let k = Math.max(1, h.t.length - 260); k < h.t.length; k++) { if (!(h.c[k] > 0 && h.c[k - 1] > 0)) continue; const d = h.t[k]; ret[d] = (ret[d] || 0) + i.mc * (h.c[k] / h.c[k - 1] - 1); wsum[d] = (wsum[d] || 0) + i.mc } }
+  const ds = Object.keys(ret).filter(d => wsum[d] > 0).sort(); if (ds.length < 30) return null; let v = 1; const out = ds.map(d => ({ d, c: v *= 1 + ret[d] / wsum[d] }));
+  out.proxy = true; return out;
+}
+async function ixHist(sym) {
+  if (process.env.BRIEF_IX) { try { return JSON.parse(fs.readFileSync(path.join(process.env.BRIEF_IX, sym.replace(/\W/g, "") + ".json"), "utf8")) } catch { return null } }
+  for (const [r, h] of [["1y", "query1"], ["6mo", "query2"], ["3mo", "query1"]]) { const x = await yahoo(sym, r, h); if (x?.length >= 30) return x }
+  return sym === "^SET.BK" ? proxyIndex("TH") : null;
+}
 // ต่อราคาปัจจุบันเข้าไปเป็นจุดสุดท้าย (ระหว่างวัน) แล้วสรุปบริบท: ติดต่อกันกี่วัน 5/20 วัน เส้นเฉลี่ย จุดสูง/ต่ำในรอบกี่วัน
-function ixSeries(H, ix) { if (!H?.length) return null; const S = H.filter(o => o.d < (ix.date || "9")); if (ix.v && ix.date) S.push({ d: ix.date, c: ix.v }); else if (H.length) S.push(H.at(-1)); return S.length > 30 ? S : null }
+function ixSeries(H, ix) { if (!H?.length) return null; if (H.proxy && ix.v) { const last = H.filter(o => o.d < (ix.date || "9")).at(-1), f = ix.v / (1 + (ix.chg || 0) / 100) / (last?.c || 1); H = H.map(o => ({ d: o.d, c: o.c * f })) } const S = H.filter(o => o.d < (ix.date || "9")); if (ix.v && ix.date) S.push({ d: ix.date, c: ix.v }); else if (H.length) S.push(H.at(-1)); return S.length > 30 ? S : null }
 function ixCtx(S, nm) {
   if (!S) return null; const c = S.map(o => o.c), n = c.length - 1, ch = i => (c[i] / c[i - 1] - 1) * 100, out = [];
   const d0 = Math.sign(ch(n)); let k = 0, cum = 1; while (k < n && Math.sign(ch(n - k)) === d0 && d0) { cum *= c[n - k] / c[n - k - 1]; k++ }
@@ -160,9 +172,9 @@ async function article() {
 
   // ---------- เชื่อมโยงกับวันก่อน ๆ ----------
   const [HS, HU] = await Promise.all([ixHist("^SET.BK"), ixHist("^GSPC")]), SS = ixSeries(HS, set), SU = ixSeries(HU, spx), myS = MK === "TH" ? SS : SU;
-  console.log("index history:", "SET", HS?.length ?? 0, "SPX", HU?.length ?? 0, "· memory", MEM.length);
+  console.log("index history:", "SET", HS?.length ?? 0, HS?.proxy ? "(proxy)" : "", "SPX", HU?.length ?? 0, "· memory", MEM.length);
   const link = [], ctx = ixCtx(myS, ixN);
-  if (ctx?.length) link.push(ctx.join(" · "));
+  if (ctx?.length) link.push(ctx.join(" · ") + ((MK === "TH" ? HS : HU)?.proxy ? " (ช่วงย้อนหลังประมาณจากหุ้นใหญ่ 60 ตัว เพราะแหล่งข้อมูลฟรีไม่มีประวัติดัชนี)" : ""));
   if (H.length >= 3) { const a = H.slice(-5).map(x => x.a50); link.push(`สัดส่วนหุ้นใหญ่ที่อยู่เหนือเส้น 50 วัน ${a.length} วันล่าสุด: ${a.join(" → ")}% ${a.at(-1) > a[0] + 3 ? "ตลาดเริ่มแข็งแรงขึ้นเป็นวงกว้าง" : a.at(-1) < a[0] - 3 ? "แรงขายลามไปหุ้นส่วนใหญ่มากขึ้น" : "ภาพรวมยังไม่เปลี่ยนชัด"}`) }
   if (MK === "TH" && !live && !weekend) { const x = crossCtx(SU, SS, spx.chg ?? 0); if (x) link.push(x) }
   const themes = [...new Set(N.slice(0, 12).map(o => o.c).filter(c => c !== "หุ้นรายตัว" && c !== "งบบริษัท"))].slice(0, 6);
