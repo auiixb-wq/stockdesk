@@ -13,6 +13,9 @@ on:
       hist:
         description: "ดึงราคาปิดรายวันใหม่และคำนวณสัญญาณ (1 = ใช่)"
         default: "0"
+      brief:
+        description: "เขียนบทความสรุปตลาดฉบับนี้ใหม่ เช่น TH morning / US preopen (เว้นว่าง = ไม่เขียน)"
+        default: ""
 permissions:
   contents: write
 concurrency:
@@ -50,6 +53,10 @@ jobs:
         run: |
           npm i --no-save --silent playwright@1.48.2 && npx playwright install --with-deps chromium > /dev/null 2>&1
           node scripts/ux_check.js
+      - name: Market brief (manual)
+        if: ${{ github.event.inputs.brief != '' && github.event.inputs.brief != null }}
+        continue-on-error: true
+        run: node scripts/brief.js ${{ github.event.inputs.brief }}
       - name: Publish site with data
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
