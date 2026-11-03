@@ -94,6 +94,10 @@ def write_briefs():
         r = subprocess.run(["node", "scripts/brief.js", mk, kind], cwd=ROOT, capture_output=True, text=True)
         print(r.stdout.strip() or r.stderr[-300:])
         made = made or r.returncode == 0
+        if r.returncode == 0:
+            # ทีมวิจัย (scripts/desk.js) เขียนบทแยกตามทีมและตรวจตัวเลขของฉบับนี้ · พังได้โดยไม่กระทบบทความหลัก
+            d = subprocess.run(["node", "scripts/desk.js", mk, kind], cwd=ROOT, capture_output=True, text=True)
+            print(d.stdout.strip() or d.stderr[-300:])
     return made
 
 

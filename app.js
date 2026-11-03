@@ -1147,9 +1147,24 @@ function briefArticle(mk){const L=(S.briefs||[]).filter(x=>x.mk===mk).sort((a,b)
   const when=t=>new Date(t*1e3).toLocaleString(LOC(),{timeZone:"Asia/Bangkok",weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
   const para=t=>esc(t).replace(/\n/g,"<br>").replace(/^\[([^\]]+)\]/,'<span class="br-cat">$1</span>').replace(/ทำไมสำคัญ:/,"<b>ทำไมสำคัญ:</b>");
   return `<article class="card br-art"><div class="chips br-eds" role="group" aria-label="เลือกฉบับ">${L.map(x=>`<button type="button" class="chip" data-bed="${esc(x.id)}" aria-pressed="${x.id===A.id}">${esc(BR_KIND[mk]?.[x.kind]||x.kind)} · ${when(x.ts)}</button>`).join("")}</div>
-   <div class="eyebrow">${esc(BR_KIND[mk]?.[A.kind]||"")} · เขียนอัตโนมัติ ${when(A.ts)} น.</div><h2 class="br-t">${esc(A.title)}</h2><p class="br-lead">${esc(A.lead)}</p>
+   <div class="eyebrow">${esc(BR_KIND[mk]?.[A.kind]||"")} · เขียนอัตโนมัติ ${when(A.ts)} น.</div><h2 class="br-t">${esc(A.title)}</h2>${deskQA(A.desk)}<p class="br-lead">${esc(A.lead)}</p>
    ${A.sec.map(x=>`<h3>${esc(x.h)}</h3>${x.p.map(t=>`<p>${para(t)}</p>`).join("")}${x.li?.length?`<ul class="br-ul">${x.li.map(t=>`<li>${para(t)}</li>`).join("")}</ul>`:""}`).join("")}
+   ${deskTeam(A.desk)}
    <p class="muted br-sub">บทความเขียนจากราคา ดัชนี ข่าว และสัญญาณระบบโดยอัตโนมัติตามรอบ (หุ้นไทย 06:00 และ 12:00 น. · หุ้นสหรัฐฯ ก่อนเปิดตลาดและระหว่างวัน) ไม่ใช่คำแนะนำการลงทุน</p></article>`}
+// ทีมวิจัย (scripts/desk.js): ผลตรวจของทีม Data + บทเจาะลึกแยกตามทีม แนบมากับแต่ละฉบับใน brief.json
+const DK_I={ok:"✓",warn:"!",fail:"✕"},DK_ST={pass:["p-buy","ทีม Data ตรวจผ่านครบ"],warn:["p-hold","ทีม Data ตรวจแล้ว มีข้อควรระวัง"],fail:["p-sell","ทีม Data พบปัญหาในข้อมูล"]};
+function deskQA(D){if(!D?.qa?.items)return "";const q=D.qa,s=DK_ST[q.st]||DK_ST.warn,ok=q.items.filter(i=>i.st==="ok").length,who=(D.roster||[]).find(r=>r.id===q.by);
+  return `<div class="dk-qa"><span class="pill sm ${s[0]}">${s[1]}</span><span class="muted">ผ่าน ${ok}/${q.items.length} ข้อ${who?` · ตรวจโดย ${esc(who.name)}`:""}</span>
+   <details><summary class="muted">ดูรายการตรวจ</summary><ul>${q.items.map(i=>`<li><span class="dk-i ${esc(i.st)}">${DK_I[i.st]||"•"}</span><span>${esc(i.t)}</span></li>`).join("")}</ul></details></div>`}
+function deskTeam(D){if(!D?.roster)return "";const by=id=>{const r=D.roster.find(x=>x.id===id);return r?`<span class="dk-by">โดย ${esc(r.name)} · ${esc(r.role)}</span>`:""};
+  const lnk=x=>`<a href="${esc(safeUrl(x.u))}" target="_blank" rel="noopener">${esc(x.t)}</a>`;
+  const news=L=>L?.length?`<ul class="dk-news">${L.map(x=>`<li>${x.c&&x.c!=="หุ้นรายตัว"?`<span class="br-cat">${esc(x.c)}</span> `:""}${lnk(x)} <span class="muted">— ${esc(x.s)}${x.n>1?` และอีก ${x.n-1} สำนัก`:""}</span></li>`).join("")}</ul>`:"";
+  const note=n=>`<div class="dk-note"><div class="dk-nh"><b>${esc(n.h)}</b>${by(n.by)}</div>${news(n.news)}${(n.lines||[]).map(t=>`<p>${esc(t)}</p>`).join("")}</div>`;
+  const sec=n=>`<div class="br-sec"><div class="br-sh"><b>${esc(n.h)}</b><span class="num ${n.chg>=0?"up":"down"}">${pct(n.chg,1)}</span></div>${by(n.by)}${(n.lines||[]).map(t=>`<div class="br-sm">${esc(t)}</div>`).join("")}${n.news?.length?`<div class="br-sn">ข่าว: ${n.news.map(lnk).join(" · ")}</div>`:""}</div>`;
+  const M=D.macro||[],T=D.tech||[],G=D.sector||[];
+  return `<details class="dk"><summary>บทเจาะลึกจากทีมวิจัย ${M.length+T.length+G.length} บท · ${D.roster.length} คน</summary>
+   ${M.length?`<h4>ทีมมหภาค</h4>${M.map(note).join("")}`:""}${T.length?`<h4>ทีมเทคนิค</h4>${T.map(note).join("")}`:""}${G.length?`<h4>นักวิเคราะห์รายกลุ่ม</h4><div class="br-secs">${G.map(sec).join("")}</div>`:""}
+   <p class="muted br-sub">ทีมวิจัยเป็นโปรแกรม (Agent) ที่แบ่งงานตามหน้าที่ เขียนจากราคา ข่าว ปัจจัย และสัญญาณระบบที่แอปมีอยู่เท่านั้น แล้วให้ทีม Data ตรวจตัวเลขก่อนเผยแพร่</p></details>`}
 function vBrief(){const mk=S.bm==="US"?"US":S.bm==="TH"?"TH":(S.mkt==="US"?"US":"TH"),nm=mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ",ixn=mk==="TH"?"SET":"S&P 500";
   const st=brState(mk),ix=st.ix,H=S.learn?.market?.[mk]||[],r=H.at(-1),r5=H[Math.max(0,H.length-6)],sn=k=>SECTORS[k]?.th||k;
   const U=(S.universe||[]).filter(i=>i.m===mk&&(i.mc||0)>=TK_MC[mk]),mv=U.map(i=>({i,c:brMove(i)})).filter(o=>o.c!=null&&isFinite(o.c));
