@@ -912,15 +912,15 @@ async function loadHist(syms){const need=syms.filter(s=>{const st=stockBySym(s);
   if(!document.querySelector("input:focus,details[open]"))render()}
 async function loadAll(){
   // ราคาย้อนหลังของทุกหุ้น (รวมหุ้นหลัก) โหลดเมื่อเปิดดู จึงไม่ต้องโหลด prices.json ตอนเริ่ม
-  const [[fund,macro,news,man,uni0,sum,cal,rsq,lrn,sr,bf],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json","data/learn.json","data/signals_round.json","data/brief.json"].map(J)),getLive()]);
-  if(lrn){S.learn=lrn;S.tuned=lrn.tuned||{}}if(sr)S.sigRound=sr;if(bf)S.briefs=bf.items||[];
+  const [[fund,macro,news,man,uni0,sum,cal,rsq,lrn,sr,bf,ag],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json","data/learn.json","data/signals_round.json","data/brief.json","data/agents.json"].map(J)),getLive()]);
+  if(lrn){S.learn=lrn;S.tuned=lrn.tuned||{}}if(sr)S.sigRound=sr;if(bf)S.briefs=bf.items||[];if(ag&&(ag.updated||0)>(S.agents?.updated||0))S.agents=ag;
   const uni=uni0||await J("data/universe.json"),px=null;
   if(cal&&cal.updated!==S.calibData?.updated){S.calibData=cal;S.calib=null}
   if(rsq){S.rsq=rsq;S._rsqIdx=null}
 const q=L.q,meta=L.meta;
   S.universe=uni?.items||[];S.summary=sum?.s||{};S.hist??={};S._allK=null;
   S.prices=px||{};S.quotes=q;S.fundLive=fund||{};S.macro=macro||{};S.metaLive=meta;S.live=!!(sum&&Object.keys(sum.s||{}).length);
-  S.factors=buildFactors(man,macro).sort((a,b)=>(a.order||0)-(b.order||0));S.news=mergeNews(man?.news||[],news?.items||[]);S.newsUpd=news?.updated;
+  S.factors=buildFactors(man,macro).sort((a,b)=>(a.order||0)-(b.order||0));S.manNews=man?.news||[];S.news=mergeNews(S.manNews,news?.items||[]);S.newsUpd=news?.updated;
   const ix=meta?.indices||{};S.meta={updatedAt:meta?new Date(meta.updated*1000).toISOString():null,...ix};
   S.dbState=man||news?"ready":"off";S.cache.clear();S.bars.clear();S.loadedAt=Date.now();render();liveBadge();
 }
@@ -1167,11 +1167,11 @@ function deskTeam(D){if(!D?.roster)return "";const by=id=>{const r=D.roster.find
   const note=n=>`<div class="dk-note"><div class="dk-nh"><b>${esc(n.h)}</b>${by(n.by)}</div>${news(n.news)}${(n.lines||[]).map(t=>`<p>${esc(t)}</p>`).join("")}</div>`;
   const sec=n=>`<div class="br-sec"><div class="br-sh"><b>${esc(n.h)}</b><span class="num ${n.chg>=0?"up":"down"}">${pct(n.chg,1)}</span></div>${by(n.by)}${(n.lines||[]).map(t=>`<div class="br-sm">${esc(t)}</div>`).join("")}${n.news?.length?`<div class="br-sn">ข่าว: ${n.news.map(lnk).join(" · ")}</div>`:""}</div>`;
   const M=D.macro||[],T=D.tech||[],G=D.sector||[];
-  return `<details class="dk"><summary>บทเจาะลึกจากทีมวิจัย ${M.length+T.length+G.length} บท · ${D.roster.length} คน</summary>
-   ${M.length?`<h4>ทีมมหภาค</h4>${M.map(note).join("")}`:""}${T.length?`<h4>ทีมเทคนิค</h4>${T.map(note).join("")}`:""}${G.length?`<h4>นักวิเคราะห์รายกลุ่ม</h4><div class="br-secs">${G.map(sec).join("")}</div>`:""}
+  return `<details class="dk"><summary>บทเจาะลึกจากทีมวิจัย ${M.length+T.length+G.length+(D.earn||[]).length+(D.sig||[]).length} บท · ${D.roster.length} คน</summary>
+   ${M.length?`<h4>ทีมมหภาค</h4>${M.map(note).join("")}`:""}${T.length?`<h4>ทีมเทคนิค</h4>${T.map(note).join("")}`:""}${(D.earn||[]).length?`<h4>ทีมงบประกาศ</h4>${D.earn.map(note).join("")}`:""}${(D.sig||[]).length?`<h4>ทีมติดตามสัญญาณ</h4>${D.sig.map(note).join("")}`:""}${G.length?`<h4>นักวิเคราะห์รายกลุ่ม</h4><div class="br-secs">${G.map(sec).join("")}</div>`:""}
    <p class="muted br-sub">ทีมวิจัยเป็นโปรแกรม (Agent) ที่แบ่งงานตามหน้าที่ เขียนจากราคา ข่าว ปัจจัย และสัญญาณระบบที่แอปมีอยู่เท่านั้น แล้วให้ทีม Data ตรวจตัวเลขก่อนเผยแพร่</p></details>`}
 // ออฟฟิศทีมวิจัย (office.js): เล่นซ้ำงานจริงของทีมจาก desk.log · กล่องบอส · ผลไล่ตรวจเว็บ · บันทึกการทำงาน
-const OF_TEAM=[["boss","บอส"],["data","ทีม Data"],["web","ดูแลเว็บ"],["macro","ทีมมหภาค"],["tech","ทีมเทคนิค"],["sector","นักวิเคราะห์รายกลุ่ม"]];
+const OF_TEAM=[["boss","บอส"],["data","ทีม Data"],["web","ดูแลเว็บ"],["sig","ทีมติดตามสัญญาณ"],["earn","ทีมงบประกาศ"],["macro","ทีมมหภาค"],["tech","ทีมเทคนิค"],["sector","นักวิเคราะห์รายกลุ่ม"]];
 function officeEd(){const L=(S.briefs||[]).filter(x=>x.desk?.log&&x.desk.roster).sort((a,b)=>b.ts-a.ts);return{L,A:L.find(x=>x.id===S.oed)||L[0]}}
 // ประตูออฟฟิศ: ใส่รหัสก่อนดู (เก็บเป็นค่า SHA-256 ไม่เก็บรหัสตรง ๆ) · เป็นแค่ประตูกันคนทั่วไป ไม่ใช่ระบบความปลอดภัย เพราะข้อมูลของทีมอยู่ใน brief.json ที่เปิดอ่านได้
 const OF_PIN="9af15b336e6a9619928537df30b2e6a2376569fcf9d7e773eccede65606529a0",ofOpen=()=>lsGet("ofok")===OF_PIN;
@@ -1196,8 +1196,11 @@ function vOffice(){if(!ofOpen())return vOfficeLock();const{L,A}=officeEd();
     <section class="card"><div class="eyebrow">ห้องดูแลเว็บ · ${esc(who("w-site").name)}</div><h2>ไล่ตรวจเว็บรอบนี้</h2>
      ${ws.length?`<ul class="of-chk">${ws.map(i=>`<li><span class="dk-i ${esc(i.st)}">${st(i.st)}</span><span>${esc(i.t)}</span></li>`).join("")}</ul><p class="muted br-sub">คนดูแลเว็บรายงานปัญหาที่เจอ การแก้โค้ดยังทำผ่าน Pull Request</p>`:`<p class="muted">ฉบับนี้ยังไม่มีผลไล่ตรวจเว็บ</p>`}</section>
    </div>
+   ${sigFeed("TH",1)}${ofEarn()}
    <section class="card"><h2>บันทึกการทำงานรอบนี้</h2><ol class="of-log" id="ofLog">${D.log.map((e,i)=>`<li data-i="${i}"><b>${esc(who(e.by).name)}</b><span>${esc(e.t)}</span></li>`).join("")}</ol></section>
    <section class="card"><h2>ทีม ${D.roster.length} คน</h2><div class="of-team">${OF_TEAM.map(([k,n])=>{const m=D.roster.filter(r=>r.team===k);return m.length?`<div><h3><i class="of-dot of-${k}"></i>${n}</h3><ul>${m.map(r=>`<li><b>${esc(r.name)}</b><span class="muted" data-ofs="${esc(r.id)}" title="${esc(r.role)}">${esc(r.role)}</span></li>`).join("")}</ul></div>`:""}).join("")}</div></section>`}
+function ofEarn(){const E=(S.agents?.earn?.items||[]).slice().sort((a,b)=>b.ts-a.ts).slice(0,8);if(!E.length)return "";
+  return `<section class="card"><div class="eyebrow">ทีมงบประกาศ · นนท์ · มายด์</div><h2 style="margin:2px 0 6px">งบประกาศล่าสุด</h2><div class="of-earn">${E.map(x=>`<div class="dk-note"><div class="dk-nh"><b>${x.k==="pre"?"พรีวิว":"สรุป"}งบ <a href="#s-${esc(x.s)}">${esc(dsym(x.s))}</a></b><span class="dk-by">${x.k==="pre"?"ประกาศ ":"ประกาศเมื่อ "}${new Date(x.ed*1e3).toLocaleDateString(LOC(),{day:"numeric",month:"short"})}</span></div>${(x.lines||[]).map(t=>`<p>${esc(t)}</p>`).join("")}${(x.news||[]).map(n=>`<p class="muted">ข่าว: <a href="${esc(safeUrl(n.u))}" target="_blank" rel="noopener">${esc(n.t)}</a> — ${esc(n.s)}</p>`).join("")}</div>`).join("")}</div></section>`}
 function mountOffice(){const f=$("#ofForm");if(f){f.addEventListener("submit",e=>{e.preventDefault();ofTry()});setTimeout(()=>$("#ofPin")?.focus(),50);return}
   const{A}=officeEd(),cv=$("#ofCv");if(!A||!cv)return;if(!window.Office){setTimeout(mountOffice,300);return}
   const lis=[...document.querySelectorAll("#ofLog li")],now=$("#ofNow"),box=$("#ofBoss"),bh=$("#ofBossH"),sts=Object.fromEntries([...document.querySelectorAll("[data-ofs]")].map(e=>[e.dataset.ofs,e]));
@@ -1262,6 +1265,12 @@ function vBrief(){const mk=S.bm==="US"?"US":S.bm==="TH"?"TH":(S.mkt==="US"?"US":
    <h2 class="br-live">ข้อมูลสดตอนนี้</h2>
    <section class="card br-hero"><p>${head}</p></section>
    ${st.closed?events+outlook:overview+events+sectors+outlook}`}
+// ทีมติดตามสัญญาณ (scripts/agents.js): ได้ของ ชน TP1/TP โดน SL หมดอายุ และสรุป 7 วัน
+const SIGK={fill:["p-buy","ได้ของ"],tp1:["p-buy","TP1"],tp:["p-buy2","ชน TP"],sl:["p-sell","โดน SL"],time:["p-hold","ครบเวลา"],miss:["p-hold","หมดอายุ"],week:["p-hold","สรุป 7 วัน"]};
+function sigFeed(mk,all){const A=S.agents?.sig;if(!A)return "";const F=(A.feed||[]).filter(e=>(all||e.m===mk)&&e.k!=="new").slice(0,all?10:8),w=A.week?.[mk],who=all?"ซัน · ริน":mk==="TH"?"ซัน":"ริน";
+  return `<section class="card" id="sgFeed"><div class="eyebrow">ทีมติดตามสัญญาณ · ${who} · ตรวจทุก ~2 นาทีระหว่างตลาดเปิด</div><h2 style="margin:2px 0 6px">ความเคลื่อนไหวของสัญญาณ</h2>
+   ${w&&!all?`<p class="muted" style="margin:0 0 8px;font-size:13.5px">ถืออยู่ ${w.held} ไม้ · รอได้ของ ${w.wait} ไม้ · 7 วันล่าสุดปิด ${w.closed} ไม้ ชนะ ${w.win}${w.avg!=null?` เฉลี่ย ${pct(w.avg,2)}/ไม้`:""}${w.all?.closed?` · ทั้งหมด ชนะ ${w.all.win}/${w.all.closed}`:""}</p>`:""}
+   ${F.length?`<ul class="sg-feed">${F.map(e=>{const k=SIGK[e.k]||["p-hold",e.k];return `<li><span class="pill sm ${k[0]}">${k[1]}</span><span>${e.s?`<a href="#s-${esc(e.s)}"><b>${esc(dsym(e.s))}</b></a> `:""}${esc(e.t)}</span><span class="muted sg-t">${ago(e.ts)}</span></li>`}).join("")}</ul>`:`<p class="muted" style="margin:0">ช่วงนี้ยังไม่มีไม้ได้ของ ชน TP หรือโดน SL</p>`}</section>`}
 function vSignals(){const mk=S.mkt==="US"?"US":"TH",cap=+(lsGet("cap"+mk)||(mk==="TH"?100000:10000)),h=holds(),lot=mk==="TH"?100:1,P=rulesFor(mk),bm=S.calibData?.baseM?.[mk];
   const held=Object.keys(h).filter(s=>h[s]?.q>0&&stockBySym(s)?.m===mk);
   const sig=allStocks().filter(st=>st.m===mk&&liquid(st)).map(info).filter(R=>R.sys&&!held.includes(R.st.s)).sort((a,b)=>(b.rs?.pctl??0)-(a.rs?.pctl??0));
@@ -1274,6 +1283,7 @@ function vSignals(){const mk=S.mkt==="US"?"US":"TH",cap=+(lsGet("cap"+mk)||(mk==
   <div class="chips"><button class="chip" data-mkt="TH" aria-pressed="${mk==="TH"}">หุ้นไทย</button><button class="chip" data-mkt="US" aria-pressed="${mk==="US"}">หุ้นสหรัฐฯ</button></div>
   <section class="card plk"><label class="field">เงินพอร์ต${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} (${k})<input data-cap="${mk}" type="number" min="0" step="${mk==="TH"?10000:1000}" value="${cap}" inputmode="decimal"></label>
    <div><span class="muted">ตัวละ</span><b class="num">${k}${Math.round(per).toLocaleString()}</b></div><div><span class="muted">ถืออยู่</span><b class="num">${held.length}/${SLOTS}</b></div><div><span class="muted">ช่องว่าง</span><b class="num">${free}</b></div><div><span class="muted">สัญญาณวันนี้</span><b class="num">${sig.length}</b></div></section>
+  ${sigFeed(mk)}
   <section class="card" style="padding:6px 14px">${sig.length?sig.slice(0,Math.max(free,0)+5).map(row).join(""):`<p class="muted" style="padding:12px 0;margin:0">วันนี้ยังไม่มีสัญญาณใหม่ ระบบจะแจ้งเมื่อคะแนนข้าม 40 หรือหุ้นแนวโน้มดีย่อแรง (RSI2 < 20)</p>`}</section>
   <section class="card"><h2 style="margin-bottom:6px">วิธีใช้</h2><ol class="steps" style="margin:0">
    <li>สัญญาณคำนวณจาก <b>ราคาปิด</b> (ระหว่างวันจะเห็นคำสั่งของเมื่อวานที่ยังใช้ได้) ดูหลังตลาดปิด: ${mk==="TH"?"หุ้นไทยหลัง 17:00 น.":"หุ้นสหรัฐฯ หลัง 04:30 น. เวลาไทย"}</li>
@@ -1438,6 +1448,11 @@ function tickerHTML(){const now=Date.now(),q=S.quotes?.q||{},mk=S.mkt==="US"?["U
 function renderTicker(){const el=document.getElementById("tick"),inn=document.getElementById("tickIn");if(!el)return;const h=tickerHTML();if(h===S.tickH)return;S.tickH=h;
   const put=()=>{el.hidden=!S.tickH;if(!S.tickH)return;inn.innerHTML=S.tickH+`<span class="tk-dup" aria-hidden="true">${S.tickH}</span>`;inn.style.animationDuration=Math.max(30,Math.round(inn.scrollWidth/2/45))+"s"};
   if(el.hidden||!inn.innerHTML)put();else if(!S.tickWait){S.tickWait=1;inn.addEventListener("animationiteration",()=>{S.tickWait=0;put()},{once:true})}}
+// ข่าวด่วน (ทุก ~5 นาที) และงานของทีม Agent ส่งขึ้น branch live: ดึงของใหม่ระหว่างเปิดหน้าเว็บ ไม่ต้องรีเฟรช
+async function refreshFeeds(){if(document.hidden||!RAW)return;const[n2,a2]=await Promise.all([J(RAW+"news.json"),J(RAW+"agents.json")]);
+  if(a2&&(a2.updated||0)>(S.agents?.updated||0)){S.agents=a2;const el=$("#sgFeed");if(el)el.outerHTML=sigFeed(S.mkt==="US"?"US":"TH")}
+  if(n2&&(n2.updated||0)>(S.newsUpd||0)){S.news=mergeNews(S.manNews||[],n2.items||[]);S.newsUpd=n2.updated;const nl=$("#nlist");if(nl&&!document.querySelector("input:focus"))nl.innerHTML=newsBody()}}
+setTimeout(refreshFeeds,4000);setInterval(refreshFeeds,120000);
 setInterval(refreshQuotes,15000);setInterval(renderTicker,15000);
 setInterval(()=>{if(!document.hidden&&!document.querySelector("details[open],input:focus,select:focus"))loadAll()},15*60000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-(S.loadedAt||0)>5*60000)loadAll()});
