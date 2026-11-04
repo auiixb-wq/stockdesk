@@ -27,7 +27,7 @@ jobs:
           git fetch origin gh-pages --depth=1 && git show origin/gh-pages:data/universe.json > res/universe.json
           git fetch origin hist --depth=1 && mkdir -p res/hist && git --work-tree=res/hist checkout origin/hist -- . && git reset -q
           if [ "${{ github.event.inputs.set }}" = "15m" ]; then export INTERVAL=15m PERIOD=60d OUTDIR=m15; fi
-          python3 research/intra_fetch.py res 2>&1 | tail -20 > fetch.txt; cat fetch.txt
+          touch fetch.txt; if [ "${{ github.event.inputs.set }}" != "earn" ]; then python3 research/intra_fetch.py res 2>&1 | tail -20 > fetch.txt; cat fetch.txt; fi
           if [ "${{ github.event.inputs.set }}" = "tfx" ]; then INTERVAL=15m PERIOD=60d OUTDIR=m15 python3 research/intra_fetch.py res 2>&1 | tail -3 >> fetch.txt; fi
       - name: Backtest
         run: |
@@ -35,6 +35,7 @@ jobs:
             15m) bash research/intra_run15.sh res > results.txt 2>&1 || true ;;
             tfx) bash research/tfx_run.sh res > results.txt 2>&1 || true ;;
             tfwr) bash research/tfwr_run.sh res > results.txt 2>&1 || true ;;
+            earn) python3 research/earn_fetch.py res > results.txt 2>&1; node --max-old-space-size=6000 research/earn_bt.js res >> results.txt 2>&1 || true; cp res/earn.json earn.json || true ;;
             *) bash research/intra_run.sh res > results.txt 2>&1 || true ;;
           esac
           cat fetch.txt >> results.txt
@@ -42,6 +43,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          mkdir _r && cp results.txt _r/ && cd _r && git init -q -b research && git add -A
+          mkdir _r && cp results.txt _r/ && (cp earn.json _r/ 2>/dev/null || true) && cd _r && git init -q -b research && git add -A
           git -c user.name="stockdesk-bot" -c user.email="actions@users.noreply.github.com" commit -qm "research $(date -u +%FT%TZ)"
           git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" research
