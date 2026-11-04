@@ -6,6 +6,7 @@
 //   กรอบ 4 ชม. / 1 ชม.: ราคารายชั่วโมงมีย้อนหลังได้แค่ ~2 ปี (ข้อจำกัดของแหล่งข้อมูลฟรี) จึงทดสอบเต็ม 2 ปี (ช่วงทดสอบ = 40% ล่าสุด)
 //   ไม่ใช่บอทเทรด แต่สัญญาณต้องแม่นและมีจำนวนพอใช้จริง: กำไรรวมช่วงทดสอบ (ไม้ × กำไรต่อไม้) ต้องไม่น้อยกว่า 90% ของที่ใช้อยู่
 //   และทุกแบบต้องกำไรเฉลี่ย ≥ 0.3%/ไม้ ทั้งสองช่วง
+//   ทุกแบบต้องมีไม้ช่วงทดสอบ ≥ 40 และช่วงสร้าง ≥ 30
 // node scripts/lab.js <DATA_DIR ที่มี universe.json + hist/ (+ h1/ สำหรับกรอบชั่วโมง)> [TH|US|ALL] [D|4H|1H|ALL]
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const ROOT = path.join(__dirname, ".."), [DATA = path.join(ROOT, "data"), WHICH = "ALL", TFS = "D"] = process.argv.slice(2);
@@ -23,7 +24,7 @@ let seed = +today.replace(/-/g, "") % 2147483647; const rnd = () => (seed = seed
 // พื้นที่ค้นหา (ฝ่ายเทคนิคคิดจากกราฟ): ตัวกรองแนวโน้ม/ความแข็ง · จุดเข้าแบบคะแนน ทะลุกรอบ หรือย่อแตะ EMA20 · ทางออกขาย 2 ขั้น
 const SPACE = {
   TH: { trig: [null, null, "brk", "pb"], vol: [1.5, 2.2, 3], adx: [20, 25, 30], rs: [60, 70, 80], e200: [true, false], st: [true, false], lim: [0, .5, 1, 1.25, 1.5], ld: [1, 2], sl: [2, 3, 4], tp1: [1.5, 2, 3], tp1f: [.3, .5], tp: [4, 6, 8], hold: [5, 10, 20], dip: [10, 20] },
-  US: { trig: [null, null, "brk", "pb"], vol: [2, 2.5, 3.5], adx: [15, 20, 25], rs: [80, 85, 90], e200: [false, true], st: [true, false], lim: [0, 1, 1.5, 2], ld: [1, 3], sl: [3, 4], tp1: [2, 3, 4], tp1f: [.3, .5], tp: [6, 8, 10], hold: [20, 40], dip: [10, 20] },
+  US: { trig: [null, null, "brk", "pb"], vol: [2, 2.5, 3.5], adx: [15, 20, 25], rs: [80, 85, 90], e200: [false, true], st: [true, false], lim: [0, 1, 1.5, 2], ld: [1, 3], sl: [3, 4], tp1: [2, 3, 4], tp1f: [.3, .5], tp: [6, 8, 10], hold: [20, 40], dip: [10, 20], slCap: [.1, .12, .15] },
 };
 function candidates(m, base, champ, sp = SPACE[m]) {
   const out = [], key = r => JSON.stringify(Object.keys(sp).map(k => r[k] ?? null)), seen = new Set([key(base)]);
@@ -65,7 +66,8 @@ function runMarket(m, tf = "D") {
   const K = tf === "D" ? m : `${m}@${tf}`, cur = test({}), champ = LAB.best?.[K]?.r, list = candidates(m, base, champ, sp), res = [];
   const keys = Object.keys(sp), diff = r => Object.fromEntries(keys.filter(k => (r[k] ?? null) !== (base[k] ?? null)).map(k => [k, r[k] ?? null]));
   for (const c of list) { const R = test(c.r), ok = R.build.win >= cur.build.win && R.build.avg >= cur.build.avg + .1 && R.test.win >= cur.test.win && R.test.avg >= cur.test.avg + .1 && R.test.n >= cur.test.n * .6 && R.build.n >= cur.build.n * .6 && R.test.aw >= -R.test.al
-      && R.test.n * R.test.avg >= cur.test.n * cur.test.avg * .9 && R.build.avg >= .3 && R.test.avg >= .3;
+      && R.test.n * R.test.avg >= cur.test.n * cur.test.avg * .9 && R.build.avg >= .3 && R.test.avg >= .3
+      && R.test.n >= 40 && R.build.n >= 30;  // ไม้น้อยเกินไปสรุปไม่ได้ และใช้งานจริงไม่ได้
     res.push({ ch: diff(c.r), why: c.why, ...R, ok, score: Math.min(R.build.avg, R.test.avg) + Math.min(R.build.win, R.test.win) / 50 }) }
   res.sort((a, b) => (b.ok - a.ok) || b.score - a.score);
   const mon = (Date.parse(today) - Date.parse(split)) / 2.63e9;

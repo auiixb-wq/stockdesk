@@ -87,8 +87,8 @@ const MKT_RULES={win:{TH:{lim:1.25,ld:1,vol:2.2,tp1:2,tp1f:.5,tp:6,sl:3,slCap:.1
 //   1 ชม. ไทย ดีสุด +0.2%/ไม้ · สัปดาห์ ไทย ดีสุด +0.1–0.3% · 15 นาที ขาดทุน → noTrade (ใช้แผนกรอบวัน)
 const TF_RULES={W:{TH:{noTrade:true,tp1:null,e200:false,warm:60},US:{tp:8,sl:4,slCap:.15,hold:12,warm:60,tp1:2,tp1f:.3,st:true,adx:25,rs:80}},
   "4H":{TH:{st:true,rs:85,e200:false,vol:null,tp1:2,tp1f:.3,tp:8,sl:4,slCap:null,hold:10},US:{vol:1.8,st:true,rs:90,tp1:3,tp1f:.3,tp:8,sl:4,slCap:null,hold:20}},
-  "1H":{TH:{st:false,noTrade:true,tp1:null,e200:false},US:{vol:.95,st:true,rs:80,r2max:5,tp1:3,tp1f:.3,tp:8,sl:4,slCap:null,hold:70}},
-  "15m":{TH:{st:false,noTrade:true,tp1:null,e200:false},US:{vol:.5,noTrade:true,tp1:null}}};
+  "1H":{TH:{st:false,noTrade:true,tp1:null,e200:false,vol:null},US:{vol:.95,st:true,rs:80,r2max:5,tp1:3,tp1f:.3,tp:8,sl:4,slCap:null,hold:70}},
+  "15m":{TH:{st:false,noTrade:true,tp1:null,e200:false,vol:null},US:{vol:.5,noTrade:true,tp1:null}}};
 const TF_LABEL={"15m":"15 นาที","1H":"1 ชม.","4H":"4 ชม.",D:"วัน",W:"สัปดาห์"},TF_UNIT={"15m":"แท่ง 15 นาที","1H":"ชั่วโมง","4H":"แท่ง 4 ชม.",D:"วันทำการ",W:"สัปดาห์"};
 // S.tuned = กติกาที่ระบบเรียนรู้เองจากการทดสอบรายคืน (data/learn.json) ใช้เฉพาะแบบเน้นอัตราชนะ และเฉพาะกรอบรายวัน
 // S.lab = กลยุทธ์ที่ห้องทดลองรับรองแล้ว (ผ่าน backtest 4 ปีทั้งช่วงสร้างและช่วงทดสอบ 2 สัปดาห์ติด · data/hist/lab.json) ใช้กับกรอบรายวัน
