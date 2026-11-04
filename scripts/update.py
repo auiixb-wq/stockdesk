@@ -10,6 +10,7 @@ from sd.common import ROOT, DATA, NOW, ERRORS, load, save  # noqa: E402,F401
 from sd.universe import fetch_universe, fetch_hist  # noqa: E402
 from sd.prices import fetch_prices, fetch_quotes, market_strip, QUOTE_T  # noqa: E402,F401
 from sd.fin import fetch_fin, fetch_fund, repair_fx
+from sd.finaudit import clean_outliers  # noqa: E402
 from sd.intra import fetch_intra, fetch_intra_recent, fetch_intra15, fetch_intra15_recent  # noqa: E402
 from sd.macro import fetch_macro  # noqa: E402
 from sd.news import fetch_news  # noqa: E402
@@ -68,6 +69,7 @@ def main():
     step("intra15R", fetch_intra15_recent, uni)
     step("finfx", repair_fx, uni)
     step("fin", fetch_fin, uni)
+    step("finclean", clean_outliers, os.path.join(DATA, "hist", "fin"))  # ตัดตัวเลขที่ผิดหลัก (×10, ×1000) ก่อนคำนวณ
     quotes = step("quotes", fetch_quotes, prices)
     fund = step("fund", fetch_fund)
     macro = step("macro", fetch_macro)

@@ -1,7 +1,7 @@
 """ตรวจความถูกต้องของงบการเงินทุกหุ้น (data/hist/fin/*.json) เทียบกับข้อมูลตลาดใน universe.json
 cd scripts && python3 -m sd.finaudit <โฟลเดอร์ fin> <universe.json>  → พิมพ์สรุปและรายการที่ผิดปกติ
 ใช้ใน health.py ด้วย (audit()) เพื่อแสดงผลในหน้า "สถานะข้อมูล" """
-import datetime as dt, json, os, sys
+import datetime as dt, json, math, os, sys
 
 UNIT_BAD = {"ps", "pe"}  # ตัวเลขผิดหน่วยแน่นอน หน้าเว็บไม่นำงบนี้มาคิด
 LABEL = {"stale": "งบเก่าเกิน 200 วัน", "eps": "EPS ไม่ตรงกำไร", "ps": "หน่วยเงินน่าสงสัย", "pe": "กำไรเกินมูลค่าบริษัท", "pslo": "มูลค่าต่ำกว่ารายได้มาก", "sum": "ไตรมาสไม่ตรงงบปี", "fx": "ยังไม่แปลงสกุล", "ni": "กำไรเกินรายได้", "empty": "ไม่มีงบ", "bad": "ไฟล์เสีย"}
@@ -66,6 +66,59 @@ def check(sym, j, u, today):
     if n and n > 0 and r4 and n > 3 * max(abs(x) for x in r4) and u.get("sec") not in FIN_SEC:
         out.append(("ni", f"กำไรสุทธิไตรมาสล่าสุด {n:,.0f} มากกว่ารายได้หลายเท่า"))
     return out
+
+
+# ตัวเลขที่ผิดหลัก (×10, ×1000) เทียบกับงวดข้างเคียงของบริษัทเดียวกัน → ตัดทิ้งก่อนคำนวณ เก็บค่าเดิมไว้ใน j["fix"]
+# งบดุลไม่ควรกระโดดเกิน 8 เท่าระหว่างงวด · รายได้เช่นกัน (กำไรแกว่งได้จริง ไม่ตรวจ)
+CLEAN_FIELDS = ("ta", "tl", "eq", "debt", "ca", "cl", "ar", "inv", "rev")  # เงินสดแกว่งได้จริงมาก ไม่ตรวจ
+
+
+def _outliers(vals, k=8.0):
+    out = []
+    for i, v in enumerate(vals):
+        if v is None or v == 0:
+            continue
+        o = sorted(abs(x) for j, x in enumerate(vals) if j != i and x not in (None, 0))
+        if len(o) < 3:
+            continue
+        m = o[len(o) // 2]
+        if m > 0 and (abs(v) > m * k or abs(v) < m / k):
+            # ผิดหลักจริงจะห่างเป็นเลขยกกำลังของ 10 พอดี (×10, ×100, ×1000) ส่วนการเปลี่ยนแปลงจริง (เช่นเงินสดเพิ่ม) มักไม่ลงตัวแบบนี้
+            lg = abs(math.log10(abs(v) / m))
+            if abs(lg - round(lg)) <= .12 and round(lg) >= 1:
+                out.append(i)
+    return out
+
+
+def clean_outliers(fin_dir):
+    """แก้ในไฟล์งบ: ตัดค่าที่ผิดหลักออก (เป็น None) คืนจำนวนค่าที่ตัด"""
+    n = 0
+    for f in os.listdir(fin_dir):
+        if not f.endswith(".json"):
+            continue
+        p = os.path.join(fin_dir, f)
+        try:
+            j = json.load(open(p))
+        except Exception:
+            continue
+        q, fix, ch = j.get("q") or {}, j.get("fix") or {}, False
+        d = q.get("d") or []
+        for k in CLEAN_FIELDS:
+            v = q.get(k)
+            if not isinstance(v, list):
+                continue
+            bad = _outliers(v)
+            if len(bad) != 1:  # ผิดหลายงวดในชุดเดียว = ธุรกิจแกว่งจริง (เช่นรายได้ไบโอเทค) ไม่ใช่พิมพ์ผิด
+                continue
+            for i in bad:
+                fix.setdefault(d[i] if i < len(d) else str(i), {})[k] = v[i]
+                v[i] = None
+                n += 1
+                ch = True
+        if ch:
+            j["fix"] = fix
+            json.dump(j, open(p, "w"), separators=(",", ":"))
+    return n
 
 
 def audit(fin_dir, uni_items, today=None):
