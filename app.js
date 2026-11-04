@@ -127,10 +127,29 @@ function tRisk(R){const st=R.st,pr=priceRisk(R.B),V=valuation(R),fs=R.f?.fs,ck=f
    ${V.peQ?`<tr><td>P/E กลับไปค่ากลางของกลุ่ม</td><td class="r num">${eps.toFixed(2)}</td><td class="r num">${V.peQ[1].toFixed(1)}×</td><td class="r num">${c}${fmt(eps*V.peQ[1])}</td><td class="r num ${cls(eps*V.peQ[1]/R.last-1)}">${pct((eps*V.peQ[1]/R.last-1)*100,0)}</td></tr>`:""}</tbody></table></div></section>`:""}
   <section class="card"><h2 style="margin-bottom:8px">ปัจจัยมหภาคที่กระทบ</h2>${factorsFor(st).length?`<ul class="chk">${factorsFor(st).map(f=>{const k=impactOf(f,st),e=fx(f)*k,ch=(f.channels||[]).find(x=>Math.sign(x.e)===Math.sign(k))||f.channels?.[0];return `<li><span class="${cls(e)}">●</span><span><b>${esc(f.short||f.name)}</b> ${dirWord(sgn(fx(f)))} → ${Math.abs(e)<.1?"กระทบน้อย":e>0?"หนุน":"กดดัน"}${f.stocks?.[st.s]!=null?"บริษัทนี้โดยตรง":"กลุ่มนี้"}${ch?` <span class="muted">· ผ่าน${esc(ch.via)} (${esc(ch.h)}): ${esc(ch.why)}</span>`:""}</span></li>`}).join("")}</ul>`:`<p class="muted" style="margin:0">ไม่มีปัจจัยหลักที่ผูกกับหุ้นนี้</p>`}</section>`}
 /* ---------- คู่แข่ง ---------- */
+// ฝ่ายพื้นฐาน (scripts/peers.py ทุกคืน): อันดับเทียบทั้งกลุ่ม · ค่ากลางกลุ่ม · มูลค่าเหมาะสมเทียบกลุ่ม · ความจำรายไตรมาส
+// ไฟล์รายหุ้นอยู่ที่ branch hist (peer/<SYM>.json) โหลดเมื่อเปิดหน้านั้น
+async function loadPeer(sym){S.peer??={};if(S.peer[sym]!==undefined)return;S.peer[sym]=null;const j=await J(HIST+"peer/"+encodeURIComponent(sym.replace(/[^A-Za-z0-9._-]/g,"_"))+".json");S.peer[sym]=j||false;if(route().sym===sym)render()}
+const PM=[["quality","คุณภาพ"],["growth","การเติบโต"],["balance","ฐานะการเงิน"],["value","ความถูก"]];
+const PK=[["roe","ROE",1],["nm","อัตรากำไรสุทธิ",1],["om","อัตรากำไรดำเนินงาน",1],["rg","รายได้โต YoY",1],["eg","กำไรโต YoY",1],["cc","เงินสด/กำไร",0],["de","หนี้/ทุน",0],["dy","ปันผล",1],["pe","P/E",0],["pb","P/B",0],["evebitda","EV/EBITDA",0]];
+function peerCard(R){const st=R.st,P=S.peer?.[st.s];if(P===undefined){loadPeer(st.s);return `<section class="card"><p class="muted">กำลังโหลดผลเทียบกลุ่มของฝ่ายพื้นฐาน…</p></section>`}
+  if(!P)return `<section class="card"><p class="muted">ฝ่ายพื้นฐานยังไม่มีผลเทียบกลุ่มของหุ้นนี้ (ไม่มีงบล่าสุดหรือข้อมูลไม่ผ่านการตรวจ)</p></section>`;
+  const G=S.secStats?.groups?.[P.g]?.m||{},nm=S.secStats?.groups?.[P.g]?.nUsed,fv=P.fv||{},c=cur(st.m);
+  const bar=(k,l)=>{const v=P.sc?.[k];return `<div class="pc-b"><span>${l}</span><i><b style="width:${v??0}%;background:${v>=60?"var(--up)":v<=40?"var(--down)":"var(--warn)"}"></b></i><em class="num">${v??"–"}</em></div>`};
+  const fmtM=(k,v)=>v==null?"–":["pe","pb","evebitda","de","cc"].includes(k)?(+v).toFixed(2)+"×":(+v).toFixed(1)+"%";
+  const rows=PK.filter(([k])=>P.met?.[k]!=null||G[k]).map(([k,l])=>{const g=G[k],v=P.met?.[k],r=P.rk?.[k];return `<tr><td>${l}</td><td class="r num"><b>${fmtM(k,v)}</b></td><td class="r num muted">${g?`${fmtM(k,g[1])} – ${fmtM(k,g[3])}`:"–"}</td><td class="r num">${g?fmtM(k,g[2]):"–"}</td><td class="r num ${r>=60?"up":r<=40?"down":""}">${r??"–"}</td></tr>`}).join("");
+  return `<section class="card pcard"><div class="card-h"><div><h2>ฝ่ายพื้นฐาน: เทียบกับทั้งกลุ่ม</h2><div class="sub-t">เทียบกับ ${nm??"–"} บริษัทในกลุ่ม ${esc(P.g.replace(/^(TH|US):/,""))} (ตลาดเดียวกัน) · งบ${P.basis==="ttm"?" 4 ไตรมาสล่าสุด":"ปีล่าสุด"} ถึง ${P.last?thDate(P.last):"–"}</div></div></div>
+    <p class="pc-v"><b>${esc(P.v||"")}</b></p>
+    <div class="pc-bars">${PM.map(([k,l])=>bar(k,l)).join("")}</div><p class="muted" style="font-size:12px;margin:2px 0 8px">คะแนน 0–100 เทียบในกลุ่ม (50 = กลางกลุ่ม) · ความถูก สูง = ราคาถูกกว่ากลุ่ม</p>
+    ${fv.base?`<div class="pc-fv"><div><span class="muted">มูลค่าเหมาะสมเทียบกลุ่ม</span><div class="num"><b>${c}${fmt(fv.base)}</b> <span class="${fv.up>=0?"up":"down"}">(${pct(fv.up,0)} จากราคา)</span></div><div class="muted num" style="font-size:12.5px">กรณีแย่ ${c}${fmt(fv.bear)} · กรณีดี ${c}${fmt(fv.bull)} · ความมั่นใจ ${fv.conf==="high"?"สูง":fv.conf==="mid"?"กลาง":"ต่ำ"}</div></div>
+      <div class="muted" style="font-size:12.5px">${(fv.methods||[]).map(m=>`${esc(m.name)}: ${c}${fmt(m.base)}`).join("<br>")}${fv.mix?`<br>รวม: ${esc(fv.mix)}`:""}</div></div>`:""}
+    ${P.mem?.length?`<h3 style="margin:12px 0 4px;font-size:15px">ความจำรายไตรมาส</h3><ul class="br-ul">${P.mem.map(t=>`<li>${esc(t)}</li>`).join("")}</ul>`:""}
+    <details style="margin-top:10px"><summary class="muted">ตัวชี้วัดเทียบกลุ่ม (ช่วงกลางกลุ่ม 25–75%)</summary><div class="tscroll"><table class="wide"><thead><tr><th>ตัวชี้วัด</th><th class="r">หุ้นนี้</th><th class="r">ช่วงกลางกลุ่ม</th><th class="r">ค่ากลาง</th><th class="r">อันดับ</th></tr></thead><tbody>${rows}</tbody></table></div></details>
+    ${(P.flags||[]).length||(fv.flags||[]).length?`<p class="muted" style="font-size:12px">หมายเหตุข้อมูล: ${esc([...(P.flags||[]),...(fv.flags||[])].join(" · "))}</p>`:""}</section>`}
 function tPeers(R){const st=R.st,list=[{x:st,u:uniOf(st.s)||{}},...peersOf(st,12)],m=st.m;
   const row=o=>{const sm=S.summary?.[o.x.s],q=S.quotes?.q?.[o.x.s],p=q?.p??sm?.p,fq=sm?.fq,fv=sm?.fv;return `<tr${o.x.s===st.s?' class="self"':""}><td><a href="#s-${esc(o.x.s)}" class="pl2">${logo(o.x.s)}<b>${esc(dsym(o.x.s))}</b></a></td><td class="r num">${o.u.mc?mn(o.u.mc,m):"–"}</td><td class="r num">${p!=null?fmt(p):"–"}</td><td class="r">${sm?`<span class="pill sm ${sysVerdict(sm.o,sm.pl?.[5],Array.isArray(sm.c)?sm.c[2]:sm.c,!!sm.sy)[1]}">${sm.o}</span>`:"–"}</td><td class="r num">${o.u.pe?o.u.pe.toFixed(1):"–"}</td><td class="r num">${o.u.pb?o.u.pb.toFixed(2):"–"}</td><td class="r num">${fq?gp(fq[0]):"–"}</td><td class="r num">${fq?gp(fq[1]):"–"}</td><td class="r num">${o.u.dy!=null?o.u.dy.toFixed(1)+"%":"–"}</td><td class="r num">${fv&&p?gp((fv[1]/p-1)*100):"–"}</td></tr>`};
   const med=k=>{const a=list.slice(1).map(o=>o.u[k]).filter(v=>v>0&&v<200);return a.length?pctile(a,.5):null};
-  return `<section class="card"><div class="card-h"><div><h2>เทียบกับบริษัทในกลุ่ม${esc(SECTORS[st.sec]?.th||"")}</h2><div class="sub-t">${list.length-1} บริษัทใหญ่สุดในตลาดเดียวกัน · กลุ่มอุตสาหกรรมตามการจัดของ Yahoo</div></div><button class="btn sm" data-cmpadd="${esc(st.s)}">+ เพิ่มเข้าหน้าเทียบหุ้น</button></div>
+  return peerCard(R)+`<section class="card"><div class="card-h"><div><h2>เทียบกับบริษัทในกลุ่ม${esc(SECTORS[st.sec]?.th||"")}</h2><div class="sub-t">${list.length-1} บริษัทใหญ่สุดในตลาดเดียวกัน · กลุ่มอุตสาหกรรมตามการจัดของ Yahoo</div></div><button class="btn sm" data-cmpadd="${esc(st.s)}">+ เพิ่มเข้าหน้าเทียบหุ้น</button></div>
    <div class="tscroll"><table class="wide peers"><thead><tr><th>หุ้น</th><th class="r">มูลค่าตลาด</th><th class="r">ราคา</th><th class="r">คะแนน</th><th class="r">P/E</th><th class="r">P/BV</th><th class="r">รายได้ YoY</th><th class="r">กำไร YoY</th><th class="r">ปันผล</th><th class="r">ห่างมูลค่า</th></tr></thead><tbody>${list.map(row).join("")}
    <tr class="med"><td>ค่ากลางกลุ่ม</td><td></td><td></td><td></td><td class="r num">${med("pe")?.toFixed(1)??"–"}</td><td class="r num">${med("pb")?.toFixed(2)??"–"}</td><td></td><td></td><td class="r num">${med("dy")?.toFixed(1)??"–"}${med("dy")?"%":""}</td><td></td></tr></tbody></table></div>
    <p class="foot" style="margin:10px 0 0">“ห่างมูลค่า” = มูลค่าเหมาะสมกรณีฐานเทียบราคา (บวก = ราคาต่ำกว่ามูลค่า) · ตัวเลข YoY มาจากงบไตรมาสล่าสุดที่มีในระบบของแต่ละบริษัท อาจคนละงวด</p></section>`}
@@ -455,7 +474,7 @@ function eqSVG(R){
    <circle cx="${x(n)}" cy="${y(e)}" r="3.5" fill="var(--up)"/></svg>
    <div class="legend"><span style="--c:var(--up)">ระบบนี้ (หักต้นทุนแล้ว)</span><span style="--c:var(--ink-2)">ซื้อแล้วถือ</span><span style="--c:var(--surface-2)">พื้นเทา = ช่วงทดสอบ</span></div>`;
 }
-const TABS=[["sum","ภาพรวม"],["news","ข่าว"],["fa","งบการเงิน"],["val","มูลค่าเหมาะสม"],["risk","ความเสี่ยง"],["peers","คู่แข่ง"],["chart","เทคนิค"],["bt","ทดสอบย้อนหลัง"],["data","นำเข้า"]];
+const TABS=[["sum","ภาพรวม"],["news","ข่าว"],["fa","งบการเงิน"],["val","มูลค่าเหมาะสม"],["risk","ความเสี่ยง"],["peers","เทียบกลุ่ม"],["chart","เทคนิค"],["bt","ทดสอบย้อนหลัง"],["data","นำเข้า"]];
 function headline(R){const P=R.plan,w=R.why.wait;const up=R.I.wk.at(-1)>0?"แนวโน้มรายสัปดาห์เป็นขาขึ้น":R.I.wk.at(-1)<0?"แนวโน้มรายสัปดาห์เป็นขาลง":"แนวโน้มยังไม่ชัด";
   if(P.tone==="buy")return `${up} ทยอยซื้อได้ในโซน ${fmt(P.lo)}–${fmt(P.hi)}`;
   const nx=w.find(x=>x.startsWith("รอ"));return P.tone==="sell"?`${up} ยังไม่ควรซื้อ${nx?` · ${nx}`:""}`:`${up} ยังไม่ใช่จังหวะ${nx?` · ${nx}`:""}`}
@@ -916,8 +935,8 @@ async function loadHist(syms){const need=syms.filter(s=>{const st=stockBySym(s);
   if(!document.querySelector("input:focus,details[open]"))render()}
 async function loadAll(){
   // ราคาย้อนหลังของทุกหุ้น (รวมหุ้นหลัก) โหลดเมื่อเปิดดู จึงไม่ต้องโหลด prices.json ตอนเริ่ม
-  const [[fund,macro,news,man,uni0,sum,cal,rsq,lrn,sr,bf,ag],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json","data/learn.json","data/signals_round.json","data/brief.json","data/agents.json"].map(J)),getLive()]);
-  if(lrn){S.learn=lrn;S.tuned=lrn.tuned||{}}if(sr)S.sigRound=sr;if(bf)S.briefs=bf.items||[];if(ag&&(ag.updated||0)>(S.agents?.updated||0))S.agents=ag;
+  const [[fund,macro,news,man,uni0,sum,cal,rsq,lrn,sr,bf,sst,ag],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json","data/learn.json","data/signals_round.json","data/brief.json","data/sector_stats.json","data/agents.json"].map(J)),getLive()]);
+  if(lrn){S.learn=lrn;S.tuned=lrn.tuned||{}}if(sr)S.sigRound=sr;if(bf)S.briefs=bf.items||[];if(sst)S.secStats=sst;if(ag&&(ag.updated||0)>(S.agents?.updated||0))S.agents=ag;
   const uni=uni0||await J("data/universe.json"),px=null;
   if(cal&&cal.updated!==S.calibData?.updated){S.calibData=cal;S.calib=null}
   if(rsq){S.rsq=rsq;S._rsqIdx=null}

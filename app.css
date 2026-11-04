@@ -679,3 +679,10 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .br-todo{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:12px 0}.br-todo ul{margin:6px 0 0;padding-left:18px;line-height:1.7}
 .br-more{margin-top:12px}.br-more>summary,.br-livebox>summary{cursor:pointer;font-weight:600;color:var(--ink-2)}
 .br-livebox{margin-top:18px}
+/* ฝ่ายพื้นฐาน: เทียบกลุ่ม */
+.pc-v{font-size:15.5px;margin:4px 0 10px}
+.pc-bars{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px 18px}
+.pc-b{display:grid;grid-template-columns:90px 1fr 34px;align-items:center;gap:8px;font-size:13.5px}
+.pc-b i{height:8px;border-radius:99px;background:var(--surface-2);overflow:hidden}.pc-b i b{display:block;height:100%;border-radius:99px}
+.pc-fv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:14px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:6px}
+@media (max-width:640px){.pc-fv{grid-template-columns:1fr}}
