@@ -80,10 +80,12 @@ for (const tf of TFS === "ALL" ? ["D", "4H", "1H"] : TFS.split(",")) for (const 
   if (!R.cur.test.n && !R.res.length) { out.log.push(`${K}: ไม่มีข้อมูลพอทดสอบ`); continue }
   out.best[K] = R.res[0] ? { r: { ...C.rulesFor(m, tf), ...R.res[0].ch }, ch: R.res[0].ch } : out.best[K];
   out.runs.unshift({ d: today, m, tf, K, n: R.n, pass: R.pass, cur: R.cur, top: R.res.slice(0, 8), window: R.window });
-  if (top && P?.k === k) {  // ผ่าน 2 สัปดาห์ติด → ใช้จริง
+  const weekOld = P && (Date.parse(today) - Date.parse(P.since)) / 864e5 >= 6;
+  if (top && P?.k === k && weekOld) {  // ผ่าน 2 สัปดาห์ติด (ห่างกันอย่างน้อย 6 วัน) → ใช้จริง
     out.adopt[K] = { rules: { ...top.ch, noTrade: false }, since: today, k, why: top.why, build: top.build, test: top.test, before: R.cur }; delete out.pending[K];
     out.log.push(`${K}: ใช้กลยุทธ์ใหม่ ${k} หลังผ่าน backtest 2 สัปดาห์ติด`);
-  } else if (top) { out.pending[K] = { k, ch: top.ch, since: today, build: top.build, test: top.test }; out.log.push(`${K}: พบกลยุทธ์ที่ดีกว่า ${k} รอยืนยันสัปดาห์หน้า`) }
+  } else if (top && P?.k === k) { out.log.push(`${K}: แบบเดิมยังผ่าน รอครบสัปดาห์ก่อนใช้จริง`) }
+  else if (top) { out.pending[K] = { k, ch: top.ch, since: today, build: top.build, test: top.test }; out.log.push(`${K}: พบกลยุทธ์ที่ดีกว่า ${k} รอยืนยันสัปดาห์หน้า`) }
   else { delete out.pending[K]; out.log.push(`${K}: ลอง ${R.n} แบบ ยังไม่มีแบบไหนผ่านเกณฑ์`) }
   // ใช้จริงแล้วผลจริงแย่ → ถอดออก
   const F = CAL.fwdSys?.M?.[m], A = out.adopt[K];
