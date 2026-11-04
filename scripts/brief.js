@@ -89,6 +89,15 @@ async function ixHist(sym) {
 }
 // ต่อราคาปัจจุบันเข้าไปเป็นจุดสุดท้าย (ระหว่างวัน) แล้วสรุปบริบท: ติดต่อกันกี่วัน 5/20 วัน เส้นเฉลี่ย จุดสูง/ต่ำในรอบกี่วัน
 function ixSeries(H, ix) { if (!H?.length) return null; if (H.proxy && ix.v) { const last = H.filter(o => o.d < (ix.date || "9")).at(-1), f = ix.v / (1 + (ix.chg || 0) / 100) / (last?.c || 1); H = H.map(o => ({ d: o.d, c: o.c * f })) } const S = H.filter(o => o.d < (ix.date || "9")); if (ix.v && ix.date) S.push({ d: ix.date, c: ix.v }); else if (H.length) S.push(H.at(-1)); return S.length > 30 ? S : null }
+// บริบทดัชนีแบบโครงสร้าง (ใช้เขียนภาษาคน): ติดต่อกันกี่วัน รวมเท่าไร 20 วัน อยู่เหนือ/ใต้แนวโน้ม ต่ำ/สูงสุดในรอบกี่วัน
+function ixObj(S) {
+  if (!S) return null; const c = S.map(o => o.c), n = c.length - 1, ch = i => (c[i] / c[i - 1] - 1) * 100;
+  const d0 = Math.sign(ch(n)); let k = 0, cum = 1; while (k < n && Math.sign(ch(n - k)) === d0 && d0) { cum *= c[n - k] / c[n - k - 1]; k++ }
+  const ma = m => n >= m ? c.slice(n - m + 1).reduce((a, v) => a + v, 0) / m : null, m20 = ma(20), m50 = ma(50);
+  let lo = 0; while (lo < n && c[n - lo - 1] > c[n]) lo++; let hi = 0; while (hi < n && c[n - hi - 1] < c[n]) hi++;
+  return { dir: d0, k, cum: (cum - 1) * 100, w20: n >= 20 ? (c[n] / c[n - 20] - 1) * 100 : null, up: m20 && m50 ? (c[n] > m20 && c[n] > m50 ? 2 : c[n] < m20 && c[n] < m50 ? 0 : 1) : null, lo, hi };
+}
+const span = d => d >= 230 ? "1 ปี" : d >= 40 ? `${Math.round(d / 21)} เดือน` : `${d} วันทำการ`;
 function ixCtx(S, nm) {
   if (!S) return null; const c = S.map(o => o.c), n = c.length - 1, ch = i => (c[i] / c[i - 1] - 1) * 100, out = [];
   const d0 = Math.sign(ch(n)); let k = 0, cum = 1; while (k < n && Math.sign(ch(n - k)) === d0 && d0) { cum *= c[n - k] / c[n - k - 1]; k++ }
@@ -227,9 +236,39 @@ async function article() {
     if (sgL.length) P("หุ้นที่ระบบให้สัญญาณซื้อ", [`วันนี้มีสัญญาณ ${nSig} ตัว${pSig != null ? ` (ฉบับก่อน ${pSig} ตัว ${nSig > pSig ? "หุ้นเข้าเงื่อนไขมากขึ้น" : nSig < pSig ? "หุ้นเข้าเงื่อนไขน้อยลง" : "เท่าเดิม"})` : ""} ระบบตั้งซื้อตอนราคาย่อ เรียงตามความแข็งกว่าตลาด · ถ้าราคาไม่ลงมาถึงจุดตั้งซื้อถือว่าไม่ได้ซื้อ ไม่ต้องไล่ราคา`,
       F?.closed ? `ผลจริงของสัญญาณที่ติดตาม: ปิดแล้ว ${F.closed} ไม้ ชนะ ${F.win} ไม้ เฉลี่ย ${sg(F.sum / F.closed)} ต่อไม้${rec.length ? ` · ล่าสุด ${rec.map(r => `${name(r[0])} ${sg1(r[2])}`).join(", ")}` : ""}` : `ผลจริงของสัญญาณที่ติดตาม: ยังไม่มีไม้ที่ปิด (รอได้ของ ${F?.open ?? 0} ไม้)`], sgL) }
   P(live ? "มุมมองช่วงที่เหลือของวัน" : weekend ? "มุมมองวันทำการถัดไป" : "มุมมองวันนี้", [`${view}${why.length ? ` — ปัจจัยที่ใช้ประเมิน: ${why.join(" · ")}` : ""} · เป็นการประเมินจากข้อมูลที่วัดได้ ไม่ใช่คำทำนายแน่นอน และไม่ใช่คำแนะนำการลงทุน`]);
+  // ---------- ภาษาคน: สรุปสั้น 3 ข้อ · เรื่องเล่า · สำหรับนักลงทุน ----------
+  const io = ixObj(myS), shareUp = r ? Math.round(r.a50 / 25) : null, frac = ["แทบไม่มี", "ราว 1 ใน 4", "ราวครึ่งหนึ่ง", "ราว 3 ใน 4", "เกือบทั้งหมด"][Math.max(0, Math.min(4, shareUp ?? 2))];
+  const ixWord = ix.chg == null ? "" : `${ixN} ${ix.chg >= .3 ? "ปรับขึ้น" : ix.chg <= -.3 ? "ปรับลง" : "ทรงตัว"} ${sg(ix.chg)}${io && io.k >= 3 && Math.sign(ix.chg) === io.dir ? ` เป็นวันที่ ${io.k} ติดต่อกัน (รวม ${sg1(io.cum)})` : ""}${io && io.lo >= 20 ? ` ปิดต่ำสุดในรอบ ${span(io.lo)}` : io && io.hi >= 20 ? ` ปิดสูงสุดในรอบ ${span(io.hi)}` : ""}`;
+  const crowd = b.n >= 20 ? (b.dn > b.up * 1.5 ? `หุ้นส่วนใหญ่ลง (ลง ${b.dn} ขึ้น ${b.up})` : b.up > b.dn * 1.5 ? `หุ้นส่วนใหญ่ขึ้น (ขึ้น ${b.up} ลง ${b.dn})` : `หุ้นขึ้นลงพอ ๆ กัน (ขึ้น ${b.up} ลง ${b.dn})`) : "";
+  const big = secs.length ? (ix.chg > .3 ? secs[0] : ix.chg < -.3 ? secs.at(-1) : secs.slice().sort((x, y) => Math.abs(y.med) - Math.abs(x.med))[0]) : null, bigStar = big ? (big.med >= 0 ? big.hi : big.lo) : null;
+  const bigNews = big && N.find(o => (o.x.tickers || []).includes(bigStar?.i.s));
+  const driver = big && Math.abs(big.med) >= .4 ? `แรง${big.med >= 0 ? "ซื้อ" : "ขาย"}หลักอยู่ที่กลุ่ม${SEC[big.k]} (${sg1(big.med)}) โดยเฉพาะ ${name(bigStar.i.s)} ${sg1(bigStar.c)}${bigNews ? ` ซึ่งมีข่าว "${head(bigNews.x).slice(0, 70)}"` : ""}` : "";
+  const why1 = theme ? `เรื่องที่ตลาดจับตามากที่สุดคือ${theme.c}: ${head(theme.x).slice(0, 90)}${WHY[MK][theme.c] ? ` — ${WHY[MK][theme.c]}` : ""}` : "";
+  const trendTxt = r ? `หุ้นที่ยังอยู่ในแนวโน้มขึ้นระยะกลางมี${frac} ของตลาด${io?.up === 0 ? " และดัชนีอยู่ใต้เส้นแนวโน้ม 20 และ 50 วัน ภาพยังเป็นขาลง" : io?.up === 2 ? " และดัชนียืนเหนือเส้นแนวโน้ม ภาพยังเป็นขาขึ้น" : ""}` : "";
+  const sigTop = Object.entries(SUM).filter(([s, v]) => v.sy && !v.sy[5] && U.find(i => i.s === s && i.m === MK)).sort((a, b) => (b[1].rs?.pctl || 0) - (a[1].rs?.pctl || 0)).slice(0, 3).map(([s]) => name(s));
+  const stance = score <= -1.5 ? "ตั้งรับ" : score >= 1.5 ? "เดินหน้าได้" : "เลือกเฉพาะตัว";
+  const tldr = weekend ? [
+    `ตลาด${mkName}ปิดสุดสัปดาห์ ${ixN} ปิดรอบล่าสุด ${num(ix.v)} จุด (${sg(ix.chg ?? 0)})${io && io.w20 != null ? ` ทั้งเดือนที่ผ่านมา ${sg1(io.w20)}` : ""}`,
+    why1 || "ไม่มีประเด็นใหญ่ระหว่างตลาดปิด",
+    `วันทำการถัดไป: ${view} · ท่าทีที่แนะนำ: ${stance}`] : [
+    [live ? "ช่วงเช้านี้" : "รอบล่าสุด", ixWord, crowd ? `· ${crowd}` : ""].filter(Boolean).join(" "),
+    driver || why1 || trendTxt,
+    `${live ? "ภาคบ่าย" : MK === "TH" ? "วันนี้" : "คืนนี้"}: ${view} · ท่าทีที่แนะนำ: ${stance}${sigTop.length ? ` · หุ้นที่ระบบให้สัญญาณเด่น ${sigTop.join(", ")}` : ""}`];
+  const story = [];
+  if (!weekend) story.push(["ภาพรวม", [ixWord, crowd, trendTxt].filter(Boolean).join(" · ")]);
+  if (driver || why1) story.push(["อะไรขับเคลื่อนตลาด", [driver, why1].filter(Boolean).join(" · ")]);
+  if (MK === "TH" && !live && spx.chg != null) { const cx = crossCtx(SU, SS, spx.chg); story.push(["ตลาดโลกเมื่อคืน", `ตลาดหุ้นสหรัฐฯ ${spx.chg >= .3 ? "ปรับขึ้น" : spx.chg <= -.3 ? "ปรับลง" : "ทรงตัว"} (S&P 500 ${sg(spx.chg)}, Nasdaq 100 ${sg(ndx.chg ?? 0)})${cx ? ` · ${cx}` : ""}`]) }
+  if (secs.length >= 4 && !weekend) story.push(["กลุ่มไหนเด่น กลุ่มไหนแย่", `เด่น: ${secs.slice(0, 2).map(g => `${SEC[g.k]} (${sg1(g.med)}, ${name(g.hi.i.s)} ${sg1(g.hi.c)})`).join(" และ ")} · แย่: ${secs.slice(-2).reverse().map(g => `${SEC[g.k]} (${sg1(g.med)}, ${name(g.lo.i.s)} ${sg1(g.lo.c)})`).join(" และ ")}`]);
+  const watchTxt = [ern.length ? `งบ ${ern.slice(0, 4).map(o => name(o.i.s)).join(", ")}` : "", ...ahead.slice(0, 2).map(o => head(o.x).slice(0, 70))].filter(Boolean);
+  if (watchTxt.length) story.push(["ต้องดูอะไรต่อ", watchTxt.join(" · ")]);
+  const todo = [
+    score <= -1.5 ? "ยังไม่ใช่จังหวะเร่งซื้อ ถ้าจะซื้อให้ตั้งซื้อตอนราคาย่อตามจุดของระบบเท่านั้น และใช้เงินน้อยกว่าปกติ" : score >= 1.5 ? "ตลาดเอื้อให้ซื้อตามสัญญาณระบบได้ตามปกติ แต่อย่าไล่ราคาหุ้นที่วิ่งไปแล้ว" : "ตลาดแกว่ง เลือกเฉพาะหุ้นที่ระบบให้สัญญาณ และซื้อที่จุดตั้งซื้อเท่านั้น",
+    io && io.dir < 0 && io.k >= 3 ? "ถ้าถือหุ้นอยู่: ตลาดลงต่อเนื่อง ตรวจว่าตั้ง SL ไว้ครบ และขายบางส่วนเมื่อถึง TP1 ตามแผน" : "ถ้าถือหุ้นอยู่: ทำตามแผนเดิม ขายบางส่วนที่ TP1 แล้วเลื่อน SL มาที่ทุน",
+    sigTop.length ? `หุ้นที่ระบบให้สัญญาณ (ดูจุดซื้อ/TP/SL ในหน้าหุ้น): ${sigTop.join(", ")}` : null];
   const snap = { id: `${MK}-${KIND}-${today}`, date: today, kind: KIND, ts: Math.floor(NOW / 1000), ix: ix.v ? { v: ix.v, chg: ix.chg, date: ix.date } : null, br: { up: b.up, dn: b.dn },
     sec: Object.fromEntries(secs.map(g => [g.k, +g.med.toFixed(2)])), cats: themes, mv: { up: gain.map(o => o.i.s), dn: lose.map(o => o.i.s) }, sig: nSig, view: weekend ? null : { s: score, t: view } };
-  return [{ id: snap.id, mk: MK, kind: KIND, date: today, ts: snap.ts, title: title.replace(/\s+/g, " ").trim(), lead: lead.replace(/\s+/g, " ").trim(), sec }, snap];
+  const clean = t => (t || "").replace(/\s+/g, " ").trim();
+  return [{ id: snap.id, mk: MK, kind: KIND, date: today, ts: snap.ts, title: clean(title), lead: clean(lead), mood: score <= -1.5 ? "down" : score >= 1.5 ? "up" : "mid", tldr: tldr.map(clean).filter(Boolean), story: story.map(([h, t]) => [h, clean(t)]), todo: todo.filter(Boolean), sec }, snap];
 }
 
 (async () => {

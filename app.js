@@ -1148,7 +1148,8 @@ function brNews(mk,since){const U=S.universe||[],big=new Set(U.filter(i=>i.m===m
   return out.sort((a,b)=>b.sc-a.sc)}
 // สถานะตลาด: วันทำการล่าสุดจากดัชนี · เสาร์–อาทิตย์หรือดัชนีไม่ใช่วันนี้ = ตลาดปิด
 function brState(mk){const ix=(S.meta||{})[mk==="TH"?"set":"spx"]||{},today=dayIn(mk,Date.now()),wd=new Date(today+"T12:00:00Z").getUTCDay(),wk=wd===0||wd===6;
-  return{ix,today,closed:wk||ix.date!==today,weekend:wk,holiday:!wk&&ix.date&&ix.date!==today}}
+  const hm=+new Intl.DateTimeFormat("en-GB",{timeZone:mk==="TH"?"Asia/Bangkok":"America/New_York",hour:"2-digit",minute:"2-digit",hour12:false}).format(new Date()).replace(":",""),pre=!wk&&ix.date!==today&&hm<(mk==="TH"?1000:930);
+  return{ix,today,closed:wk||ix.date!==today,weekend:wk,pre,holiday:!wk&&!pre&&ix.date&&ix.date!==today}}
 function brMove(i){const q=S.quotes?.q?.[i.s];return q?.chg!=null?q.chg:i.chg}
 // บทความสรุปตลาด (scripts/brief.js เขียนตามรอบ: ไทย 06:00/12:00 น. · สหรัฐฯ ก่อนเปิดและระหว่างวัน · สุดสัปดาห์)
 const BR_KIND={TH:{morning:"ฉบับเช้า · ก่อนตลาดเปิด",midday:"ฉบับเที่ยง · พักกลางวัน",weekend:"ฉบับสุดสัปดาห์"},US:{preopen:"ก่อนตลาดสหรัฐฯ เปิด",midday:"ระหว่างวัน",weekend:"ฉบับสุดสัปดาห์"}};
@@ -1156,8 +1157,12 @@ function briefArticle(mk){const L=(S.briefs||[]).filter(x=>x.mk===mk).sort((a,b)
   const when=t=>new Date(t*1e3).toLocaleString(LOC(),{timeZone:"Asia/Bangkok",weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
   const para=t=>esc(t).replace(/\n/g,"<br>").replace(/^\[([^\]]+)\]/,'<span class="br-cat">$1</span>').replace(/ทำไมสำคัญ:/,"<b>ทำไมสำคัญ:</b>");
   return `<article class="card br-art"><div class="chips br-eds" role="group" aria-label="เลือกฉบับ">${L.map(x=>`<button type="button" class="chip" data-bed="${esc(x.id)}" aria-pressed="${x.id===A.id}">${esc(BR_KIND[mk]?.[x.kind]||x.kind)} · ${when(x.ts)}</button>`).join("")}</div>
-   <div class="eyebrow">${esc(BR_KIND[mk]?.[A.kind]||"")} · เขียนอัตโนมัติ ${when(A.ts)} น.</div><h2 class="br-t">${esc(A.title)}</h2>${deskQA(A.desk)}<p class="br-lead">${esc(A.lead)}</p>
-   ${A.sec.map(x=>`<h3>${esc(x.h)}</h3>${x.p.map(t=>`<p>${para(t)}</p>`).join("")}${x.li?.length?`<ul class="br-ul">${x.li.map(t=>`<li>${para(t)}</li>`).join("")}</ul>`:""}`).join("")}
+   <div class="eyebrow">${esc(BR_KIND[mk]?.[A.kind]||"")} · เขียนอัตโนมัติ ${when(A.ts)} น.</div><h2 class="br-t">${esc(A.title)}</h2>${deskQA(A.desk)}
+   ${A.tldr?.length?`<div class="br-tldr br-${esc(A.mood||"mid")}"><b>สรุปสั้น</b><ol>${A.tldr.map(t=>`<li>${esc(t)}</li>`).join("")}</ol></div>
+   ${(A.story||[]).map(([h,t])=>`<p class="br-st"><b>${esc(h)}</b> — ${esc(t)}</p>`).join("")}
+   ${A.todo?.length?`<div class="br-todo"><b>สำหรับนักลงทุน</b><ul>${A.todo.map(t=>`<li>${esc(t)}</li>`).join("")}</ul></div>`:""}
+   <details class="br-more"><summary>ตัวเลขและรายละเอียดทั้งหมด (ย้อนดูตลาด · เชื่อมโยงกับวันก่อน · ข่าวสำคัญ · สัญญาณระบบ)</summary>`:`<p class="br-lead">${esc(A.lead)}</p>`}
+   ${A.sec.map(x=>`<h3>${esc(x.h)}</h3>${x.p.map(t=>`<p>${para(t)}</p>`).join("")}${x.li?.length?`<ul class="br-ul">${x.li.map(t=>`<li>${para(t)}</li>`).join("")}</ul>`:""}`).join("")}${A.tldr?.length?"</details>":""}
    ${deskTeam(A.desk)}
    <p class="muted br-sub">บทความเขียนจากราคา ดัชนี ข่าว และสัญญาณระบบโดยอัตโนมัติตามรอบ (หุ้นไทย 06:00 และ 12:00 น. · หุ้นสหรัฐฯ ก่อนเปิดตลาดและระหว่างวัน) ไม่ใช่คำแนะนำการลงทุน</p></article>`}
 // ทีมวิจัย (scripts/desk.js): ผลตรวจของทีม Data + บทเจาะลึกแยกตามทีม แนบมากับแต่ละฉบับใน brief.json
@@ -1252,7 +1257,7 @@ function vBrief(){const mk=S.bm==="US"?"US":S.bm==="TH"?"TH":(S.mkt==="US"?"US":
   const ahead=N.filter(o=>!newsN.includes(o)&&/next week|tomorrow|upcoming|ahead of|this week|วันพรุ่งนี้|พรุ่งนี้|สัปดาห์หน้า|จับตา|รอ(?:ผล|ดู)|ก่อนการประชุม/i.test((o.x.title||"")+" "+(o.x.titleTh||""))&&o.cat!=="หุ้นรายตัว").slice(0,3);
   // ประโยคสรุปหัวหน้า
   const lead=secs[0],lag=secs.at(-1),topCat=N[0]?.cat;
-  const head=st.closed?`${st.weekend?"สุดสัปดาห์":"วันหยุด"} ตลาด${nm}ปิด · ${ix.date?`ปิดรอบล่าสุด (${thDate(ix.date)}) ${ixn} ${ix.v?fmt(ix.v):""} ${pct(ix.chg,2)}`:""} · ด้านล่างสรุปข่าวสำคัญที่เกิดระหว่างตลาดปิด และสิ่งที่ต้องติดตามวันทำการถัดไป`
+  const head=st.closed?`${st.weekend?"สุดสัปดาห์ ตลาด"+nm+"ปิด":st.pre?"ก่อนตลาด"+nm+"เปิด":"วันหยุด ตลาด"+nm+"ปิด"} · ${ix.date?`ปิดรอบล่าสุด (${thDate(ix.date)}) ${ixn} ${ix.v?fmt(ix.v):""} ${pct(ix.chg,2)}`:""} · ด้านล่างสรุปข่าวสำคัญที่เกิดระหว่างตลาดปิด และสิ่งที่ต้องติดตามวันทำการถัดไป`
     :`${ixn} ${ix.v?fmt(ix.v):""} ${ix.chg!=null?pct(ix.chg,2):""} · หุ้นใหญ่ขึ้น ${up} ลง ${dn}${lead&&lag&&lead!==lag?` · กลุ่มนำ${sn(lead.k)} (${pct(lead.med,1)}) กลุ่มอ่อน${sn(lag.k)} (${pct(lag.med,1)})`:""}${topCat&&topCat!=="หุ้นรายตัว"?` · ประเด็นหลัก: ${topCat}`:""}`;
   const chip=v=>`<span class="pill sm ${v>0?"p-buy":v<0?"p-sell":"p-hold"}">${v>0?"บวก":v<0?"ลบ":"กลาง"}</span>`;
   const nRow=o=>{const x=o.x;return `<li class="br-n"><div class="br-nh"><span class="br-cat">${esc(o.cat)}</span>${o.src.size>1?`<span class="muted">${o.src.size} แหล่งข่าว</span>`:""}</div><a href="${esc(safeUrl(x.url))}" target="_blank" rel="noopener">${esc(nT(x)||"")}</a><div class="muted br-src">${esc(x.source||"")} · ${new Date((+x.ts||0)*1e3).toLocaleString(LOC(),{timeZone:"Asia/Bangkok",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})} น.${(x.tickers||[]).length?` · ${(x.tickers||[]).slice(0,4).map(t=>stockBySym(t)?`<a href="#s-${esc(t)}">${esc(dsym(t))}</a>`:esc(t)).join(" ")}`:""}</div></li>`};
@@ -1273,11 +1278,11 @@ function vBrief(){const mk=S.bm==="US"?"US":S.bm==="TH"?"TH":(S.mkt==="US"?"US":
      <ul class="br-ul">${F.map(([v,t])=>`<li><span class="br-f ${v>0?"up":v<0?"down":""}">${v>0?"▲":v<0?"▼":"•"}</span> ${t}</li>`).join("")}</ul>
      ${ern.length||ahead.length?`<h3>สิ่งที่ต้องติดตาม</h3><ul class="br-ul">${ern.length?`<li>ประกาศงบ${st.closed?"ในสัปดาห์หน้า":"วันทำการถัดไป"}: ${ern.slice(0,10).map(o=>`<a href="#s-${esc(o.i.s)}">${esc(dsym(o.i.s))}</a>${st.closed?` <span class="muted">${thDate(o.d)}</span>`:""}`).join(" · ")}${ern.length>10?` +${ern.length-10}`:""}</li>`:""}${ahead.map(o=>`<li>${esc(o.cat)}: <a href="${esc(safeUrl(o.x.url))}" target="_blank" rel="noopener">${esc(nT(o.x)||"")}</a></li>`).join("")}</ul>`:""}
      <p class="muted br-sub">ประเมินจากปัจจัยที่วัดได้ด้านบนรวมกัน ไม่ใช่คำทำนายแน่นอน ข่าวใหม่ระหว่างคืนเปลี่ยนภาพได้ · ใช้ประกอบกับจุดซื้อ / TP / SL ของระบบ</p></section>`;
-  return `<div class="br-top"><div><h1>สรุปตลาด${nm}</h1><p class="muted" style="margin:4px 0 0">${thDate(st.today)} · ${st.closed?(st.weekend?"เสาร์–อาทิตย์ ตลาดปิด":"ตลาดปิด (วันหยุด)"):"วันทำการ"} · อัปเดตอัตโนมัติจากราคาและข่าวล่าสุด</p></div>${tabs}</div>
+  return `<div class="br-top"><div><h1>สรุปตลาด${nm}</h1><p class="muted" style="margin:4px 0 0">${thDate(st.today)} · ${st.closed?(st.weekend?"เสาร์–อาทิตย์ ตลาดปิด":st.pre?"ก่อนตลาดเปิด":"ตลาดปิด (วันหยุด)"):"วันทำการ"} · อัปเดตอัตโนมัติจากราคาและข่าวล่าสุด</p></div>${tabs}</div>
    ${briefArticle(mk)}
-   <h2 class="br-live">ข้อมูลสดตอนนี้</h2>
+   <details class="br-livebox"${S.briefs?.some(x=>x.mk===mk)?"":" open"}><summary class="br-live">ข้อมูลสดตอนนี้ (อัปเดตตามราคาล่าสุด)</summary>
    <section class="card br-hero"><p>${head}</p></section>
-   ${st.closed?events+outlook:overview+events+sectors+outlook}`}
+   ${st.closed?events+outlook:overview+events+sectors+outlook}</details>`}
 // ทีมติดตามสัญญาณ (scripts/agents.js): ได้ของ ชน TP1/TP โดน SL หมดอายุ และสรุป 7 วัน
 const SIGK={fill:["p-buy","ได้ของ"],tp1:["p-buy","TP1"],tp:["p-buy2","ชน TP"],sl:["p-sell","โดน SL"],time:["p-hold","ครบเวลา"],miss:["p-hold","หมดอายุ"],week:["p-hold","สรุป 7 วัน"]};
 function sigFeed(mk,all){const A=S.agents?.sig;if(!A)return "";const F=(A.feed||[]).filter(e=>(all||e.m===mk)&&e.k!=="new").slice(0,all?10:8),w=A.week?.[mk],who=all?"ซัน · ริน":mk==="TH"?"ซัน":"ริน";

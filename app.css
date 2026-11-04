@@ -671,3 +671,11 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .of-mode{display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center;margin:0 0 8px;font-size:13.5px}.of-mode .dot{width:9px;height:9px;border-radius:50%;background:var(--ink-2)}.of-mode.on .dot{background:var(--up);box-shadow:0 0 0 3px var(--up-bg)}.of-mode.off .dot{background:var(--warn)}.of-mode span:last-child{color:var(--ink-2)}.of-dot.of-earn{background:#8A9A3A}
 .sg-feed{margin:0;padding:0;list-style:none}.sg-feed li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;align-items:baseline;padding:6px 0;border-top:1px solid var(--line);font-size:13.5px;overflow-wrap:anywhere}.sg-feed li:first-child{border-top:0}.sg-t{font-size:12px;white-space:nowrap}
 .of-earn{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px}.of-earn .dk-note{margin:0}.br-art .dk-note p{margin:4px 0}.dk-news{margin:2px 0 0;padding:0;list-style:none}.dk-news li{margin:5px 0}
+/* บทสรุปแบบอ่านง่าย: สรุปสั้น 3 ข้อ · เรื่องเล่า · สำหรับนักลงทุน · รายละเอียดพับไว้ */
+.br-tldr{border-radius:12px;padding:12px 14px;margin:8px 0 12px;background:var(--surface-2);border-left:4px solid var(--warn)}
+.br-tldr.br-up{border-left-color:var(--up)}.br-tldr.br-down{border-left-color:var(--down)}
+.br-tldr ol{margin:6px 0 0;padding-left:20px;font-size:15.5px;line-height:1.7}.br-tldr li{margin:3px 0}
+.br-st{margin:10px 0;line-height:1.8}
+.br-todo{border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:12px 0}.br-todo ul{margin:6px 0 0;padding-left:18px;line-height:1.7}
+.br-more{margin-top:12px}.br-more>summary,.br-livebox>summary{cursor:pointer;font-weight:600;color:var(--ink-2)}
+.br-livebox{margin-top:18px}
