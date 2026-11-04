@@ -21,7 +21,7 @@ const TABS = ["news", "fa", "val", "risk", "peers", "chart", "bt"], TFS = ["15m"
     for (const r of PAGES) {
       const t = Date.now(); await p.evaluate(x => location.hash = x, r); await p.waitForTimeout(r.startsWith("#s-") ? 2500 : 1200); await look(r, Date.now() - t);
       if (r === "#s-PTT") {
-        for (const tf of TFS) { await p.click(`.vh-r [data-tf="${tf}"]`).catch(() => errs.push("กดปุ่มกรอบ " + tf + " ไม่ได้")); await p.waitForTimeout(2500); await look(r + " กรอบ " + tf, 0) }
+        for (const tf of TFS) { await p.click(`.vchart [data-tf="${tf}"]`).catch(() => errs.push("กดปุ่มกรอบ " + tf + " ไม่ได้")); await p.waitForTimeout(2500); await look(r + " กรอบ " + tf, 0) }
         for (const t of TABS) { await p.click(`[data-tab="${t}"]`).catch(() => errs.push("กดแท็บ " + t + " ไม่ได้")); await p.waitForTimeout(1200); await look(r + " แท็บ " + t, 0) }
         await p.click('[data-tab="sum"]').catch(() => {});
       }
