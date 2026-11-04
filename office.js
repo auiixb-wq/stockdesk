@@ -17,7 +17,8 @@ const HAIR = ["#2A1F1A", "#3B2A20", "#1B1B22", "#5A3A22", "#7A5233", "#33263A", 
 const P = { board: { x: 320, y: 52, ax: 240, crowd: 1 }, chart: { x: 84, y: 350, ax: 57, crowd: 1 }, inbox: { x: 315, y: 262, ax: 315, crowd: 1 },
   bossv: { x: 562, y: 146, ax: 562 }, boss: { x: 576, y: 92, ax: 562, seat: 1, front: 1 }, coffee: { x: 520, y: 364, ax: 500, crowd: 1 },
   cooler: { x: 484, y: 318, ax: 500, crowd: 1 }, web: { x: 385, y: 306, ax: 432, seat: 1 }, webdash: { x: 396, y: 348, ax: 432, crowd: 1 },
-  server: { x: 300, y: 326, ax: 308 }, printer: { x: 214, y: 352, ax: 242 } };
+  server: { x: 300, y: 326, ax: 308 }, printer: { x: 214, y: 352, ax: 242 },
+  mim: { x: 600, y: 140, ax: 562, seat: 1, front: 1 } };  // โต๊ะเลขา (มิม) มุมขวาล่างของห้องบอส
 const SD = []; for (let i = 0; i < 12; i++) { const c = i % 4, r = i >> 2, x0 = 172 + c * 80, top = 66 + r * 60; SD.push({ x0, top }); P["sec" + i] = { x: x0 + 28, y: top + 32, ax: x0 + 68, seat: 1 } }
 [45, 75, 105].forEach((x, i) => P["mac" + i] = { x, y: 132, ax: 76, seat: 1 });
 const TD = [12, 62, 112]; TD.forEach((x0, i) => P["tec" + i] = { x: x0 + 20, y: 306, ax: x0 + 45, seat: 1 });
@@ -29,7 +30,7 @@ const BX = ["b-quote", "b-news", "b-calc", "b-brief", "b-pub"]; BX.forEach((id, 
 P.tvspot = { x: 76, y: 152, ax: 76, crowd: 1 }; P.sigv = { x: 118, y: 230, ax: 142, crowd: 1 }; P.ernv = { x: 540, y: 230, ax: 568, crowd: 1 };
 [532, 560, 590].forEach((x, i) => P["lng" + i] = { x, y: 338, ax: 500, crowd: 1 });
 
-function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode }) {
+function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode, mim }) {
   const D = A.desk, ctx = cv.getContext("2d");
   const bg = document.createElement("canvas"); bg.width = W; bg.height = H; const B = bg.getContext("2d");
   const off = document.createElement("canvas"); off.width = W; off.height = H; const O = off.getContext("2d");
@@ -38,8 +39,9 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode }) {
   let alive = true, raf = 0, speed = 1, clock = 0, tray = 0, tvOn = 0, steam = 0, hover = null, pick = null;
 
   // ---------- ทีม ----------
-  const homeOf = { "w-site": "web", boss: "boss", "d-qa": "dat0", "d-ed": "dat1" }; BX.forEach((id, i) => homeOf[id] = "bot" + i);
+  const homeOf = { "w-site": "web", boss: "boss", mim: "mim", "d-qa": "dat0", "d-ed": "dat1" }; BX.forEach((id, i) => homeOf[id] = "bot" + i);
   const L0 = live?.() || {}, R0 = [...(D.roster || [])]; for (const r of L0.roster || []) if (!R0.some(x => x.id === r.id)) R0.push(r);
+  if (!R0.some(x => x.id === "mim")) R0.push({ id: "mim", name: "มิม", team: "boss", role: "เลขาของบอส: ดูแลพอร์ต เตือน TP/SL ครบกำหนดถือ งบใกล้ประกาศ ข่าวลบ" });
   let si = 0, mi = 0, ti = 0, gi = 0, ei = 0;
   const agents = R0.map(r => {
     const h = hash(r.id), home = homeOf[r.id] || (r.team === "sector" ? "sec" + si++ : r.team === "macro" ? "mac" + mi++ : r.team === "tech" ? "tec" + ti++ : r.team === "sig" ? "sig" + gi++ : r.team === "earn" ? "ern" + ei++ : "dat0");
@@ -98,9 +100,15 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode }) {
   let MODE = L0.mode || { st: "work" };
   const ambient = a => {
     if (a.team === "bot") { a.q.push({ go: a.home, st: "รอรอบถัดไป" }, { wait: 4000 + Math.random() * 4000 }); return }
-    if (MODE.st === "rest" && a.id !== "boss") { const r = Math.random(), sp = r < .35 ? "lng" + ((Math.random() * 3) | 0) : r < .55 ? "coffee" : r < .7 ? "cooler" : a.home;
+    if (MODE.st === "rest" && a.id !== "boss" && a.id !== "mim") { const r = Math.random(), sp = r < .35 ? "lng" + ((Math.random() * 3) | 0) : r < .55 ? "coffee" : r < .7 ? "cooler" : a.home;
       a.q.push({ go: sp, st: MODE.why || "พัก" }, { say: Math.random() < .3 ? pickOne(["☕", "zz", "…", "ตลาดปิดแล้ว", "พักก่อน"]) : null, wait: 6000 + Math.random() * 8000 }); return }
     if (a.id === "boss") { a.q.push({ wait: 4000 + Math.random() * 5000, st: delivered ? "อ่านสรุปตลาด" : "ทำงาน" }); return }
+    // มิม: นั่งดูพอร์ตของบอสที่โต๊ะ แล้วเดินไปรายงานบอสเป็นระยะ (ข้อมูลจากพอร์ตในเครื่องนี้ ผ่าน mim())
+    if (a.id === "mim") { const M = mim?.() || { items: [], n: 0 }, top = M.items[0];
+      a.mimTurn = (a.mimTurn || 0) + 1;
+      if (a.mimTurn % 3 === 0 && (top || M.n)) a.q.push({ go: "bossv", st: "รายงานพอร์ตให้บอส" }, { say: top ? `บอสคะ วันนี้มี ${M.items.length} เรื่องค่ะ เรื่องแรก: ${top.t}` : `บอสคะ พอร์ต ${M.n} ตัวยังอยู่ในแผนค่ะ ไม่มีเรื่องต้องทำ`, wait: 4200 }, { go: a.home, st: "กลับโต๊ะเลขา" });
+      else a.q.push({ go: a.home, st: M.n ? `ดูพอร์ตของบอส ${M.n} ตัว` : "รอบอสบันทึกหุ้นที่ถือ" }, { say: Math.random() < .25 ? (top ? "📝 " + top.t.slice(0, 26) : "☺") : null, wait: 6000 + Math.random() * 6000 });
+      return }
     const r = Math.random();
     if (r < .18) a.q.push({ go: Math.random() < .6 ? "coffee" : "cooler", st: "พักดื่มกาแฟ" }, { say: Math.random() < .5 ? "☕" : "…", wait: 2200 }, { go: a.home, st: "กลับโต๊ะ" });
     else if (r < .24 && a.team === "web") a.q.push({ go: "server", st: "ตรวจเซิร์ฟเวอร์" }, { wait: 1800 }, { go: a.home });
@@ -207,7 +215,12 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode }) {
     R(B, 560, 100, 18, 10, "#C9CDD6"); R(B, 561, 101, 16, 8, "#7FB6FF"); R(B, 590, 104, 14, 5, "#D9B23A"); R(B, 591, 105, 12, 3, "#2B2D3A");
     R(B, 544, 100, 8, 9, "#EDE6D6"); R(B, 544, 98, 8, 2, "#B9B3A0");
     R(B, 506, 120, 14, 40, "#596A85"); R(B, 506, 120, 14, 3, "#6E80A0"); R(B, 507, 128, 12, 1, "#4B5A72"); R(B, 507, 142, 12, 1, "#4B5A72");
-    plant(604, 140, 1);
+    plant(548, 150, 1);
+    // โต๊ะเลขา (มิม): โต๊ะไม้ขาวชมพู แล็ปท็อป แจกันดอกไม้ แฟ้มเอกสาร
+    R(B, 584, 146, 34, 10, "#E9DCCB"); R(B, 584, 146, 34, 2, "#F6EDE0"); R(B, 584, 156, 34, 4, "#C9B8A3"); R(B, 586, 160, 2, 6, "#B9A690"); R(B, 614, 160, 2, 6, "#B9A690");
+    R(B, 597, 141, 10, 6, "#D8DCE6"); R(B, 598, 142, 8, 4, "#F6A9C8"); R(B, 596, 147, 12, 1, "#B8BCC8");
+    R(B, 587, 141, 3, 5, "#BFE3F2"); R(B, 586, 138, 2, 2, "#FF6FA8"); R(B, 589, 137, 2, 2, "#FFD166"); R(B, 588, 139, 1, 2, "#3BA55C");
+    R(B, 610, 142, 6, 4, "#F2CF6B"); R(B, 610, 141, 6, 1, "#E0B84F");
     // ห้องติดตามสัญญาณ (ใต้ห้องประชุม) และห้องงบประกาศ (ใต้ห้องบอส)
     for (const [x0, x1] of [[0, 150], [500, W]]) for (let y = 176; y < 234; y += 10) for (let x = x0; x < x1; x += 10) R(B, x, y, 10, 10, ((x + y) / 10) % 2 ? "#3A2F45" : "#3E3349");
     glassV(150, 172, 234); glassV(500, 172, 234);
@@ -265,16 +278,19 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode }) {
     const x = Math.round(a.x) - 5, y = Math.round(a.y) - 18 + (sit ? 3 : 0), C = (dx, dy, w, h, c) => R(O, x + dx, y + dy, w, h, c);
     if (front) { R(O, x - 2, y + 2, 14, 12, "#1E2030"); R(O, x - 2, y + 2, 14, 2, "#33364A") }
     if (!sit) { O.fillStyle = "rgba(0,0,0,.28)"; O.fillRect(x + 1, y + 17, 9, 2) }
-    const hair = a.hair;
+    const mimS = a.id === "mim";  // มิม: ผมยาวสีน้ำตาลเข้ม โบว์ชมพู แก้มชมพู เสื้อสีชมพู
+    const hair = mimS ? "#4A2A1E" : a.hair; if (mimS) { a.skin = "#F7D7BE"; a.style = 1; a.glasses = false }
     C(2, 0, 6, 2, hair); C(1, 1, 8, 1, hair);
     if (back) { C(1, 2, 8, 4, hair) }
     else { C(2, 2, 6, 4, a.skin); C(1, 2, 1, a.style === 1 ? 6 : 2, hair); C(8, 2, 1, a.style === 1 ? 6 : 2, hair); C(2, 2, 6, 1, hair);
       C(3, 3, 1, 1, "#1A1A1A"); C(6, 3, 1, 1, "#1A1A1A"); C(4, 5, 2, 1, "#B0705E");
       if (a.glasses) { C(2, 3, 3, 1, "#2B2B33"); C(5, 3, 3, 1, "#2B2B33"); C(3, 3, 1, 1, "#9FD0F0"); C(6, 3, 1, 1, "#9FD0F0") } }
     if (a.style === 2) C(4, -1, 2, 1, hair);
+    if (mimS) { C(0, 2, 1, 8, hair); C(9, 2, 1, 8, hair); C(1, 7, 1, 3, hair); C(8, 7, 1, 3, hair); C(7, -1, 2, 2, "#FF6FA8"); C(6, 0, 1, 1, "#FF9CC4");
+      if (!back) { C(2, 4, 1, 1, "#F4A3B4"); C(7, 4, 1, 1, "#F4A3B4"); C(4, 5, 2, 1, "#D9576E"); C(3, 2, 1, 1, "#1A1A1A"); C(6, 2, 1, 1, "#1A1A1A") } }
     C(4, 6, 2, 1, a.skin);
-    const body = a.col, dark = shade(body, .72);
-    C(1, 7, 8, 5, body); C(4, 7, 2, 1, a.id === "boss" ? "#F2F2F2" : shade(body, 1.25));
+    const body = mimS ? "#F07AAE" : a.col, dark = shade(body, .72);
+    C(1, 7, 8, 5, body); C(4, 7, 2, 1, a.id === "boss" ? "#F2F2F2" : mimS ? "#FFF3F8" : shade(body, 1.25));
     if (a.id === "boss") { C(4, 8, 2, 4, "#C33F38"); C(1, 7, 2, 5, "#1A1C26"); C(7, 7, 2, 5, "#1A1C26") }
     if (a.team === "data") C(2, 9, 1, 2, "#F2EEDF");
     const typing = sit && back && a.cur && !a.cur.go && a.cur.say && ((clock * 8 + a.ph) | 0) % 2;
