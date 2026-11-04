@@ -1383,10 +1383,11 @@ function calib(){if(S.calibData)return S.calibData;const C=calibNew();for(const 
 // ผลจริงของสัญญาณตามระบบที่ออกไปแล้ว เทียบกับผลทดสอบย้อนหลัง — ตัวชี้ว่าระบบยังได้ผลกับตลาดตอนนี้หรือไม่
 function sysFwdCard(C){const F=C.fwdSys;if(!F)return "";const M=F.M||{},bm=C.baseM||{};
   const col=m=>{const r=M[m],b=bm[m];if(!r)return `<div class="sysm"><b>${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</b><span class="muted">ยังไม่มีสัญญาณที่บันทึกไว้</span></div>`;
-    const w=r.closed?r.win/r.closed*100:null,a=r.closed?r.sum/r.closed:null,ok=r.closed>=20?(w>=75&&a>0):null;
-    return `<div class="sysm"><b>${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} ${ok==null?`<span class="pill sm p-hold">ไม้ยังน้อย</span>`:ok?`<span class="pill sm p-buy">ตรงกับ backtest</span>`:`<span class="pill sm p-sell">ต่ำกว่า backtest</span>`}</b>
+    // ตัดสินเมื่อปิดแล้ว ≥ 30 ไม้: กำไรเฉลี่ยต้องเป็นบวก และอัตราชนะไม่ต่ำกว่า backtest ช่วงทดสอบเกิน 12 จุด
+    const w=r.closed?r.win/r.closed*100:null,a=r.closed?r.sum/r.closed:null,ok=r.closed>=30?(a>0&&(!b?.oos?.n||w>=b.oos.win-12)):null;
+    return `<div class="sysm"><b>${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} ${ok==null?`<span class="pill sm p-hold">ไม้ยังน้อย (${r.closed||0}/30)</span>`:ok?`<span class="pill sm p-buy">ตรงกับ backtest</span>`:`<span class="pill sm p-sell">ต่ำกว่า backtest</span>`}</b>
      <div class="num">${r.closed?`ปิดแล้ว ${r.closed} ไม้ · ชนะ ${w.toFixed(0)}% · เฉลี่ย ${pct(a,2)} ต่อไม้`:"ยังไม่มีไม้ที่ปิด"}</div>
-     <div class="muted" style="font-size:12.5px">สัญญาณ ${r.sig} · ได้ของ ${r.filled} · ยังถือ/รอ ${r.open} · ขายกำไร ${r.tp} · ตัดขาดทุน ${r.sl} · ครบเวลา ${r.time}${b?.oos?.n?` · backtest ชนะ ${b.oos.win.toFixed(0)}% เฉลี่ย ${pct(b.oos.avg,2)}`:""}</div>
+     <div class="muted" style="font-size:12.5px">สัญญาณ ${r.sig} · ได้ของ ${r.filled} · ยังถือ/รอ ${r.open} · ขายกำไร ${r.tp} · ขายบางส่วนแล้วออกที่ทุน ${r.tp1||0} · ตัดขาดทุน ${r.sl} · ครบเวลา ${r.time}${b?.oos?.n?` · backtest ชนะ ${b.oos.win.toFixed(0)}% เฉลี่ย ${pct(b.oos.avg,2)}`:""}</div>
      ${r.recent?.length?`<div class="muted num" style="font-size:12px">ล่าสุด: ${r.recent.slice(-6).reverse().map(([s,d,x,h])=>`${esc(dsym(s))} <span class="${cls(x)}">${pct(x,1)}</span>`).join(" · ")}</div>`:""}</div>`};
   return `<section class="card"><div class="card-h"><div><h2>ผลจริงของสัญญาณตามระบบ (ติดตามไปข้างหน้า)</h2><div class="sub-t">ทุกสัญญาณที่เว็บออกตั้งแต่ ${F.first?thDate(F.first):"–"} ใช้ราคาตั้งซื้อ/TP/SL ของวันนั้นจริง ไม่แก้ย้อนหลัง · ตัดสินเมื่อปิดครบ 20 ไม้ขึ้นไป</div></div></div><div class="sysg">${col("TH")}${col("US")}</div></section>`}
 function fwdCard(C){const F=C.fwd;if(!F)return "";const h5=F.H?.[5]||[],h20=F.H?.[20]||[],n5=h5.reduce((a,b)=>a+b.n,0);

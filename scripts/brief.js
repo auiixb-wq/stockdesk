@@ -232,6 +232,11 @@ async function article() {
   P("สิ่งที่ต้องติดตาม", [], [ern.length ? `ประกาศงบ${weekend ? "สัปดาห์หน้า" : live ? "วันทำการถัดไป" : "วันนี้"}: ${ern.map(o => { const fq = SUM[o.i.s]?.fq; return `${name(o.i.s)}${weekend ? ` ${o.d.slice(8)}/${o.d.slice(5, 7)}` : ""}${fq && fq[1] != null ? ` (ไตรมาสก่อนกำไร ${sg1(fq[1])} YoY)` : ""}` }).join(", ")}` : null, ...ahead.map(o => `${o.c}: ${head(o.x)}`)]);
   // หุ้นตามสัญญาณระบบ
   const nSig = Object.entries(SUM).filter(([s, v]) => v.sy && !v.sy[5] && U.find(i => i.s === s && i.m === MK)).length, pSig = prevS?.sig;
+  // ผลจริงเทียบผลทดสอบ (รายสัปดาห์: ฉบับวันจันทร์และฉบับสุดสัปดาห์) · ตัดสินเมื่อปิดแล้ว ≥ 30 ไม้
+  const wd = new Date(today + "T12:00:00Z").getUTCDay();
+  if (weekend || (!live && wd === 1)) { const F = CAL.fwdSys?.M?.[MK], bt = CAL.baseM?.[MK]?.oos;
+    if (F) { const w = F.closed ? F.win / F.closed * 100 : null, a = F.closed ? F.sum / F.closed : null, ok = F.closed >= 30 ? (a > 0 && (!bt?.n || w >= bt.win - 12)) : null;
+      P("ผลจริงเทียบผลทดสอบ (รายสัปดาห์)", [F.closed ? `สัญญาณที่ปิดแล้ว ${F.closed} ไม้ ชนะ ${w.toFixed(0)}% เฉลี่ย ${sg(a)} ต่อไม้${bt?.n ? ` เทียบผลทดสอบย้อนหลัง ชนะ ${bt.win.toFixed(0)}% เฉลี่ย ${sg(bt.avg)}` : ""} · ${ok == null ? `ยังไม่ถึง 30 ไม้ ยังสรุปไม่ได้` : ok ? "ผลจริงยังสอดคล้องกับผลทดสอบ ระบบยังใช้ได้" : "ผลจริงต่ำกว่าผลทดสอบชัดเจน ควรลดขนาดไม้และรอระบบเรียนรู้ปรับค่า"}` : `ยังไม่มีไม้ที่ปิด (สัญญาณ ${F.sig} ได้ของ ${F.filled})`], []) } }
   if (!live) { const sgL = signals(), F = CAL.fwdSys?.M?.[MK], rec = (F?.recent || []).slice(-3).reverse();
     if (sgL.length) P("หุ้นที่ระบบให้สัญญาณซื้อ", [`วันนี้มีสัญญาณ ${nSig} ตัว${pSig != null ? ` (ฉบับก่อน ${pSig} ตัว ${nSig > pSig ? "หุ้นเข้าเงื่อนไขมากขึ้น" : nSig < pSig ? "หุ้นเข้าเงื่อนไขน้อยลง" : "เท่าเดิม"})` : ""} ระบบตั้งซื้อตอนราคาย่อ เรียงตามความแข็งกว่าตลาด · ถ้าราคาไม่ลงมาถึงจุดตั้งซื้อถือว่าไม่ได้ซื้อ ไม่ต้องไล่ราคา`,
       F?.closed ? `ผลจริงของสัญญาณที่ติดตาม: ปิดแล้ว ${F.closed} ไม้ ชนะ ${F.win} ไม้ เฉลี่ย ${sg(F.sum / F.closed)} ต่อไม้${rec.length ? ` · ล่าสุด ${rec.map(r => `${name(r[0])} ${sg1(r[2])}`).join(", ")}` : ""}` : `ผลจริงของสัญญาณที่ติดตาม: ยังไม่มีไม้ที่ปิด (รอได้ของ ${F?.open ?? 0} ไม้)`], sgL) }
