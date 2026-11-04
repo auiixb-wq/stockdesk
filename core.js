@@ -91,7 +91,8 @@ const TF_RULES={W:{TH:{noTrade:true,tp1:null,e200:false,warm:60},US:{tp:8,sl:4,s
   "15m":{TH:{st:false,noTrade:true,tp1:null,e200:false},US:{vol:.5,noTrade:true,tp1:null}}};
 const TF_LABEL={"15m":"15 นาที","1H":"1 ชม.","4H":"4 ชม.",D:"วัน",W:"สัปดาห์"},TF_UNIT={"15m":"แท่ง 15 นาที","1H":"ชั่วโมง","4H":"แท่ง 4 ชม.",D:"วันทำการ",W:"สัปดาห์"};
 // S.tuned = กติกาที่ระบบเรียนรู้เองจากการทดสอบรายคืน (data/learn.json) ใช้เฉพาะแบบเน้นอัตราชนะ และเฉพาะกรอบรายวัน
-const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(RULES.preset!=="edge"&&S.tuned?.[m]?.rules||{}),...(tf!=="D"&&TF_RULES[tf]?.[m]||{})});
+// S.lab = กลยุทธ์ที่ห้องทดลองรับรองแล้ว (ผ่าน backtest 4 ปีทั้งช่วงสร้างและช่วงทดสอบ 2 สัปดาห์ติด · data/hist/lab.json) ใช้กับกรอบรายวัน
+const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(RULES.preset!=="edge"&&S.tuned?.[m]?.rules||{}),...(tf==="D"&&RULES.preset!=="edge"&&S.lab?.adopt?.[m]?.rules||{}),...(tf!=="D"&&TF_RULES[tf]?.[m]||{})});
 const PRESETS={win:{preset:"win"},edge:{preset:"edge"}};const RULES0={...RULES};
 const volOK=(I,i,P)=>P.vol==null||(I.atr[i]||0)/I.c[i]*100>=P.vol;
 // จุดเกิดสัญญาณ: คะแนนเพิ่งข้าม thr หรือ (คะแนน ≥ thr และย่อสั้นแรง RSI(2) < dip) — รอบ 5: ได้ไม้ ~1.5–2 เท่า ชนะและกำไรต่อไม้เท่าเดิม
@@ -104,7 +105,11 @@ function rsiTrigger(c,n,p,T){if(n<p+1)return null;let g=0,l=0;for(let i=1;i<=p;i
 // สัญญาณต้องมาจากแท่งที่ปิดแล้วเท่านั้น เหมือนการทดสอบย้อนหลัง
 function barLive(m,t){try{const p=new Intl.DateTimeFormat("en-CA",{timeZone:m==="TH"?"Asia/Bangkok":"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hourCycle:"h23"}).formatToParts(new Date()),g=k=>p.find(x=>x.type===k)?.value;
   return t===`${g("year")}-${g("month")}-${g("day")}`&&+g("hour")*60+ +g("minute")<(m==="TH"?1000:960)}catch{return false}}
-const sysTrig=(a,I,i,P)=>a[i]>=P.thr&&(a[i-1]<P.thr||(P.dip!=null&&(r2Of(I)[i]??99)<P.dip));
+// จุดเข้าแบบรูปกราฟ (ห้องทดลองกลยุทธ์ของฝ่ายเทคนิค): brk = ปิดทะลุจุดสูงสุด 20 แท่งก่อนหน้า · pb = ย่อแตะ EMA20 ในขาขึ้นแล้วปิดเหนือ
+const hiN=(I,i,n)=>{let m=-Infinity;for(let k=Math.max(0,i-n);k<i;k++)m=Math.max(m,I.h[k]);return m};
+const sysTrig=(a,I,i,P)=>P.trig==="brk"?a[i]>=P.thr&&I.c[i]>hiN(I,i,20)&&I.c[i-1]<=hiN(I,i-1,20)
+  :P.trig==="pb"?a[i]>=P.thr&&I.e20[i]!=null&&I.e20[i]>I.e50[i]&&I.l[i]<=I.e20[i]&&I.c[i]>I.e20[i]
+  :a[i]>=P.thr&&(a[i-1]<P.thr||(P.dip!=null&&(r2Of(I)[i]??99)<P.dip));
 // จุดตัดขาดทุน = ราคาซื้อ − sl×ATR แต่ไม่ห่างเกิน slCap (ไทย 8% / สหรัฐฯ 12%) — รอบ 6: ยังชนะ 80%+ ไม้ที่เจ็บหนักลดลงมาก
 const slOf=(en,atr,P)=>P.slP?en*(1-P.slP):P.slCap?Math.max(en-P.sl*atr,en*(1-P.slCap)):en-P.sl*atr;
 // ปัดราคาจุดตัดขาดทุนตามช่องราคา: ถ้าชนเพดาน % ปัดเข้าหาราคาซื้อ เพื่อไม่ให้เกินเพดาน

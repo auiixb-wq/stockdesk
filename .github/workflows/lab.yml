@@ -1,0 +1,40 @@
+name: strategy-lab
+# ห้องทดลองกลยุทธ์ของฝ่ายเทคนิค: ทุกวันอาทิตย์ ลองกลยุทธ์ใหม่ ~200 แบบต่อตลาด backtest 4 ปีด้วยเครื่องคำนวณของหน้าเว็บ
+# ผล → data/hist/lab.json (branch hist) · แบบที่ชนะกลยุทธ์ปัจจุบันทั้งช่วงสร้างและช่วงทดสอบ 2 สัปดาห์ติดจะถูกใช้จริง
+on:
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: update-data
+  cancel-in-progress: false
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Data
+        run: |
+          mkdir -p data/hist
+          git fetch origin gh-pages --depth=1 && git show origin/gh-pages:data/universe.json > data/universe.json && (git show origin/gh-pages:data/calib.json > data/calib.json || true)
+          git fetch origin hist --depth=1 && git --work-tree=data/hist checkout origin/hist -- . && git reset -q
+      - name: Backtest candidates (4 years)
+        run: node --max-old-space-size=6000 scripts/lab.js data ALL
+      - name: Save lab.json to branch hist
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp data/hist/lab.json /tmp/lab.json
+          for k in 1 2 3; do
+            rm -rf _h && git clone -q --depth=1 -b hist "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" _h
+            cp /tmp/lab.json _h/lab.json && cd _h && git add lab.json
+            git -c user.name="stockdesk-bot" -c user.email="actions@users.noreply.github.com" commit -qm "lab $(date -u +%F)" && git push -q origin hist && exit 0
+            cd .. && sleep 15
+          done
+          exit 1

@@ -21,6 +21,7 @@ S.universe = uni.items;
 }
 S.quotes = quotes;
 const learn = load("data/learn.json", { tuned: {}, lead: {}, events: [], market: {} });
+S.lab = load("data/hist/lab.json", null);  // กลยุทธ์ที่ห้องทดลองรับรองแล้ว (rulesFor ใช้กับกรอบรายวัน)
 S.tuned = learn.tuned || {};
 // งบจาก .info (ละเอียด) ก่อน ถ้าไม่มีใช้ P/E และปันผลจากตัวคัดกรอง
 S.fundLive = { ...Object.fromEntries(uni.items.filter(i => i.pe != null || i.dy != null).map(i => [i.s, { pe: i.pe, dy: i.dy }])), ...fund };

@@ -138,7 +138,7 @@ function peerCard(R){const st=R.st,P=S.peer?.[st.s];if(P===undefined){loadPeer(s
   const bar=(k,l)=>{const v=P.sc?.[k];return `<div class="pc-b"><span>${l}</span><i><b style="width:${v??0}%;background:${v>=60?"var(--up)":v<=40?"var(--down)":"var(--warn)"}"></b></i><em class="num">${v??"–"}</em></div>`};
   const fmtM=(k,v)=>v==null?"–":["pe","pb","evebitda","de","cc"].includes(k)?(+v).toFixed(2)+"×":(+v).toFixed(1)+"%";
   const rows=PK.filter(([k])=>P.met?.[k]!=null||G[k]).map(([k,l])=>{const g=G[k],v=P.met?.[k],r=P.rk?.[k];return `<tr><td>${l}</td><td class="r num"><b>${fmtM(k,v)}</b></td><td class="r num muted">${g?`${fmtM(k,g[1])} – ${fmtM(k,g[3])}`:"–"}</td><td class="r num">${g?fmtM(k,g[2]):"–"}</td><td class="r num ${r>=60?"up":r<=40?"down":""}">${r??"–"}</td></tr>`}).join("");
-  return `<section class="card pcard"><div class="card-h"><div><h2>ฝ่ายพื้นฐาน: เทียบกับทั้งกลุ่ม</h2><div class="sub-t">เทียบกับ ${nm??"–"} บริษัทในกลุ่ม ${esc(P.g.replace(/^(TH|US):/,""))} (ตลาดเดียวกัน) · งบ${P.basis==="ttm"?" 4 ไตรมาสล่าสุด":"ปีล่าสุด"} ถึง ${P.last?thDate(P.last):"–"}</div></div></div>
+  return `<section class="card pcard"><div class="card-h"><div><h2>ฝ่ายพื้นฐาน: เทียบกับทั้งกลุ่ม</h2><div class="sub-t">เทียบกับ ${nm??"–"} บริษัทในกลุ่ม ${esc((SECTORS[P.sec]?.th||P.sec)+({bank:" (ธนาคาร)",insur:" (ประกัน)",finco:" (สินเชื่อ/การเงินอื่น)",reit:" (REIT/กองทุนอสังหาฯ)",dev:" (พัฒนาอสังหาฯ)"}[P.sub]||""))} (ตลาดเดียวกัน) · งบ${P.basis==="ttm"?" 4 ไตรมาสล่าสุด":"ปีล่าสุด"} ถึง ${P.last?thDate(P.last):"–"}</div></div></div>
     <p class="pc-v"><b>${esc(P.v||"")}</b></p>
     <div class="pc-bars">${PM.map(([k,l])=>bar(k,l)).join("")}</div><p class="muted" style="font-size:12px;margin:2px 0 8px">คะแนน 0–100 เทียบในกลุ่ม (50 = กลางกลุ่ม) · ความถูก สูง = ราคาถูกกว่ากลุ่ม</p>
     ${fv.base?`<div class="pc-fv"><div><span class="muted">มูลค่าเหมาะสมเทียบกลุ่ม</span><div class="num"><b>${c}${fmt(fv.base)}</b> <span class="${fv.up>=0?"up":"down"}">(${pct(fv.up,0)} จากราคา)</span></div><div class="muted num" style="font-size:12.5px">กรณีแย่ ${c}${fmt(fv.bear)} · กรณีดี ${c}${fmt(fv.bull)} · ความมั่นใจ ${fv.conf==="high"?"สูง":fv.conf==="mid"?"กลาง":"ต่ำ"}</div></div>
@@ -315,6 +315,30 @@ function marketCard(mk){const H=S.learn?.market?.[mk];if(!H?.length)return "";co
    </div>
    <div class="mc-sec"><div><h3>กลุ่มแข็ง (20 วัน)</h3>${r.top.map(sbar).join("")}</div><div><h3>กลุ่มอ่อน (20 วัน)</h3>${r.bot.map(sbar).join("")}</div><div><h3>สัดส่วนเหนือเส้น 200 วัน (60 วัน)</h3>${spark}</div></div></section>`}
 // สถานะการเรียนรู้ของระบบ (หน้าความแม่นยำ)
+// ห้องทดลองกลยุทธ์ของฝ่ายเทคนิค (scripts/lab.js ทุกวันอาทิตย์ · data/hist/lab.json)
+const LAB_K={trig:"จุดเข้า",vol:"แกว่งขั้นต่ำ %",adx:"ADX >",rs:"แข็งกว่าตลาด %",e200:"เหนือ EMA200",st:"เหนือ Supertrend",lim:"ตั้งซื้อต่ำกว่าปิด (ATR)",ld:"ค้างคำสั่ง (วัน)",sl:"SL (ATR)",tp1:"TP1 (ATR)",tp1f:"ขายที่ TP1",tp:"TP2 (ATR)",hold:"ถือ (วัน)",dip:"RSI(2) <"};
+const labCh=ch=>Object.entries(ch||{}).map(([k,v])=>`${LAB_K[k]||k} ${k==="trig"?(v==="brk"?"ทะลุกรอบ 20 วัน":v==="pb"?"ย่อแตะ EMA20":"คะแนนตามระบบ"):v===true?"ใช่":v===false?"ไม่ต้อง":k==="tp1f"?v*100+"%":v}`).join(" · ")||"ค่าเดิม";
+function labCard(){const L=S.lab;if(!L?.runs?.length)return `<section class="card"><h2>ห้องทดลองกลยุทธ์ (ฝ่ายเทคนิค)</h2><p class="muted">ยังไม่ได้รันรอบแรก · รันอัตโนมัติทุกวันอาทิตย์</p></section>`;
+  const st=s=>`${s.n} ไม้ · ชนะ ${s.win}% · ${pct(s.avg,2)}/ไม้`;
+  const col=m=>{const r=L.runs.find(x=>x.m===m);if(!r)return "";const A=L.adopt?.[m],Pn=L.pending?.[m];
+    return `<div class="sysm"><b>${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</b> ${A?`<span class="pill sm p-buy">ใช้กลยุทธ์จากห้องทดลอง ตั้งแต่ ${thDate(A.since)}</span>`:Pn?`<span class="pill sm p-hold">พบแบบที่ดีกว่า รอยืนยันสัปดาห์หน้า</span>`:`<span class="pill sm">ยังใช้กลยุทธ์เดิม</span>`}
+     <div class="muted" style="font-size:12.5px">รอบ ${thDate(r.d)}: ลอง ${r.n} แบบ ผ่านเกณฑ์ ${r.pass} แบบ · ที่ใช้อยู่: ช่วงสร้าง ${st(r.cur.build)} · ช่วงทดสอบ ${st(r.cur.test)}</div>
+     ${A?`<div style="font-size:13px">ใช้อยู่: ${esc(labCh(A.rules))}</div>`:""}${Pn?`<div style="font-size:13px">รอยืนยัน: ${esc(labCh(Pn.ch))} · ช่วงทดสอบ ${st(Pn.test)}</div>`:""}
+     <details><summary class="muted">5 แบบที่ดีที่สุดรอบนี้</summary><div class="tscroll"><table class="wide"><thead><tr><th>เปลี่ยนจากที่ใช้อยู่</th><th class="r">ช่วงสร้าง</th><th class="r">ช่วงทดสอบ</th><th>ผ่าน</th></tr></thead><tbody>${r.top.slice(0,5).map(t=>`<tr><td style="font-size:12.5px">${esc(labCh(t.ch))}</td><td class="r num" style="font-size:12.5px">${st(t.build)}</td><td class="r num" style="font-size:12.5px">${st(t.test)}</td><td>${t.ok?"✓":"–"}</td></tr>`).join("")}</tbody></table></div></details></div>`};
+  return `<section class="card"><div class="card-h"><div><h2>ห้องทดลองกลยุทธ์ (ฝ่ายเทคนิค)</h2><div class="sub-t">ทุกวันอาทิตย์ ฝ่ายเทคนิคลองกลยุทธ์ใหม่ราว 200 แบบต่อตลาด (ตัวกรองแนวโน้ม · จุดเข้าแบบคะแนน ทะลุกรอบ หรือย่อแตะ EMA20 · ทางออก 2 ขั้น) ทุกแบบต้อง backtest 4 ปี (${L.window?`${thDate(L.window.from)} – ${thDate(L.window.to)} · ทดสอบตั้งแต่ ${thDate(L.window.split)}`:""}) ด้วยเครื่องคำนวณเดียวกับหน้าเว็บ · ใช้จริงเมื่อดีกว่าที่ใช้อยู่ทั้งอัตราชนะและกำไรต่อไม้ ทั้งสองช่วง 2 สัปดาห์ติด · ถ้าใช้แล้วผลจริงขาดทุนจะถอดออกเอง</div></div></div>
+   ${["TH","US"].map(col).join("")}</section>`}
+// การ์ดหน้าแรก: สิ่งที่ฝ่ายเทคนิคและฝ่ายพื้นฐานอยากให้รู้
+function deskHomeCard(mk){const F=S.calibData?.fwdSys?.M?.[mk]||S.calib?.fwdSys?.M?.[mk],bt=(S.calibData||S.calib)?.baseM?.[mk],L=S.lab,r=L?.runs?.find(x=>x.m===mk),A=L?.adopt?.[mk];
+  const w=F?.closed?F.win/F.closed*100:null,a=F?.closed?F.sum/F.closed:null,ok=F?.closed>=30?(a>0&&(!bt?.oos?.n||w>=bt.oos.win-12)):null;
+  const PI=S.peerIdx?.s,cheap=PI?Object.entries(PI).filter(([s,v])=>stockBySym(s)?.m===mk&&v[5]==="high"&&v[3]>=75&&v[0]>=60&&(v[4]??0)>=15).sort((x,y)=>(y[1][4]??0)-(x[1][4]??0)).slice(0,6):null;
+  if(!PI&&!S._peerIdxLoading){S._peerIdxLoading=1;J("data/peer_index.json").then(x=>{if(x){S.peerIdx=x;if(route().v==="home")render()}})}
+  return `<section class="card"><div class="card-h"><div><h2>จากทีมวิเคราะห์</h2><div class="sub-t">สิ่งที่ฝ่ายเทคนิคและฝ่ายพื้นฐานตรวจพบล่าสุด</div></div><a class="btn ghost sm" href="#accuracy">ดูทั้งหมด →</a></div>
+   <ul class="br-ul">
+    <li><b>ระบบซื้อขาย${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}:</b> ${bt?.oos?.n?`ผลทดสอบย้อนหลัง ชนะ ${bt.oos.win.toFixed(0)}% เฉลี่ย ${pct(bt.oos.avg,2)}/ไม้`:""} · ผลจริง ${F?.closed?`ปิดแล้ว ${F.closed} ไม้ ชนะ ${w.toFixed(0)}% เฉลี่ย ${pct(a,2)}`:"ยังไม่มีไม้ที่ปิด"} ${ok==null?`(รอครบ 30 ไม้)`:ok?"→ สอดคล้องกับผลทดสอบ":"→ ต่ำกว่าผลทดสอบ ควรลดขนาดไม้"}</li>
+    <li><b>ห้องทดลองกลยุทธ์:</b> ${r?`รอบ ${thDate(r.d)} ลอง ${r.n} แบบ ผ่าน ${r.pass} แบบ · ${A?`ใช้กลยุทธ์ใหม่ตั้งแต่ ${thDate(A.since)}`:L.pending?.[mk]?"มีแบบที่ดีกว่า รอยืนยันสัปดาห์หน้า":"กลยุทธ์ที่ใช้อยู่ยังดีที่สุด"}`:"รันรอบแรกวันอาทิตย์นี้"}</li>
+    ${mk==="TH"?`<li><b>ตัวกรองจากการตรวจรายหุ้น:</b> ไม่ให้สัญญาณหุ้นเล็ก (มูลค่าตลาด &lt; 5 พันล้าน) และหุ้นที่แกว่งน้อยกว่า 2.2% ต่อวัน เพราะทดสอบแล้วขาดทุน/ไม่คุ้มค่าคอม</li>`:""}
+    ${cheap?.length?`<li><b>ฝ่ายพื้นฐาน · ถูกกว่ากลุ่มและคุณภาพดี (ความมั่นใจสูง):</b> ${cheap.map(([s,v])=>`<a href="#s-${esc(s)}">${esc(dsym(s))}</a> <span class="up">+${Math.round(v[4])}%</span>`).join(" · ")} <span class="muted">(ห่างจากมูลค่าเหมาะสมเทียบกลุ่ม · ตรวจงบในแท็บ "เทียบกลุ่ม" ก่อน)</span></li>`:""}
+   </ul></section>`}
 function learnCard(){const L=S.learn;if(!L)return "";const w=s=>Math.min(s.is.avg,s.oos.avg);
   const col=m=>{const t=L.tuned?.[m],ld=L.lead?.[m];return `<div class="sysm"><b>${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}</b> ${t?`<span class="pill sm p-buy">ใช้กติกาที่เรียนรู้เอง ตั้งแต่ ${thDate(t.since)}</span>`:`<span class="pill sm p-hold">ใช้กติกาตั้งต้น</span>`}
     <div class="muted" style="font-size:12.5px">${t?`${esc(t.key)} · กำไรต่อไม้ ${pct(w(t.before),2)} → ${pct(w(t.after),2)}`:""}${ld?.key?`${t?"<br>":""}แบบที่ดีกว่ากำลังพิสูจน์: ${esc(ld.key)} · ชนะ ${ld.is.win.toFixed(0)}/${ld.oos.win.toFixed(0)}% · กำไร ${pct(w(ld),2)}/ไม้ · ชนะแบบเดิมมา ${ld.days}/5 คืน`:`${t?"<br>":""}คืนล่าสุดยังไม่พบแบบที่ดีกว่าอย่างมีนัยสำคัญ`}</div></div>`};
@@ -345,6 +369,7 @@ function vHome(){
     <div class="hx-r"><div class="clk" id="clk" aria-live="off">${clockHTML()}</div>${MK==="TH"?idx("set","SET Index")+idx("gold","ทองคำ (US$/ออนซ์)"):idx("spx","S&P 500")+idx("ndx","Nasdaq")}</div>
   </section>
   ${marketCard(MK)}
+  ${deskHomeCard(MK)}
   ${S.live?"":sampleNotice()}
   ${fav.length?`<section><div class="sh"><h2>รายการโปรด</h2></div><div class="rail">${fav.map(card).join("")}</div></section>`:""}
   ${lsGet("introDone")?"":introCard()}
@@ -597,6 +622,7 @@ function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),fromE=v=>pct((v/
       <details class="vcalc"><summary>ควรซื้อกี่หุ้น</summary><div class="calc" style="margin-top:8px"><label class="field">เงินลงทุน (${c})<input id="capIn" type="number" min="0" step="1000" value="${lsGet("cap")||100000}"></label><label class="field">ยอมเสี่ยงต่อไม้ (%)<input id="riskIn" type="number" min="0.1" max="10" step="0.1" value="${lsGet("risk")||1}"></label></div><dl id="calcOut" class="kv" style="margin-top:8px"></dl></details></div>
   </section>
   ${decisionCard(R)}
+  ${(()=>{const P=S.peer?.[R.st.s];if(P===undefined){loadPeer(R.st.s);return ""}if(!P)return "";const fv=P.fv||{};return `<section class="card pc-mini"><b>ฝ่ายพื้นฐาน:</b> ${esc(P.v||"")}${fv.base?` · มูลค่าเหมาะสมเทียบกลุ่ม <b class="num">${cur(R.st.m)}${fmt(fv.base)}</b> <span class="${fv.up>=0?"up":"down"}">(${pct(fv.up,0)})</span>`:""}${P.mem?.[0]?`<br><span class="muted">${esc(P.mem[0])}</span>`:""} <button class="btn ghost sm" data-tab="peers">ดูเทียบกลุ่ม →</button></section>`})()}
   ${posCard(R)}
   ${sysStockCard(R)}
   ${thesisCard(R)}
@@ -935,8 +961,8 @@ async function loadHist(syms){const need=syms.filter(s=>{const st=stockBySym(s);
   if(!document.querySelector("input:focus,details[open]"))render()}
 async function loadAll(){
   // ราคาย้อนหลังของทุกหุ้น (รวมหุ้นหลัก) โหลดเมื่อเปิดดู จึงไม่ต้องโหลด prices.json ตอนเริ่ม
-  const [[fund,macro,news,man,uni0,sum,cal,rsq,lrn,sr,bf,sst,ag],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json","data/learn.json","data/signals_round.json","data/brief.json","data/sector_stats.json","data/agents.json"].map(J)),getLive()]);
-  if(lrn){S.learn=lrn;S.tuned=lrn.tuned||{}}if(sr)S.sigRound=sr;if(bf)S.briefs=bf.items||[];if(sst)S.secStats=sst;if(ag&&(ag.updated||0)>(S.agents?.updated||0))S.agents=ag;
+  const [[fund,macro,news,man,uni0,sum,cal,rsq,lrn,sr,bf,sst,ag,lab],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json","data/learn.json","data/signals_round.json","data/brief.json","data/sector_stats.json","data/agents.json"].map(J).concat([J(HIST+"lab.json")])),getLive()]);
+  if(lrn){S.learn=lrn;S.tuned=lrn.tuned||{}}if(sr)S.sigRound=sr;if(bf)S.briefs=bf.items||[];if(sst)S.secStats=sst;if(lab)S.lab=lab;if(ag&&(ag.updated||0)>(S.agents?.updated||0))S.agents=ag;
   const uni=uni0||await J("data/universe.json"),px=null;
   if(cal&&cal.updated!==S.calibData?.updated){S.calibData=cal;S.calib=null}
   if(rsq){S.rsq=rsq;S._rsqIdx=null}
@@ -1447,6 +1473,7 @@ function vAccuracy(){
     <tr><td><b>ซื้อตอนย่อ (RSI 2)</b><div class="mean">แข็งกว่าตลาด 70% · ราคาเหนือ SMA200 และ RSI(2) &lt; 5 · ขายเมื่อปิดเหนือ SMA10 หรือ 15 วัน · SL 3 ATR</div></td>${sRow(C.pb.is)}${sRow(C.pb.oos)}<td class="muted" style="font-size:12px">แสดงในหน้าหุ้นทุกตัว</td></tr>
     ${C.hiwin.map(r=>`<tr><td><b>ตามคะแนนเทคนิค</b><div class="mean">${fmtG(r.g)}</div></td>${sRow(r.is)}${sRow(r.oos)}<td></td></tr>`).join("")}</tbody></table></div>
    <p class="foot" style="margin:10px 0 0">ระบบที่ชนะบ่อยจะได้กำไรต่อไม้น้อย และเวลาแพ้จะเสียมากกว่าตอนชนะ (SL ไกลกว่า TP) ห้ามเลื่อน SL ออกไปอีก และควรเสี่ยงไม่เกิน 1–2% ของเงินต่อไม้ เพราะแพ้ติดกัน 3–4 ไม้ยังเกิดขึ้นได้</p></section>
+  ${labCard()}
   ${learnCard()}
   ${sysFwdCard(C)}
   ${fwdCard(C)}
