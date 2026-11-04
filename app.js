@@ -368,6 +368,7 @@ function vHome(){
       <div class="mbig" role="group" aria-label="เลือกตลาด"><button type="button" data-mkt="TH" aria-pressed="${MK==="TH"}">หุ้นไทย</button><button type="button" data-mkt="US" aria-pressed="${MK==="US"}">หุ้นสหรัฐฯ</button></div><div class="chips" style="margin-top:10px">${mktChip(MK)}</div></div>
     <div class="hx-r"><div class="clk" id="clk" aria-live="off">${clockHTML()}</div>${MK==="TH"?idx("set","SET Index")+idx("gold","ทองคำ (US$/ออนซ์)"):idx("spx","S&P 500")+idx("ndx","Nasdaq")}</div>
   </section>
+  ${mimCard(false)}
   ${marketCard(MK)}
   ${deskHomeCard(MK)}
   ${S.live?"":sampleNotice()}
@@ -539,7 +540,7 @@ function sysStockCard(R){const y=R.sys,bt=R.model?.trades?stats(R.model.trades):
 function posCard(R){const h=holds()[R.st.s];if(!(h?.q>0)||R.last==null||priceIssue(R.st,R.last,h.c))return "";const L=posLevels(R,h.c),p=R.last,k=cur(R.st.m);
   if(!L)return `<section class="card"><h2 style="margin-bottom:4px">หุ้นที่คุณถือ</h2><p class="muted" style="margin:0">ถือ ${h.q.toLocaleString()} หุ้น · ใส่ต้นทุนต่อหุ้นในหน้าโปรด (✎ พอร์ต) เพื่อดูกำไรขาดทุน เป้าขาย และจุดตัดขาดทุนที่คิดจากต้นทุนของคุณ</p></section>`;
   const g=(p/L.c-1)*100,st=planState(R);
-  return `<section class="card"><div class="card-h"><h2>หุ้นที่คุณถือ</h2><span class="pill ${st[1]}">${st[0]}</span></div><div class="stat">
+  return `<section class="card"><div class="card-h"><h2>หุ้นที่คุณถือ</h2><span class="pill ${st[1]}">${st[0]}</span>${!h.st1&&p>=L.tp1&&L.tp2>L.tp1?`<button class="btn sm primary" data-st1="${esc(R.st.s)}">ขายส่วนแรกแล้ว (มิมจะเลื่อน SL มาทุน)</button>`:h.st1?`<span class="pill sm p-buy">ขายส่วนแรกแล้ว · SL อยู่ที่ทุน</span>`:""}</div><div class="stat">
    <div><div class="k">ต้นทุน</div><div class="v num">${k}${fmt(L.c)}</div><div class="s">${h.q.toLocaleString()} หุ้น</div></div>
    <div><div class="k">กำไร/ขาดทุน</div><div class="v num ${cls(g)}">${pct(g,1)}</div><div class="s num">${k}${Math.round((p-L.c)*h.q).toLocaleString()}</div></div>
    <div><div class="k">เป้าขาย</div><div class="v num">${fmt(L.tp1)}</div><div class="s">เป้า 2: ${fmt(L.tp2)}</div></div>
@@ -852,7 +853,7 @@ let curRange=126;
 function render(){queueMicrotask(renderTicker);
   const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",r.v!=="brief"&&b.dataset.mkt===S.mkt));document.querySelector(".mswitch .mbrief")?.setAttribute("aria-pressed",r.v==="brief");document.documentElement.dataset.mkt=S.mkt;document.querySelector('meta[name="theme-color"]')?.setAttribute("content",S.mkt==="US"?"#0F1E3D":"#11261B");document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
   killCharts();
-  $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="brief"?vBrief():r.v==="office"?vOffice():r.v==="sync"?vSync():vHome()}</div>`;
+  $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="brief"?vBrief():r.v==="mim"?vMim():r.v==="office"?vOffice():r.v==="sync"?vSync():vHome()}</div>`;
   if(r.v==="office")mountOffice();else window.Office?.stop();
   if(r.v==="stock"){const st=stockBySym(r.sym);if(st&&hasBars(st)){const R=analyze(st),X=chartR(st);if($("#cMain")){if(X)drawCharts(X,$("#cRsi")?curRange:S.tf==="D"?126:S.tf==="W"?104:140);else $("#cMain").innerHTML=`<div class="empty">${(S.tf==="15m"?S.intra15:S.intra)?.[st.s]===null?"หุ้นนี้ยังไม่มีราคารายชั่วโมง":"กำลังโหลดราคารายชั่วโมง…"}</div>`}calc(R)}}
 }
@@ -863,6 +864,8 @@ document.addEventListener("click",e=>{
   if(t.dataset.mkt){S.mkt=t.dataset.mkt;lsSet("mkt",S.mkt);S.mlimit=60;S.sgl=20;S.nlim=20;S.nq="";S.sec=null;if(route().v==="brief")location.hash="#home";else render();window.scrollTo(0,0)}
   else if(t.dataset.bm){S.bm=t.dataset.bm;S.bed=null;lsSet("bm",S.bm);render()}
   else if(t.dataset.bed){S.bed=t.dataset.bed;render()}
+  else if(t.dataset.mimnotify){try{Notification.requestPermission().then(()=>render())}catch{}}
+  else if(t.dataset.st1){const h=holds(),k=t.dataset.st1;if(h[k]){h[k].st1=1;h[k].q=Math.max(0,Math.round(h[k].q*(1-(rulesFor(stockBySym(k)?.m||"TH").tp1f||.5))));lsSet("hold",h);toast("มิมจำแล้วค่ะ: ขายส่วนแรกแล้ว SL เลื่อนมาที่ทุน");render()}}
   else if(t.dataset.oed){S.oed=t.dataset.oed;render()}
   else if(t.dataset.oflock){lsSet("ofok",null);render()}
   else if(t.dataset.ofgo!=null){S.bed=t.dataset.ofgo;S.bm=t.dataset.ofmk;location.hash="#brief"}
@@ -887,7 +890,7 @@ document.addEventListener("click",e=>{
   else if(t.dataset.allliq){S.allLiq=true;$("#mlist").innerHTML=marketList()}
   else if(t.dataset.secf){S.sec=S.sec===t.dataset.secf?null:t.dataset.secf;S.mlimit=60;render()}
   else if(t.dataset.intro!=null){lsSet("introDone",1);render()}
-  else if(t.dataset.bought){const k=t.dataset.bought,h=holds();h[k]={q:+t.dataset.bq,c:+t.dataset.bc,d:todayISO(),tp:+t.dataset.btp,sl:+t.dataset.bsl,lo:+t.dataset.bsl,hi:+t.dataset.btp};lsSet("hold",h);
+  else if(t.dataset.bought){const k=t.dataset.bought,h=holds();h[k]={q:+t.dataset.bq,c:+t.dataset.bc,d:todayISO(),tp:+t.dataset.btp,t1:+t.dataset.bt1||null,sl:+t.dataset.bsl,lo:+t.dataset.bsl,hi:+t.dataset.btp};lsSet("hold",h);
     if(!S.watch.includes(k)){S.watch.push(k);lsSet("watch",S.watch)}render();toast(`บันทึก ${dsym(k)} เข้าพอร์ตแล้ว · อย่าลืมตั้งขายกำไร ${fmt(+t.dataset.btp)} และตัดขาดทุน ${fmt(+t.dataset.bsl)} ในแอปโบรกเกอร์`)}
   else if(t.dataset.edithold!=null){S.editHold=S.editHold===t.dataset.edithold?null:t.dataset.edithold||null;render();const f=S.editHold&&document.getElementById("hq-"+S.editHold);if(f)f.focus()}
   else if(t.dataset.unfav){toggleFav(t.dataset.unfav)}
@@ -1018,7 +1021,7 @@ const tdBetween=(a,b)=>{if(!a||!b||b<=a)return 0;let k=0;const x=new Date(a+"T12
 const todayISO=()=>new Date().toISOString().slice(0,10);
 function holdDue(R,h){if(!h?.d)return null;const hold=rulesFor(R.st.m).hold,due=addTD(h.d,hold-1);return{due,left:tdBetween(todayISO(),due),over:todayISO()>due}}
 function toast(msg){let el=document.getElementById("toast");if(!el){el=document.createElement("div");el.id="toast";el.setAttribute("role","status");document.body.appendChild(el)}el.textContent=msg;el.className="show";clearTimeout(toast.t);toast.t=setTimeout(()=>el.className="",7000)}
-function posLevels(R,c){const P=R.plan,m=R.st.m,h=holds()[R.st.s];if(h?.tp>0&&h?.sl>0&&c>0)return{c,atr:P?.atr,sl:h.sl,tp1:h.tp,tp2:h.tp,sys:true};if(!P||!(c>0))return null;const RP=rulesFor(m),atr=P.atr||((P.entry??(P.lo+P.hi)/2)-P.sl)/RP.sl;if(!(atr>0))return null;
+function posLevels(R,c){const P=R.plan,m=R.st.m,h=holds()[R.st.s];if(h?.tp>0&&h?.sl>0&&c>0)return{c,atr:P?.atr,sl:h.st1?Math.max(h.sl,h.c):h.sl,tp1:h.t1>0?h.t1:h.tp,tp2:h.tp,sys:true};if(!P||!(c>0))return null;const RP=rulesFor(m),atr=P.atr||((P.entry??(P.lo+P.hi)/2)-P.sl)/RP.sl;if(!(atr>0))return null;
   const tp1=Math.max(rt(c+(RP.tp1||RP.tp)*atr,m,"floor"),rt(c+tick(c),m,"ceil"));return{c,atr,sl:Math.max(slR(c,atr,RP,m),tick(c)),tp1,tp2:Math.max(RP.tp1?rt(c+RP.tp*atr,m,"floor"):Math.max(P.tp2||0,rt(c+1.5*RP.tp*atr,m,"floor")),tp1)}}
 function planState(R){const P=R.plan,p=R.last;if(!P||p==null)return["กำลังโหลด…","p-hold"];const h=holds()[R.st.s];
   const bad=priceIssue(R.st,p,h?.c);if(bad)return["ราคาน่าจะผิด รอข้อมูลใหม่","p-sell"];
@@ -1026,6 +1029,45 @@ function planState(R){const P=R.plan,p=R.last;if(!P||p==null)return["กำล�
     if(p<=L.sl)return[`ต่ำกว่าจุดตัดขาดทุน ${g}`,"p-sell2"];if(p>=L.tp2)return[`ถึงเป้าขาย 2 · ${g}`,"p-buy2"];if(p>=L.tp1)return[`ถึงเป้าขาย · ${g}`,"p-buy"];return[`ถืออยู่ ${g}`,p>=L.c?"p-buy":"p-hold"]}
   // ยังไม่ได้ถือ: มีสัญญาณ = ราคาตั้งซื้อของระบบ · ไม่มี = บอกว่าระบบรออะไร (ไม่ใช้โซนที่เลื่อนตามราคาทุกวัน)
   if(R.sys)return p<=R.sys.lp?["ถึงราคาตั้งซื้อ","p-buy2"]:["ตั้งซื้อ "+fmt(R.sys.lp),"p-buy"];if(R.cond)return p<=R.cond.trig?["ราคาถึงจุดเกิดสัญญาณ (รอปิด)","p-buy"]:["รอปิด ≤ "+fmt(R.cond.trig),"p-hold"];if(P.tone==="sell")return["ยังไม่ควรเข้า","p-sell"];const w=sysWait(R);return[w[0],w[2]?"p-hold":"p-sell"]}
+/* ---------- มิม: เลขาดูแลพอร์ต (ทำงานในเครื่องผู้ใช้ เพราะพอร์ตเก็บไว้ในเบราว์เซอร์นี้เท่านั้น) ----------
+   ทุกครั้งที่เปิดเว็บ มิมไล่ดูหุ้นที่ถือทีละตัว: ถึง SL / TP1 / TP2 · ครบกำหนดถือ · งบจะประกาศ · ข่าวลบ · ขยับแรงวันนี้ · ราคาแพงเกินมูลค่ากลุ่ม
+   แล้วเรียงเป็น "สิ่งที่ต้องทำวันนี้" + แจ้งเตือนผ่านเบราว์เซอร์ (ถ้าอนุญาต) วันละครั้งต่อเรื่อง */
+const MIM_PRI={sl:0,due:1,tp2:2,tp1:3,earn:4,neg:5,move:6,ov:7,sig:8,near:9,conc:10};
+function mimItems(){const h=holds(),out=[],now=Date.now()/1000,fx=thbPerUsd()||36;let tot=0;const val={},secv={};
+  for(const [s,x] of Object.entries(h)){const st=stockBySym(s);if(!st||!(x?.q>0))continue;const R=info(st),p=R.last;if(p==null)continue;const k=st.m==="US"?fx:1,v=p*x.q*k;tot+=v;val[s]=v;secv[st.sec]=(secv[st.sec]||0)+v;
+    const L=x.c>0?posLevels(R,x.c):null,g=x.c>0?(p/x.c-1)*100:null,nm=dsym(s),add=(k,t,d)=>out.push({k,s,t,d});
+    if(L&&p<=L.sl)add("sl",`${nm} ต่ำกว่าจุดตัดขาดทุน ${fmt(L.sl)}`,`ราคา ${fmt(p)} (${pct(g,1)} จากทุน) · ทำตามแผน: ขายตัดขาดทุน อย่ารอให้เด้ง`);
+    else if(L&&L.tp2>L.tp1&&p>=L.tp2)add("tp2",`${nm} ถึง TP2 ${fmt(L.tp2)}`,`กำไร ${pct(g,1)} · ขายส่วนที่เหลือตามแผน`);
+    else if(L&&p>=L.tp1&&!x.st1)add("tp1",`${nm} ถึง TP1 ${fmt(L.tp1)}`,`กำไร ${pct(g,1)} · ขายบางส่วนตามแผน แล้วเลื่อน SL มาที่ทุน ${fmt(x.c)} · กด "ขายส่วนแรกแล้ว" ในหน้าหุ้นเพื่อให้มิมจำ`);
+    const due=x.d?holdDue(R,x):null;if(due?.over)add("due",`${nm} ครบกำหนดถือแล้ว`,`ครบ ${rulesFor(st.m).hold} วันทำการตั้งแต่ ${thDate(x.d)} · ระบบที่ทดสอบไว้ขายที่ราคาปิดเมื่อครบกำหนด`);
+    else if(due&&due.left<=1)add("due",`${nm} จะครบกำหนดถือ${due.left?"พรุ่งนี้":"วันนี้"}`,`ถ้ายังไม่ถึงเป้า ระบบขายที่ราคาปิดวันครบกำหนด (${thDate(due.due)})`);
+    const u=uniOf(s);if(u?.ed){const dd=(u.ed-now)/86400;if(dd>-1&&dd<=3)add("earn",`${nm} จะประกาศงบใน ${Math.max(0,Math.round(dd))} วัน`,`ราคามักกระโดดแรงหลังประกาศงบ (เคยเปิดกระโดดผ่าน SL ได้) · พิจารณาลดขนาดก่อนวันประกาศ`)}
+    const bad=(S.news||[]).filter(n=>(n.tickers||[]).includes(s)&&n.sentiment<0&&(n.tier||3)<=2&&now-(+n.ts||0)<36*3600)[0];if(bad)add("neg",`ข่าวลบของ ${nm}`,nT(bad)||"");
+    if(Math.abs(R.chg||0)>=5)add("move",`${nm} ขยับแรงวันนี้ ${pct(R.chg,1)}`,(()=>{const n=(S.news||[]).find(z=>(z.tickers||[]).includes(s)&&now-(+z.ts||0)<36*3600);return n?`ข่าวล่าสุด: ${nT(n)}`:"ยังไม่พบข่าวที่อธิบาย"})());
+    const P=S.peer?.[s];if(P?.fv?.bull>0&&p>P.fv.bull*1.15)add("ov",`${nm} แพงกว่ามูลค่าเทียบกลุ่มกรณีดี`,`ราคา ${fmt(p)} สูงกว่า ${fmt(P.fv.bull)} · ถ้ากำไรมากแล้วอาจทยอยลดสัดส่วน`)}
+  // หุ้นในรายการโปรดที่เข้าใกล้จุดซื้อของระบบ
+  for(const s of S.watch||[]){if(h[s]?.q>0)continue;const st=stockBySym(s);if(!st)continue;const R=info(st);if(R.sys)out.push({k:R.last!=null&&R.last<=R.sys.lp*1.01?"near":"sig",s,t:`${dsym(s)} มีสัญญาณซื้อของระบบ`,d:`ตั้งซื้อ ${fmt(R.sys.lp)}${R.sys.tp1?` · TP1 ${fmt(R.sys.tp1)}`:""} · TP ${fmt(R.sys.tp)} · SL ${fmt(R.sys.sl)}`})}
+  // ความเสี่ยงพอร์ต: กระจุกตัว
+  if(tot>0){for(const [s,v] of Object.entries(val))if(v/tot>.3&&Object.keys(val).length>1)out.push({k:"conc",s,t:`${dsym(s)} คิดเป็น ${Math.round(v/tot*100)}% ของพอร์ต`,d:"ถ้าหุ้นตัวนี้ร่วงแรง พอร์ตจะเจ็บมาก ระบบที่ทดสอบไว้ถือตัวละไม่เกิน 1/5 ของพอร์ต"});
+    for(const [k,v] of Object.entries(secv))if(v/tot>.5&&Object.keys(val).length>2)out.push({k:"conc",s:null,t:`กลุ่ม${SECTORS[k]?.th||k} คิดเป็น ${Math.round(v/tot*100)}% ของพอร์ต`,d:"ข่าวร้ายของกลุ่มเดียวกระทบทั้งพอร์ต ลองกระจายไปกลุ่มอื่น"})}
+  return{items:out.sort((a,b)=>MIM_PRI[a.k]-MIM_PRI[b.k]),tot,n:Object.keys(val).length}}
+const MIM_IC={sl:"🔴",due:"⏰",tp2:"🟢",tp1:"🟢",earn:"📅",neg:"📰",move:"⚡",ov:"💰",sig:"🔔",near:"🎯",conc:"⚖️"};
+function mimGreet(){const hh=+new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Bangkok",hour:"2-digit",hour12:false}).format(new Date());return hh<11?"อรุณสวัสดิ์ค่ะ":hh<17?"สวัสดีตอนบ่ายค่ะ":"สวัสดีตอนเย็นค่ะ"}
+// แจ้งเตือนผ่านเบราว์เซอร์ วันละครั้งต่อเรื่อง (ต้องกดอนุญาตก่อน และเตือนได้เฉพาะตอนเปิดเว็บอยู่)
+function mimNotify(items){try{if(!("Notification" in window)||Notification.permission!=="granted")return;const day=todayISO(),seen=lsGet("mimSeen")||{};let n=0;
+  for(const it of items.filter(x=>MIM_PRI[x.k]<=6)){const key=day+"|"+it.k+"|"+(it.s||it.t);if(seen[key]||n>=3)continue;seen[key]=1;n++;new Notification("มิม · stockdesk",{body:it.t+"\n"+it.d,icon:"icon.svg",tag:key})}
+  for(const k of Object.keys(seen))if(!k.startsWith(day))delete seen[k];lsSet("mimSeen",seen)}catch{}}
+function mimCard(full){const M=mimItems(),N=M.items,urgent=N.filter(x=>MIM_PRI[x.k]<=3).length;setTimeout(()=>mimNotify(N),500);
+  for(const s of Object.keys(holds()))if(S.peer?.[s]===undefined&&stockBySym(s))loadPeer(s);
+  const row=x=>`<li class="mim-i mim-${x.k}"><span class="mim-ic">${MIM_IC[x.k]||"•"}</span><div><b>${x.s?`<a href="#s-${esc(x.s)}">${esc(x.t)}</a>`:esc(x.t)}</b><div class="muted">${esc(x.d)}</div></div></li>`;
+  const head=`<div class="mim-h"><span class="mim-av" aria-hidden="true">มิม</span><div><b>${mimGreet()} มิมเลขาดูแลพอร์ตค่ะ</b><div class="muted">${M.n?`ดูหุ้นที่ถืออยู่ ${M.n} ตัว${M.tot?` (มูลค่ารวม ฿${fmt(M.tot)})`:""}`:"ยังไม่มีหุ้นที่บันทึกว่าถืออยู่ · กด \"ซื้อได้แล้ว\" ในหน้าหุ้น หรือใส่จำนวนหุ้น/ต้นทุนในหน้าโปรด แล้วมิมจะดูแลให้"} · ${N.length?`วันนี้มี ${N.length} เรื่อง${urgent?` (ต้องทำด่วน ${urgent})`:""}`:"วันนี้ไม่มีเรื่องที่ต้องทำค่ะ ทำตามแผนเดิมได้เลย"}</div></div></div>`;
+  if(!full)return `<section class="card mim">${head}${N.length?`<ul class="mim-l">${N.slice(0,3).map(row).join("")}</ul>`:""}<a class="btn ghost sm" href="#mim">คุยกับมิม →</a></section>`;
+  const perm=("Notification" in window)?Notification.permission:"na";
+  return `<section class="card mim">${head}
+   <h3>สิ่งที่ต้องทำวันนี้</h3>${N.length?`<ul class="mim-l">${N.map(row).join("")}</ul>`:`<p class="muted">ไม่มีค่ะ หุ้นทุกตัวยังอยู่ในแผน</p>`}
+   <h3>แผนของมิม</h3><ul class="br-ul"><li>เช้า: ดูว่ามีหุ้นตัวไหนถึง TP/SL หรือครบกำหนดถือ และส่งคำสั่งตามแผนก่อนตลาดเปิด</li><li>ระหว่างวัน: ถ้าหุ้นที่ถือขยับแรงหรือมีข่าวลบ มิมจะขึ้นเตือนที่นี่</li><li>หลังตลาดปิด: ดูสัญญาณใหม่ของหุ้นในรายการโปรด และหุ้นที่จะประกาศงบใน 3 วัน</li></ul>
+   <p class="muted" style="font-size:12.5px">${perm==="granted"?"เปิดแจ้งเตือนในเบราว์เซอร์แล้ว (เตือนได้ตอนเปิดเว็บไว้)":perm==="na"?"เบราว์เซอร์นี้ไม่รองรับการแจ้งเตือน":`<button class="btn sm" data-mimnotify="1">เปิดแจ้งเตือนในเบราว์เซอร์</button> เตือนได้ตอนเปิดเว็บไว้`} · มิมทำงานในเครื่องนี้ เพราะพอร์ตของคุณเก็บไว้ในเบราว์เซอร์นี้เท่านั้น ถ้าอยากให้มิมทักไปทาง Telegram/LINE ทุกวันแม้ไม่ได้เปิดเว็บ ต้องตั้งบอทและยอมให้ระบบอ่านพอร์ต (ดูในหน้าเพิ่มเติม)</p></section>`}
+function vMim(){return `<h1>มิม · เลขาดูแลพอร์ต</h1><p class="muted" style="margin:4px 0 12px">ไล่ดูหุ้นที่ถือทุกครั้งที่เปิดเว็บ เทียบกับแผน (TP1 / TP2 / SL / วันครบกำหนด) ข่าว และวันประกาศงบ แล้วสรุปว่าวันนี้ต้องทำอะไร · ไม่ได้ซื้อขายแทน เป็นผู้ช่วยเตือนตามแผนของระบบเท่านั้น</p>${mimCard(true)}`}
 /* ---------- portfolio (holdings in this browser) ---------- */
 const SEC_COL={energy:"#E8833A",bank:"#2E9E5B",tech:"#3D7BF5",comm:"#9A5CF0",consumer:"#E0A100",health:"#E0464B",transport:"#1B9AAA",utility:"#6C8EAD",property:"#B5651D",materials:"#8A8F8C"};
 const MKT_COL={TH:"#1E4E9C",US:"#E0A100"};
@@ -1341,7 +1383,7 @@ function vSignals(){const mk=S.mkt==="US"?"US":"TH",cap=+(lsGet("cap"+mk)||(mk==
   const row=(R,i)=>{const y=R.sys,take=i<free,q=Math.floor(per/y.lp/lot)*lot;return `<div class="pln${take?"":" alt"}"><a class="pl-a" href="#s-${esc(R.st.s)}">${logo(R.st.s)}<span class="ms"><b>${esc(dsym(R.st.s))} <span class="pill sm ${R.v[1]}">${R.v[0]}</span></b><span class="muted">${esc(R.st.n)} · แข็งกว่าตลาด ${R.rs?.pctl??"–"}%</span></span></a>
     <div class="pl-n num"><div><span class="muted">ตั้งซื้อ</span><b>${fmt(y.lp)}</b><span class="muted">ค้างได้อีก ${y.left} วัน</span></div><div><span class="muted">ขายกำไร</span><b class="up">${fmt(y.tp)}</b><span class="muted">${pct((y.tp/y.lp-1)*100,1)}</span></div><div><span class="muted">ตัดขาดทุน</span><b class="down">${fmt(y.sl)}</b><span class="muted">${pct((y.sl/y.lp-1)*100,1)}</span></div>
     <div><span class="muted">${take?"ซื้อ":"สำรอง"}</span><b>${take?(q>0?q.toLocaleString()+" หุ้น":"เงินไม่พอ 1 "+(lot>1?"ล็อต":"หุ้น")):"พอร์ตเต็ม"}</b><span class="muted">${take&&q>0?k+Math.round(q*y.lp).toLocaleString():""}</span></div></div>
-    ${take&&q>0?`<div class="pl-act">${y.hit?`<span class="pill sm p-buy2">ราคาวันนี้ลงถึงจุดตั้งซื้อแล้ว</span>`:""}<button class="btn sm primary" data-bought="${esc(R.st.s)}" data-bq="${q}" data-bc="${y.lp}" data-btp="${y.tp}" data-bsl="${y.sl}">✓ ซื้อได้แล้ว บันทึกเข้าพอร์ต</button></div>`:""}</div>`};
+    ${take&&q>0?`<div class="pl-act">${y.hit?`<span class="pill sm p-buy2">ราคาวันนี้ลงถึงจุดตั้งซื้อแล้ว</span>`:""}<button class="btn sm primary" data-bought="${esc(R.st.s)}" data-bq="${q}" data-bc="${y.lp}" data-btp="${y.tp}" data-bt1="${y.tp1||""}" data-bsl="${y.sl}">✓ ซื้อได้แล้ว บันทึกเข้าพอร์ต</button></div>`:""}</div>`};
   return `<div><h1>สัญญาณซื้อตามระบบ · พอร์ต ${SLOTS} ตัว</h1><p class="muted" style="margin:4px 0 0">ระบบเดียวกับที่ทดสอบ 5 ปี (TP ≥ 2 เท่าของ SL) · ถือพร้อมกันไม่เกิน ${SLOTS} ตัว ตัวละ 1/${SLOTS} ของเงินพอร์ต · มีสัญญาณมากกว่าช่องว่าง เลือกหุ้นที่แข็งกว่าตลาดมากสุดก่อน</p><p class="muted" style="margin:4px 0 0;font-size:13px">${sigRoundNote()}</p></div>
   <div class="chips"><button class="chip" data-mkt="TH" aria-pressed="${mk==="TH"}">หุ้นไทย</button><button class="chip" data-mkt="US" aria-pressed="${mk==="US"}">หุ้นสหรัฐฯ</button></div>
   <section class="card plk"><label class="field">เงินพอร์ต${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} (${k})<input data-cap="${mk}" type="number" min="0" step="${mk==="TH"?10000:1000}" value="${cap}" inputmode="decimal"></label>
@@ -1374,8 +1416,8 @@ function pbSection(){const mk=S.mkt,so=S.sgs||"score",lim=S.sgl||20;
   ${near.length?`<details class="card sgn"><summary><b>ใกล้เข้าเงื่อนไข (${near.length})</b> <span class="muted">RSI(2) ต่ำกว่า 15 ยังไม่ถึง 5</span></summary>${near.slice(0,30).map(row).join("")}</details>`:""}
   </details>`}
 /* ---------- more ---------- */
-function vMore(){const MI={accuracy:"target",data:"data",method:"book",factors:"globe",signals:"dip",compare:"scale",office:"spark"};const it=(h,t,d)=>`<a class="card morei" href="#${h}">${ic(MI[h]||"spark")}<span class="mt"><b>${t}</b><span class="muted">${d}</span></span></a>`;
-  return `<h1>เพิ่มเติม</h1><div class="grid g2">${it("accuracy","ความแม่นยำของ rating","ทดสอบย้อนหลังว่าคะแนนทำนายผลได้จริงไหม และหาค่าที่ดีที่สุด")}${it("data","สถานะข้อมูล","ข้อมูลไหนสด ข้อมูลไหนขาด และมาจากไหน")}${it("method","วิธีคิดคะแนน","สูตรทั้งหมดที่ใช้ในเว็บ")}${it("signals","ซื้อตอนย่อวันนี้","รายชื่อหุ้นที่เข้าเงื่อนไขทั้งหมด เรียงและกรองได้")}${it("compare","เทียบหุ้น","วางหุ้นได้ 4 ตัวเทียบงบ มูลค่า ความเสี่ยง และผลตอบแทน")}${it("factors","ปัจจัยมหภาค","bond yield น้ำมัน ค่าเงิน เงินเฟ้อ และอื่นๆ")}${it("office","ออฟฟิศทีมวิจัย","ดูทีม Agent ทำสรุปตลาด ตรวจข้อมูล และส่งให้บอส")}</div>
+function vMore(){const MI={mim:"spark",accuracy:"target",data:"data",method:"book",factors:"globe",signals:"dip",compare:"scale",office:"spark"};const it=(h,t,d)=>`<a class="card morei" href="#${h}">${ic(MI[h]||"spark")}<span class="mt"><b>${t}</b><span class="muted">${d}</span></span></a>`;
+  return `<h1>เพิ่มเติม</h1><div class="grid g2">${it("mim","มิม · เลขาดูแลพอร์ต","สรุปว่าวันนี้ต้องทำอะไรกับหุ้นที่ถือ: ถึง TP/SL ครบกำหนด งบใกล้ประกาศ ข่าวลบ")}${it("accuracy","ความแม่นยำของ rating","ทดสอบย้อนหลังว่าคะแนนทำนายผลได้จริงไหม และหาค่าที่ดีที่สุด")}${it("data","สถานะข้อมูล","ข้อมูลไหนสด ข้อมูลไหนขาด และมาจากไหน")}${it("method","วิธีคิดคะแนน","สูตรทั้งหมดที่ใช้ในเว็บ")}${it("signals","ซื้อตอนย่อวันนี้","รายชื่อหุ้นที่เข้าเงื่อนไขทั้งหมด เรียงและกรองได้")}${it("compare","เทียบหุ้น","วางหุ้นได้ 4 ตัวเทียบงบ มูลค่า ความเสี่ยง และผลตอบแทน")}${it("factors","ปัจจัยมหภาค","bond yield น้ำมัน ค่าเงิน เงินเฟ้อ และอื่นๆ")}${it("office","ออฟฟิศทีมวิจัย","ดูทีม Agent ทำสรุปตลาด ตรวจข้อมูล และส่งให้บอส")}</div>
   <section class="card"><h2 style="margin-bottom:6px">รูปแบบระบบซื้อขาย</h2><p class="muted" style="margin:0 0 10px;font-size:13.5px">ใช้กับจุดซื้อ / TP / SL และการทดสอบย้อนหลังของทุกหุ้น · ทั้งสองแบบซื้อเฉพาะหุ้นที่แข็งกว่าตลาดและมีแนวโน้มชัด (ADX) โดยตั้งซื้อต่ำกว่าราคาปิด 1 ATR · ทุกแบบตั้ง TP ไกลกว่า SL (ได้มากกว่าเสีย) ห้ามเลื่อน SL · ค่าแยกตามตลาด ทดสอบกับหุ้นจริงราคา 5 ปี (เลือกจาก ต.ค. 65–มี.ค. 67 ยืนยัน เม.ย. 67–ต.ค. 69)</p><div class="chips">
   <button class="chip" data-rules='${JSON.stringify(PRESETS.win)}' aria-pressed="${RULES.preset!=="edge"}">ระบบหลัก</button>
   <button class="chip" data-rules='${JSON.stringify(PRESETS.edge)}' aria-pressed="${RULES.preset==="edge"}">เน้นกำไรต่อไม้</button></div>
