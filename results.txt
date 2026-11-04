@@ -1,0 +1,76 @@
+DITTO.BK: No earnings dates found, symbol may be delisted
+SKY.BK: No earnings dates found, symbol may be delisted
+METCO.BK: No earnings dates found, symbol may be delisted
+BKIH.BK: No earnings dates found, symbol may be delisted
+AYUD.BK: No earnings dates found, symbol may be delisted
+SGC.BK: No earnings dates found, symbol may be delisted
+MTI.BK: No earnings dates found, symbol may be delisted
+SCAP.BK: No earnings dates found, symbol may be delisted
+KGI.BK: No earnings dates found, symbol may be delisted
+TGH.BK: No earnings dates found, symbol may be delisted
+ASTR.BK: No earnings dates found, symbol may be delisted
+TNL.BK: No earnings dates found, symbol may be delisted
+LANNA.BK: No earnings dates found, symbol may be delisted
+SKR.BK: No earnings dates found, symbol may be delisted
+PRINC.BK: No earnings dates found, symbol may be delisted
+VIH.BK: No earnings dates found, symbol may be delisted
+CMR.BK: No earnings dates found, symbol may be delisted
+ICC.BK: No earnings dates found, symbol may be delisted
+KYE.BK: No earnings dates found, symbol may be delisted
+SHANG.BK: No earnings dates found, symbol may be delisted
+PB.BK: No earnings dates found, symbol may be delisted
+SPC.BK: No earnings dates found, symbol may be delisted
+SAUCE.BK: No earnings dates found, symbol may be delisted
+AAI.BK: No earnings dates found, symbol may be delisted
+PRG.BK: No earnings dates found, symbol may be delisted
+KTIS.BK: No earnings dates found, symbol may be delisted
+PM.BK: No earnings dates found, symbol may be delisted
+PSGC.BK: No earnings dates found, symbol may be delisted
+SUC.BK: No earnings dates found, symbol may be delisted
+ANI.BK: No earnings dates found, symbol may be delisted
+PTL.BK: No earnings dates found, symbol may be delisted
+ALUCON.BK: No earnings dates found, symbol may be delisted
+BCT.BK: No earnings dates found, symbol may be delisted
+SCGD.BK: No earnings dates found, symbol may be delisted
+BBGI.BK: No earnings dates found, symbol may be delisted
+UTP.BK: No earnings dates found, symbol may be delisted
+SPI.BK: No earnings dates found, symbol may be delisted
+AXTRART.BK: No earnings dates found, symbol may be delisted
+BAREIT.BK: No earnings dates found, symbol may be delisted
+FUTURERT.BK: No earnings dates found, symbol may be delisted
+INETREIT.BK: No earnings dates found, symbol may be delisted
+PROSPECT.BK: No earnings dates found, symbol may be delisted
+BLAND.BK: No earnings dates found, symbol may be delisted
+SA.BK: No earnings dates found, symbol may be delisted
+TITLE.BK: No earnings dates found, symbol may be delisted
+STELLA.BK: No earnings dates found, symbol may be delisted
+GVREIT.BK: No earnings dates found, symbol may be delisted
+BBDO: No earnings dates found, symbol may be delisted
+PHYS: No earnings dates found, symbol may be delisted
+ACGLO: No earnings dates found, symbol may be delisted
+PSLV: No earnings dates found, symbol may be delisted
+PDI: No earnings dates found, symbol may be delisted
+CEF: No earnings dates found, symbol may be delisted
+MKC-V: No earnings dates found, symbol may be delisted
+TAP-A: No earnings dates found, symbol may be delisted
+WSO-B: No earnings dates found, symbol may be delisted
+RML: No earnings dates found, symbol may be delisted
+BPYPP: No earnings dates found, symbol may be delisted
+AGNCM: No earnings dates found, symbol may be delisted
+AGNCN: No earnings dates found, symbol may be delisted
+CIG-C: No earnings dates found, symbol may be delisted
+earnings dates: 1444 / 1603
+
+TH: หุ้นที่มีวันประกาศงบย้อนหลัง 192/239 · ช่วงสร้าง 2022-11-04 → 2025-05-05 · ช่วงทดสอบ 2025-05-05 → ปัจจุบัน
+  ปัจจุบัน           | สร้าง: 63 ไม้ ชนะ 66.7% เฉลี่ย 1.51% แย่สุด -10.7% ไม้เสีย >10%: 3 | ทดสอบ: 96 ไม้ ชนะ 74.0% เฉลี่ย 3.46% แย่สุด -14.9% ไม้เสีย >10%: 5
+  หลบงบ 3 วัน        | สร้าง: 62 ไม้ ชนะ 66.1% เฉลี่ย 1.50% แย่สุด -10.7% ไม้เสีย >10%: 3 | ทดสอบ: 93 ไม้ ชนะ 74.2% เฉลี่ย 3.44% แย่สุด -14.9% ไม้เสีย >10%: 5
+  หลบงบ 5 วัน        | สร้าง: 62 ไม้ ชนะ 66.1% เฉลี่ย 1.50% แย่สุด -10.7% ไม้เสีย >10%: 3 | ทดสอบ: 93 ไม้ ชนะ 74.2% เฉลี่ย 3.44% แย่สุด -14.9% ไม้เสีย >10%: 5
+  หลบงบ 10 วัน       | สร้าง: 60 ไม้ ชนะ 65.0% เฉลี่ย 1.41% แย่สุด -10.7% ไม้เสีย >10%: 3 | ทดสอบ: 91 ไม้ ชนะ 74.7% เฉลี่ย 3.55% แย่สุด -14.9% ไม้เสีย >10%: 5
+  หลบงบตลอดช่วงถือ   | สร้าง: 60 ไม้ ชนะ 65.0% เฉลี่ย 1.41% แย่สุด -10.7% ไม้เสีย >10%: 3 | ทดสอบ: 91 ไม้ ชนะ 74.7% เฉลี่ย 3.55% แย่สุด -14.9% ไม้เสีย >10%: 5
+
+US: หุ้นที่มีวันประกาศงบย้อนหลัง 1222/1331 · ช่วงสร้าง 2022-11-04 → 2025-05-05 · ช่วงทดสอบ 2025-05-05 → ปัจจุบัน
+  ปัจจุบัน           | สร้าง: 866 ไม้ ชนะ 59.4% เฉลี่ย 2.40% แย่สุด -34.0% ไม้เสีย >10%: 284 | ทดสอบ: 636 ไม้ ชนะ 63.5% เฉลี่ย 5.52% แย่สุด -25.2% ไม้เสีย >10%: 188
+  หลบงบ 3 วัน        | สร้าง: 801 ไม้ ชนะ 58.4% เฉลี่ย 2.27% แย่สุด -34.0% ไม้เสีย >10%: 265 | ทดสอบ: 595 ไม้ ชนะ 63.5% เฉลี่ย 5.79% แย่สุด -25.2% ไม้เสีย >10%: 174
+  หลบงบ 5 วัน        | สร้าง: 777 ไม้ ชนะ 58.7% เฉลี่ย 2.35% แย่สุด -34.0% ไม้เสีย >10%: 255 | ทดสอบ: 580 ไม้ ชนะ 63.8% เฉลี่ย 5.74% แย่สุด -25.2% ไม้เสีย >10%: 168
+  หลบงบ 10 วัน       | สร้าง: 740 ไม้ ชนะ 58.2% เฉลี่ย 2.43% แย่สุด -33.8% ไม้เสีย >10%: 244 | ทดสอบ: 545 ไม้ ชนะ 63.3% เฉลี่ย 5.56% แย่สุด -25.2% ไม้เสีย >10%: 160
+  หลบงบตลอดช่วงถือ   | สร้าง: 415 ไม้ ชนะ 54.9% เฉลี่ย 1.21% แย่สุด -27.5% ไม้เสีย >10%: 145 | ทดสอบ: 326 ไม้ ชนะ 64.1% เฉลี่ย 5.81% แย่สุด -20.8% ไม้เสีย >10%: 100
