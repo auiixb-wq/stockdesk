@@ -92,7 +92,7 @@ const TF_RULES={W:{TH:{noTrade:true,tp1:null,e200:false,warm:60},US:{tp:8,sl:4,s
 const TF_LABEL={"15m":"15 นาที","1H":"1 ชม.","4H":"4 ชม.",D:"วัน",W:"สัปดาห์"},TF_UNIT={"15m":"แท่ง 15 นาที","1H":"ชั่วโมง","4H":"แท่ง 4 ชม.",D:"วันทำการ",W:"สัปดาห์"};
 // S.tuned = กติกาที่ระบบเรียนรู้เองจากการทดสอบรายคืน (data/learn.json) ใช้เฉพาะแบบเน้นอัตราชนะ และเฉพาะกรอบรายวัน
 // S.lab = กลยุทธ์ที่ห้องทดลองรับรองแล้ว (ผ่าน backtest 4 ปีทั้งช่วงสร้างและช่วงทดสอบ 2 สัปดาห์ติด · data/hist/lab.json) ใช้กับกรอบรายวัน
-const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(RULES.preset!=="edge"&&S.tuned?.[m]?.rules||{}),...(tf==="D"&&RULES.preset!=="edge"&&S.lab?.adopt?.[m]?.rules||{}),...(tf!=="D"&&TF_RULES[tf]?.[m]||{})});
+const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(RULES.preset!=="edge"&&S.tuned?.[m]?.rules||{}),...(tf==="D"&&RULES.preset!=="edge"&&S.lab?.adopt?.[m]?.rules||{}),...(tf!=="D"&&TF_RULES[tf]?.[m]||{}),...(tf!=="D"&&S.lab?.adopt?.[m+"@"+tf]?.rules||{})});
 const PRESETS={win:{preset:"win"},edge:{preset:"edge"}};const RULES0={...RULES};
 const volOK=(I,i,P)=>P.vol==null||(I.atr[i]||0)/I.c[i]*100>=P.vol;
 // จุดเกิดสัญญาณ: คะแนนเพิ่งข้าม thr หรือ (คะแนน ≥ thr และย่อสั้นแรง RSI(2) < dip) — รอบ 5: ได้ไม้ ~1.5–2 เท่า ชนะและกำไรต่อไม้เท่าเดิม

@@ -13,19 +13,25 @@ concurrency:
 jobs:
   lab:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
       - name: Data
         run: |
           mkdir -p data/hist
           git fetch origin gh-pages --depth=1 && git show origin/gh-pages:data/universe.json > data/universe.json && (git show origin/gh-pages:data/calib.json > data/calib.json || true)
           git fetch origin hist --depth=1 && git --work-tree=data/hist checkout origin/hist -- . && git reset -q
-      - name: Backtest candidates (4 years)
-        run: node --max-old-space-size=6000 scripts/lab.js data ALL
+      - name: Hourly prices for 4H / 1H (~2 years, the most free sources provide)
+        run: OUTDIR=h1 python3 research/intra_fetch.py data 2>&1 | tail -3
+      - name: Backtest candidates (daily 4 years · 4H/1H 2 years)
+        run: node --max-old-space-size=6500 scripts/lab.js data ALL ALL
       - name: Save lab.json to branch hist
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
