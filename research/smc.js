@@ -149,7 +149,7 @@ function run(name) {
         }
         if (xp == null) { xi = Math.min(n - 1, e + X.hold - 1); xp = B[xi].c }
         busy[k] = xi + 1;
-        const r = xp / en - 1 - COST;
+        const r = xp / en - 1 - 2 * COST;  // ค่าคอมทั้งขาซื้อและขาขาย
         if (TRADES && k === TRADES.k) TRADES.list.push({ s: x.s, d: B[e].t, x: B[xi].t, r, rs: process.env.RANK === "vol" ? vol(x, i) : x.rs[i] ?? 0, en });
         (B[e].t < SPLIT ? res[k].is : res[k].oos).push(r);
         ((res[k].y ??= {})[B[e].t.slice(0, 4)] ??= []).push(r);
@@ -211,7 +211,7 @@ if (process.env.TFX) {
             if (b.h >= tp) { xp = Math.max(tp, b.o); xi = j; break }
             if (X.be && b.c >= (X.atr ? en + X.sl * a : en * (1 + X.sl))) sl = Math.max(sl, en * (1 + COST)) }
           if (xp == null) { xi = Math.min(n - 1, e + X.hold - 1); xp = B[xi].c }
-          busy[k] = xi + 1; (B[e].t < SPLIT ? res[k].is : res[k].oos).push(xp / en - 1 - COST);
+          busy[k] = xi + 1; (B[e].t < SPLIT ? res[k].is : res[k].oos).push(xp / en - 1 - 2 * COST);
         });
       }
     }
@@ -264,10 +264,10 @@ if (process.env.WR) {
           for (let j = e; j < Math.min(n, e + X.H); j++) { const b = B[j]; xi = j;
             if (b.l <= stop) { const r = Math.min(stop, j > e ? b.o : stop) / en - 1; if (left === 1) { Z.fs++; Z.fsr += r } got += left * r; left = 0; break }
             if (j === e) continue;
-            if (t1 && left === 1 && b.h >= t1) { got += X.f * (Math.max(t1, b.o) / en - 1); left = 1 - X.f; stop = Math.max(stop, en * (1 + COST)); Z.h1++; Z.d1 += j - e }
+            if (t1 && left === 1 && b.h >= t1) { got += X.f * (Math.max(t1, b.o) / en - 1); left = 1 - X.f; stop = Math.max(stop, en * (1 + 2 * COST)); Z.h1++; Z.d1 += j - e }
             if (b.h >= t2) { got += left * (Math.max(t2, b.o) / en - 1); left = 0; Z.h2++; Z.d2 += j - e; break } }
           if (left > 0) got += left * (B[xi].c / en - 1);
-          busy[q] = xi + 1; (B[e].t < SPLIT ? res[q].is : res[q].oos).push(got - COST);
+          busy[q] = xi + 1; (B[e].t < SPLIT ? res[q].is : res[q].oos).push(got - 2 * COST);
         });
       }
     }

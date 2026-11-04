@@ -134,8 +134,9 @@ function learnStep() {
   const ev = (m, kind, text) => { L.events.push({ d: today, m, kind, text }); L.events = L.events.slice(-60) };
   for (const m of ["TH", "US"]) {
     const cur = cal.baseM?.[m]; if (!cur?.is?.n || !cur?.oos?.n) continue;
-    const cand = (cal.grid || []).filter(r => r.g.m === m && r.is.n >= 80 && r.oos.n >= 50 && r.g.tp >= r.g.sl && r.is.win >= 45 && r.oos.win >= 45 && worst(r) >= worst(cur) + .2)
-      .sort((a, b) => worst(b) - worst(a))[0];
+    // เลือกจากช่วงสร้างเท่านั้น (ดีกว่าค่าปัจจุบัน ≥ 0.2%/ไม้) แล้วใช้ช่วงทดสอบเป็นด่านยืนยัน: ต้องไม่แย่กว่าค่าปัจจุบัน
+    const cand = (cal.grid || []).filter(r => r.g.m === m && r.is.n >= 80 && r.oos.n >= 50 && r.g.tp >= r.g.sl && r.is.win >= 45 && r.is.avg >= cur.is.avg + .2)
+      .sort((a, b) => b.is.avg - a.is.avg).find(r => r.oos.win >= cur.oos.win - 2 && r.oos.avg >= cur.oos.avg);
     const key = cand ? `thr${cand.g.thr}·tp${cand.g.tp}·sl${cand.g.sl}·hold${cand.g.hold}` : null, prev = L.lead[m];
     if (L.lead[m]?.d !== today) L.lead[m] = key ? { key, days: prev?.key === key ? prev.days + 1 : 1, d: today, g: cand.g, is: cand.is, oos: cand.oos, cur: { is: cur.is, oos: cur.oos } } : { key: null, days: 0, d: today };
     const ld = L.lead[m];

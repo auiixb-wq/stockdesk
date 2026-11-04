@@ -41,7 +41,7 @@ const DEF_COST={TH:.17,US:.10}; // % ต่อขา: ค่าคอมออ�
 // ค่าเริ่มต้นเลือกจากการทดสอบราคาจริง 24 หุ้น 5 ปี (28 ต.ค. 2569): ชนะ 66% ช่วงสร้าง / 71% ช่วงทดสอบ และกำไรทั้งสองช่วง
 // rs = ต้องแข็งกว่าหุ้นอื่นในตลาดเดียวกัน (ผลตอบแทน 63 วันอยู่ในกลุ่มบน rs%) · ทดสอบ 5 ปี ~1,400 หุ้น: ชนะ 68–69% กำไร +0.50/+0.54% ต่อไม้
 // สัญญาณซื้อ: คะแนนเทคนิคเพิ่งผ่าน thr + กราฟสัปดาห์ไม่เป็นขาลง + แข็งกว่าตลาด (rs) + มีแนวโน้มชัด (ADX > adx)
-const RULES={thr:40,split:.7,warm:60,wk:true,rs:70,adx:20,preset:"win"};
+const RULES={thr:40,split:.7,warm:210,wk:true,rs:70,adx:20,preset:"win"};
 // จุดเข้า / TP / SL / ตัวกรอง แยกตามตลาด (ทดสอบ 5 ปี ~220 หุ้นไทย ~1,300 หุ้นสหรัฐฯ · เลือกจาก ต.ค.65–มี.ค.67 ยืนยัน เม.ย.67–ต.ค.69
 // · วันที่ได้ของจากคำสั่งตั้งซื้อไม่นับขายกำไร เพราะไม่รู้ลำดับราคาสูง/ต่ำในวันนั้น)
 // lim = ตั้งซื้อต่ำกว่าราคาปิดวันที่เกิดสัญญาณกี่ ATR · ld = คำสั่งตั้งซื้อค้างได้กี่วันทำการ
@@ -58,6 +58,8 @@ const RULES={thr:40,split:.7,warm:60,wk:true,rs:70,adx:20,preset:"win"};
 //   ไทย:    TP 6 ATR / SL 3 ATR (ไม่เกิน −10%) ถือ 10 วัน + เหนือ Supertrend · ชนะ 62/58% · กำไร +1.40/+1.63%/ไม้ (เดิม TP1/SL5: +0.62/+1.35%)
 //   สหรัฐฯ: TP 8 ATR / SL 4 ATR (ไม่เกิน −15%) ถือ 40 วัน · ชนะ 54/51% · กำไร +3.58/+4.12%/ไม้ (เดิม TP0.8/SL5: +0.78/+1.05%)
 //   ชนะน้อยลงแต่ไม้ที่ชนะได้มากกว่าไม้ที่แพ้ราว 2 เท่า กำไรต่อไม้ดีขึ้นทั้งสองตลาดทั้งสองช่วง
+// รอบ 14 (4 พ.ย. 69, ฝ่ายเทคนิคตรวจรายหุ้น): ไทยต้องแกว่ง ATR ≥ 2.2% ของราคา → ช่วงทดสอบ 182 ไม้ 63.7% +1.98% → 119 ไม้ 73.1% +3.15% · หุ้นเล็กไทยไม่ออกสัญญาณ
+//   สหรัฐฯ สัปดาห์ + TP1 2 ATR ขาย 30% ถือ 12 สัปดาห์ · อุ่นเครื่อง 60 → 210 แท่ง (ให้ EMA200 มีค่าก่อนเริ่มนับไม้)
 // รอบ 13 (2 พ.ย. 69): จุดตั้งซื้อหุ้นไทยลึกขึ้น −1 → −1.25 ATR: ชนะ 65/63 → 72/63% · กำไร +1.63/+1.76 → +2.22/+2.03%/ไม้ (ได้ของน้อยลง 14 → 8% ของวันที่มีสัญญาณ)
 //   สหรัฐฯ คง −1.5 ATR ค้าง 3 วัน (−2 ATR กำไรช่วงสร้างดีขึ้นแต่ช่วงทดสอบไม่ดีขึ้น และไม้หายไปเกินครึ่ง)
 // รอบ 11 (ผู้ใช้: อัตราชนะต่ำไป อยากได้ทั้งชนะบ่อยขึ้นและกำไรต่อไม้สูงขึ้น · research/smc.js WR=1, 30 ต.ค. 69)
@@ -66,7 +68,7 @@ const RULES={thr:40,split:.7,warm:60,wk:true,rs:70,adx:20,preset:"win"};
 //           ชนะ 65/63% (เดิม 62/58%) · กำไร +1.63/+1.76%/ไม้ (เดิม +1.40/+1.63%) · ชนะเฉลี่ย +5.1% แพ้เฉลี่ย −4.4%
 //   สหรัฐฯ: + แข็งกว่าตลาด 90% + Supertrend · SL 4 ATR (≤15%) · TP1 3 ATR ขาย 30% · TP2 8 ATR · ถือ 40 วัน
 //           ชนะ 61/62% (เดิม 54/51%) · กำไร +3.41/+4.57%/ไม้ (เดิม +3.58/+4.12%) · ชนะเฉลี่ย +14.2% แพ้เฉลี่ย −12.6%
-const MKT_RULES={win:{TH:{lim:1.25,ld:1,tp1:2,tp1f:.5,tp:6,sl:3,slCap:.10,hold:10,adx:25,rs:70,dip:20,st:true,e200:true},US:{lim:1.5,ld:3,tp1:3,tp1f:.3,tp:8,sl:4,slCap:.15,hold:40,adx:20,rs:90,vol:2.5,dip:20,st:true}},
+const MKT_RULES={win:{TH:{lim:1.25,ld:1,vol:2.2,tp1:2,tp1f:.5,tp:6,sl:3,slCap:.10,hold:10,adx:25,rs:70,dip:20,st:true,e200:true},US:{lim:1.5,ld:3,tp1:3,tp1f:.3,tp:8,sl:4,slCap:.15,hold:40,adx:20,rs:90,vol:2.5,dip:20,st:true}},
                  edge:{TH:{lim:1,ld:1,tp:6,sl:3,slCap:.10,hold:10,adx:25,rs:70,dip:20,st:true},US:{lim:1.5,ld:3,tp:8,sl:4,slCap:.15,hold:40,adx:20,rs:80,vol:2.5,dip:20}}};
 // ผลทดสอบ: สัปดาห์ (5 ปี) ไทย TP1/SL3 ชนะ 71/75% · สหรัฐฯ TP0.8/SL3 ชนะ 80/82% แต่แพ้เฉลี่ย −20 ถึง −27%
 //          4 ชม. (ราคารายชั่วโมง 730 วัน) กติกาเดียวกับรายวัน: ไทยชนะ 80/77% (+0.62/+0.29%) · สหรัฐฯ 83/80% (+0.70/+0.52%)
@@ -83,8 +85,8 @@ const MKT_RULES={win:{TH:{lim:1.25,ld:1,tp1:2,tp1f:.5,tp:6,sl:3,slCap:.10,hold:1
 //   1 ชม. สหรัฐฯ: + Supertrend + RSI(2) < 5 · SL 4 · TP1 3 ATR ขาย 30% → ทุน · TP2 8 · 10 วัน: ชนะ 62/60% +1.29/+1.13% (เดิม 49/49% +0.91/+0.94%)
 //   สัปดาห์ สหรัฐฯ: ADX > 25 + Supertrend · SL 4 (≤15%) TP 8 · 8 สัปดาห์: ชนะ 56/54% +3.03/+3.36% (เดิม 56/51% +2.86/+2.69%)
 //   1 ชม. ไทย ดีสุด +0.2%/ไม้ · สัปดาห์ ไทย ดีสุด +0.1–0.3% · 15 นาที ขาดทุน → noTrade (ใช้แผนกรอบวัน)
-const TF_RULES={W:{TH:{noTrade:true,tp1:null,e200:false,warm:60},US:{tp:8,sl:4,slCap:.15,hold:8,warm:60,tp1:null,st:true,adx:25,rs:80}},
-  "4H":{TH:{st:true,rs:85,e200:false,tp1:2,tp1f:.3,tp:8,sl:4,slCap:null,hold:10},US:{vol:1.8,st:true,rs:90,tp1:3,tp1f:.3,tp:8,sl:4,slCap:null,hold:20}},
+const TF_RULES={W:{TH:{noTrade:true,tp1:null,e200:false,warm:60},US:{tp:8,sl:4,slCap:.15,hold:12,warm:60,tp1:2,tp1f:.3,st:true,adx:25,rs:80}},
+  "4H":{TH:{st:true,rs:85,e200:false,vol:null,tp1:2,tp1f:.3,tp:8,sl:4,slCap:null,hold:10},US:{vol:1.8,st:true,rs:90,tp1:3,tp1f:.3,tp:8,sl:4,slCap:null,hold:20}},
   "1H":{TH:{st:false,noTrade:true,tp1:null,e200:false},US:{vol:.95,st:true,rs:80,r2max:5,tp1:3,tp1f:.3,tp:8,sl:4,slCap:null,hold:70}},
   "15m":{TH:{st:false,noTrade:true,tp1:null,e200:false},US:{vol:.5,noTrade:true,tp1:null}}};
 const TF_LABEL={"15m":"15 นาที","1H":"1 ชม.","4H":"4 ชม.",D:"วัน",W:"สัปดาห์"},TF_UNIT={"15m":"แท่ง 15 นาที","1H":"ชั่วโมง","4H":"แท่ง 4 ชม.",D:"วันทำการ",W:"สัปดาห์"};
@@ -378,7 +380,7 @@ function sysVerdict(x,tone,lv,sig){if(sig)return lv>=3?["ซื้อตาม�
   if(tone==="sell"||x<35)return x<35?["หลีกเลี่ยง","p-sell2"]:["ยังไม่ควรเข้า","p-sell"];return tone==="buy"?["แนวโน้มดี · รอราคาย่อ","p-hold"]:x>=45?["รอสัญญาณ","p-hold"]:["ระวัง","p-sell"]}
 // ระบบรออะไรอยู่ (หุ้นที่ยังไม่มีสัญญาณ) → [ข้อความสั้น, รายละเอียด, ใกล้เกิดสัญญาณไหม]
 function sysWait(R){const w=R.sw;if(!w)return["รอสัญญาณ","",false];const [sc,r2,f]=w,P=rulesFor(R.st.m,R.tf||"D"),miss=[];
-  if(f&1)miss.push("แนวโน้มรายสัปดาห์ยังไม่ขึ้น");if(f&2)miss.push(`ยังไม่แข็งกว่าตลาด (ต้องอยู่กลุ่มบน ${100-P.rs}%)`);if(f&4)miss.push(`แนวโน้มยังไม่ชัด (ADX ≤ ${P.adx})`);if(f&8)miss.push(`หุ้นแกว่งน้อยกว่า ${P.vol}% ต่อ${R.tf&&R.tf!=="D"?"แท่ง":"วัน"}`);if(f&16)miss.push("ราคายังต่ำกว่าเส้น Supertrend (ขาลง)");if(f&32)miss.push("ยังไม่อยู่ในขาขึ้นระยะยาว (ต้องปิดเหนือ EMA200 และ EMA50 > EMA200)");
+  if(f&1)miss.push("แนวโน้มรายสัปดาห์ยังไม่ขึ้น");if(f&2)miss.push(`ยังไม่แข็งกว่าตลาด (ต้องอยู่กลุ่มบน ${100-P.rs}%)`);if(f&4)miss.push(`แนวโน้มยังไม่ชัด (ADX ≤ ${P.adx})`);if(f&8)miss.push(`หุ้นแกว่งน้อยกว่า ${P.vol}% ต่อ${R.tf&&R.tf!=="D"?"แท่ง":"วัน"}`);if(f&16)miss.push("ราคายังต่ำกว่าเส้น Supertrend (ขาลง)");if(f&64)miss.push("หุ้นเล็ก (มูลค่าตลาดต่ำกว่า 5 พันล้านบาท) ระบบทดสอบแล้วขาดทุน จึงไม่ให้สัญญาณกับหุ้นกลุ่มนี้");if(f&32)miss.push("ยังไม่อยู่ในขาขึ้นระยะยาว (ต้องปิดเหนือ EMA200 และ EMA50 > EMA200)");
   if(miss.length)return[`ยังไม่ผ่าน: ${miss[0].replace(/ \(.*\)$/,"")}`,"ยังไม่ผ่านตัวกรอง: "+miss.join(" · "),false];
   if(sc<P.thr)return[`รอคะแนน ≥ ${P.thr} (ตอนนี้ ${sc})`,`ผ่านตัวกรองแล้ว · สัญญาณจะเกิดเมื่อคะแนนเทคนิคข้าม ${P.thr} (ตอนนี้ ${sc})`,sc>=P.thr-8];
   return[`รอราคาย่อ (RSI2 ${r2})`,`ผ่านตัวกรองและคะแนน ${sc} ≥ ${P.thr} แล้ว · สัญญาณจะเกิดเมื่อราคาย่อจน RSI(2) < ${P.dip} (ตอนนี้ ${r2})`,true]}
@@ -457,7 +459,7 @@ function analyze(st){
   const hit=S.cache.get(st.s);if(hit&&hit.key===key)return hit;
   const B=barsOf(st),I=indicators(B),n=B.length-1,split=Math.floor(B.length*RULES.split);
   const V=I.c.map((_,i)=>i<1?VOTES.map(()=>null):VOTES.map(v=>{const r=v.f(I,i,false);return r?r.v:null}));
-  const per=STRATS.map(s=>({...s,is:stats(simulate(B,I,i=>s.f(I,i),0,split,st.m)),oos:stats(simulate(B,I,i=>s.f(I,i),split,B.length,st.m))}));
+  const RP0=rulesFor(st.m),per=STRATS.map(s=>({...s,is:stats(simulate(B,I,i=>s.f(I,i),0,split,st.m,RP0)),oos:stats(simulate(B,I,i=>s.f(I,i),split,B.length,st.m,RP0))}));
   const wStd=VOTES.map(v=>v.w);
   const wAd=VOTES.map(v=>{const p=per.find(x=>x.id===v.id);return p&&p.is.n>=3?+(v.w*clamp(1+p.is.exp*2,.2,2)).toFixed(2):v.w});
   const sc=w=>V.map(row=>{let s=0,ws=0;row.forEach((x,k)=>{if(x!=null){s+=w[k]*x;ws+=w[k]*2}});return ws?s/ws*100:0});
@@ -465,14 +467,17 @@ function analyze(st){
   const RP=rulesFor(st.m);
   const run=(arr)=>{const sig=i=>sysTrig(arr,I,i,RP)&&sigOK(I,i,rsA,RP);const a=simulate(B,I,sig,0,split,st.m,RP),b=simulate(B,I,sig,split,B.length,st.m,RP);return{is:stats(a),oos:stats(b),trades:a.concat(b),arr}};
   const std=run(sc(wStd)),ad=run(sc(wAd));
-  const useAd=ad.is.n>=3&&(ad.is.exp??-9)>(std.is.exp??-9);
+  // ปิดน้ำหนักปรับตามหุ้น: ฝ่ายเทคนิคตรวจแล้ว ผลรายหุ้นช่วงสร้างไม่ได้บอกช่วงทดสอบ (สหสัมพันธ์ −0.1)
+  const useAd=false;
   const model={...(useAd?ad:std),name:useAd?"ปรับน้ำหนักตามหุ้นนี้":"น้ำหนักมาตรฐาน",w:useAd?wAd:wStd,other:useAd?std:ad,adaptive:useAd};
   const rows=VOTES.map((v,k)=>{const r=v.f(I,n,true);return r?{...r,id:v.id,name:v.name,mean:v.mean,w:model.w[k],w0:v.w}:null}).filter(Boolean);
   const tech={score:Math.round(model.arr[n]),rows,agree:rows.filter(r=>r.v>0).length,against:rows.filter(r=>r.v<0).length};
   const plan=makePlan(st,I,tech.score,rsPass(rsA,n));
   // สัญญาณตามระบบที่ทดสอบไว้ (เหมือน simulate): คะแนนเพิ่งข้าม thr + ตัวกรองครบ แล้วตั้งซื้อ ค้างได้ ld วัน ถ้ายังไม่ได้ของและยังไม่หมดอายุ = ส่งคำสั่งได้
   // ระหว่างตลาดเปิด: ใช้แท่งเมื่อวาน (ปิดแล้ว) เป็นตัวตัดสินสัญญาณ แล้วดูว่าราคาวันนี้ลงมาถึงจุดตั้งซื้อหรือยัง
-  const {live,end,sys,sw,cond,ref}=sysPlan(st,B,I,model.arr,rsA,RP,barLive(st.m,B[n].t));
+  let {live,end,sys,sw,cond,ref}=sysPlan(st,B,I,model.arr,rsA,RP,barLive(st.m,B[n].t));
+  // หุ้นไทยมูลค่าตลาด < 5 พันล้าน: ทดสอบแล้วขาดทุน (ช่วงทดสอบ 225 ไม้ ชนะ 49% −0.42%/ไม้) จึงไม่ออกสัญญาณ
+  if(st.m==="TH"&&!liquid(st)){sys=null;cond=null;ref=null;if(sw)sw=[sw[0],sw[1],sw[2]|64]}
   const f=fundOf(st),fund=fundScore(f),ns=newsScore(st),fs=factorScore(st),rs=relStrength(st);
   const rsV=rs.pctl>=70?1:rs.pctl<=30?-1:0;
   const techP=(tech.score+100)/2,ctxP=clamp(50+ns.s*20+fs*8+rsV*10,0,100);

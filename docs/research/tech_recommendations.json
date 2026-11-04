@@ -1,0 +1,87 @@
+{
+  "generated": "2026-11-04",
+  "engine": "site core.js simulate/sysTrig/sigOK/rulesFor (WARM=210 bars daily, 60 bars weekly), split 2024-04-01, cost TH 0.17%/side US 0.10%/side charged on both sides",
+  "pass_criteria": "chosen on build only; test win AND test avg/trade both better than current; test trade count cut <= 40%",
+  "changes": [
+    {
+      "id": "TH_D_vol22",
+      "market": "TH", "timeframe": "D", "recommended": true,
+      "change": "Add minimum volatility filter ATR(14)/close >= 2.2% for Thai daily signals (threshold picked from build-period quantile sweep). Must also set vol:null in TF_RULES['4H'].TH so 4H does not inherit the daily threshold.",
+      "rules_patch": {"MKT_RULES.win.TH": {"vol": 2.2}, "TF_RULES.4H.TH": {"vol": null}},
+      "universe": "TH liquid (mc >= 5e9 THB, same as site signal lists)",
+      "before": {"build": {"n": 75, "win": 70.7, "avg": 2.05}, "test": {"n": 182, "win": 63.7, "avg": 1.98}},
+      "build": {"n": 52, "win": 73.1, "avg": 2.64},
+      "test": {"n": 119, "win": 73.1, "avg": 3.15},
+      "trade_cut_test_pct": 35,
+      "evidence": "Every calendar year >= current; removed 87 trades had avg +0.06% / win 52% (no edge after costs); random 119-of-182 subsets never reach this result (p<0.0001, 20k draws)",
+      "confidence": "medium",
+      "risks": "Build sample small (52 trades); threshold is one of 8 quantiles tried; removes most banks/PTT/CPALL type low-volatility large caps"
+    },
+    {
+      "id": "TH_D_vol15_alt",
+      "market": "TH", "timeframe": "D", "recommended": false,
+      "change": "Conservative alternative to TH_D_vol22: ATR% >= 1.5 (smaller gain, fewer trades lost)",
+      "rules_patch": {"MKT_RULES.win.TH": {"vol": 1.5}, "TF_RULES.4H.TH": {"vol": null}},
+      "build": {"n": 66, "win": 72.7, "avg": 2.31},
+      "test": {"n": 164, "win": 66.5, "avg": 2.32},
+      "trade_cut_test_pct": 10,
+      "confidence": "medium"
+    },
+    {
+      "id": "TH_D_liquid_only_signals",
+      "market": "TH", "timeframe": "D", "recommended": true,
+      "change": "Do not show/issue system buy signals (sys/cond) on TH stocks outside the liquid universe (mc < 5e9 THB); the system was only researched on liquid names. Stock pages currently compute sysPlan for every TH stock.",
+      "rules_patch": {"site": "in analyze()/sysPlan: if(!liquid(st)) sys=null, cond=null (or show warning)"},
+      "build": {"n": 133, "win": 56.4, "avg": 1.07, "note": "small caps only"},
+      "test": {"n": 225, "win": 49.3, "avg": -0.42, "note": "small caps only; liquid stocks in same period 182 trades 63.7% +1.98%"},
+      "confidence": "medium-high",
+      "risks": "Not a build-selected filter (small caps were profitable in build but at half the liquid edge); it is a consistency fix with the research universe"
+    },
+    {
+      "id": "US_W_tp1_hold12",
+      "market": "US", "timeframe": "W", "recommended": true,
+      "change": "Weekly US: add partial exit TP1 = 2 weekly ATR selling 30% then stop to cost, and hold up to 12 weeks (SL 4 / TP 8 / slCap 15% unchanged)",
+      "rules_patch": {"TF_RULES.W.US": {"tp1": 2, "tp1f": 0.3, "hold": 12}},
+      "before": {"build": {"n": 204, "win": 56.4, "avg": 2.92}, "test": {"n": 674, "win": 53.4, "avg": 3.38}},
+      "build": {"n": 204, "win": 61.3, "avg": 3.40},
+      "test": {"n": 656, "win": 55.5, "avg": 3.66},
+      "trade_cut_test_pct": 3,
+      "confidence": "low-medium",
+      "risks": "Build period only 204 trades (2023-03/2024); 2026 YTD weaker than current (win 49.1 vs 50.9, avg 1.38 vs 2.32); hold 12 weeks was outside earlier research grid"
+    },
+    {
+      "id": "US_D_exclude_sectors",
+      "market": "US", "timeframe": "D", "recommended": false,
+      "change": "Exclude bank, comm, materials sectors (build-weak sectors)",
+      "rules_patch": {"MKT_RULES.win.US": {"secEx": ["bank", "comm", "materials"]}},
+      "before": {"build": {"n": 513, "win": 60.8, "avg": 3.39}, "test": {"n": 1040, "win": 61.3, "avg": 4.19}},
+      "build": {"n": 402, "win": 63.9, "avg": 4.65},
+      "test": {"n": 802, "win": 61.7, "avg": 4.72},
+      "confidence": "low",
+      "risks": "Formally passes but permutation p=0.04 before multiple-testing correction (~30 tests run); bank build loss came from 2023 regional-bank crisis and banks earned +4.2%/trade in test; 2025 got worse with the exclusion"
+    },
+    {
+      "id": "US_W_exclude_industrial",
+      "market": "US", "timeframe": "W", "recommended": false,
+      "change": "Exclude industrial sector on weekly",
+      "build": {"n": 172, "win": 55.8, "avg": 3.23},
+      "test": {"n": 579, "win": 54.6, "avg": 3.85},
+      "confidence": "low",
+      "risks": "Build win actually fell (56.4 -> 55.8); permutation p=0.03 unadjusted"
+    },
+    {
+      "id": "ALL_per_stock_skip",
+      "market": "TH,US", "timeframe": "D,W", "recommended": false,
+      "change": "Skip a stock in test if the system lost on it in build",
+      "build": {"note": "unchanged"},
+      "test": {"TH_liquid": {"n": 157, "win": 64.3, "avg": 2.02}, "US_D": {"n": 849, "win": 61.1, "avg": 4.11}, "US_W": {"n": 606, "win": 54.3, "avg": 3.48}},
+      "confidence": "none",
+      "risks": "Per-stock build vs test avg/trade correlation is ~0 or negative (TH liquid -0.13, US D -0.11, US W -0.03); median stock has 1-2 trades per period"
+    }
+  ],
+  "bug_fixes": [
+    {"id": "simulate_default_P", "file": "core.js:230 (+ core.js:463-468, app.js:610-618)", "fix": "STRATS/adaptive-weight backtests call simulate() with default P=RULES which has no sl/tp/hold -> 1 trade per stock held to the split, 0 trades out-of-sample, exp=NaN; adaptive weights never activate and the per-indicator table on stock pages is meaningless. Pass explicit exits or remove the feature."},
+    {"id": "warmup", "file": "core.js:43 (RULES.warm=60) used by simulate core.js:232 and calibAdd core.js:424-428", "fix": "Daily backtests on the site start at bar 60, before EMA200/weekly votes exist; research uses 210. US daily build: 707 trades 59.3% +2.28% (warm 60) vs 513 trades 60.8% +3.39% (warm 210). Use warm >= 210 for daily."},
+    {"id": "research_cost_one_side", "file": "research/smc.js:152 and research/smc.js:270 (breakeven stop en*(1+COST) at smc.js:267 vs site en*(1+2*cost) core.js:244)", "fix": "Research subtracts COST once per trade while COST is the per-side fee; site charges both sides (core.js:251). Research avg/trade is overstated by ~0.17% TH / ~0.10% US."}
+  ]
+}
