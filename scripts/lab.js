@@ -28,8 +28,8 @@ function candidates(m, base, champ) {
   // เปลี่ยนทีละค่าจากกลยุทธ์ปัจจุบัน (ดูว่าแต่ละตัวช่วยไหม)
   for (const [k, vs] of Object.entries(sp)) for (const v of vs) add({ ...base, [k]: v }, `ปรับ ${k} = ${v}`);
   // กลายพันธุ์จากตัวที่ดีที่สุดสัปดาห์ก่อน + สุ่มผสมหลายค่า
-  for (let i = 0; i < 30 && champ; i++) { const r = { ...champ }; for (let j = 0; j < 2; j++) { const k = pick(Object.keys(sp)); r[k] = pick(sp[k]) } add(r, "ต่อยอดจากตัวที่ดีที่สุดรอบก่อน") }
-  for (let i = 0; i < 120; i++) { const r = { ...base }; for (let j = 0, n = 2 + Math.floor(rnd() * 4); j < n; j++) { const k = pick(Object.keys(sp)); r[k] = pick(sp[k]) } add(r, "สุ่มผสมหลายค่า") }
+  for (let i = 0; i < 60 && champ; i++) { const r = { ...champ }; for (let j = 0; j < 2; j++) { const k = pick(Object.keys(sp)); r[k] = pick(sp[k]) } add(r, "ต่อยอดจากตัวที่ดีที่สุดรอบก่อน") }
+  for (let i = 0; i < 350; i++) { const r = { ...base }; for (let j = 0, n = 2 + Math.floor(rnd() * 4); j < n; j++) { const k = pick(Object.keys(sp)); r[k] = pick(sp[k]) } add(r, "สุ่มผสมหลายค่า") }
   return out;
 }
 const sm = a => { const n = a.length; if (!n) return { n: 0, win: 0, avg: 0, aw: 0, al: 0 }; const w = a.filter(r => r > 0), l = a.filter(r => r <= 0);
