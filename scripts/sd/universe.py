@@ -132,6 +132,21 @@ def cnbc_th_quotes(uni):
     return got
 
 
+def keep_old_sectors(items, old_items, failed, seen):
+    """กลุ่มที่ดึงจาก Yahoo ไม่สำเร็จ (หมดเวลา/ได้ 0 ตัว) ใช้รายชื่อเดิมของกลุ่มนั้นแทน
+    เคยเกิดจริง: กลุ่มการเงินไทยหมดเวลา หุ้นไทยทั้งกลุ่มหายจากระบบ หุ้นสหรัฐฯ ชื่อเดียวกัน (BAM MFC FE BYD) ได้ชื่อเดิมไป
+    แล้วชนกับราคาเก่าของหุ้นไทยใน quotes.json"""
+    back = 0
+    for i in old_items:
+        if (i.get("m"), i.get("sec")) in failed and i.get("y") not in seen:
+            seen.add(i.get("y"))
+            items.append({**i, "s": plain(i["s"])})  # ชื่อที่ไม่ซ้ำ uniq_keys คิดใหม่ทีหลัง
+            back += 1
+    if back:
+        ERRORS.append(f"universe: ใช้รายชื่อเดิม {back} ตัวของกลุ่มที่ดึงไม่สำเร็จ {sorted(failed)}")
+    return back
+
+
 def fetch_universe():
     """รายชื่อหุ้นทั้งตลาดพร้อมกลุ่มอุตสาหกรรม (วันละครั้ง) แยก query ตาม sector เพื่อได้ sector มาด้วย"""
     old = load("universe.json", {"items": []})
@@ -142,9 +157,10 @@ def fetch_universe():
         if before != [i["s"] for i in old["items"]]:
             save("universe.json", old)
         return old
-    items, seen = [], set()
+    items, seen, failed = [], set(), set()
     for m in ("TH", "US"):
         for ysec, sec in YSEC.items():
+            n0 = len(items)
             try:
                 for x in screen(EquityQuery("and", [base_query(m), EquityQuery("eq", ["sector", ysec])])):
                     if not keep(x, m) or x["symbol"] in seen:
@@ -158,6 +174,10 @@ def fetch_universe():
                                   "fcur": x.get("financialCurrency"), "ed": x.get("earningsTimestampStart"), **quote_of(x)})
             except Exception as e:
                 ERRORS.append(f"universe {m} {ysec}: {str(e)[:80]}")
+                failed.add((m, sec))
+            if len(items) - n0 == 0:
+                failed.add((m, sec))
+    keep_old_sectors(items, old["items"], failed, seen)
     for s in CFG["stocks"]:  # หุ้นในรายการหลักต้องมีเสมอ
         if not any(i["s"] == s["s"] and i["m"] == s["m"] for i in items):
             items.append({"s": s["s"], "y": ysym(s), "n": s["n"], "m": s["m"], "sec": s["sec"]})
