@@ -1,9 +1,9 @@
 name: strategy-lab
-# ห้องทดลองกลยุทธ์ของฝ่ายเทคนิค: ทุกวันอาทิตย์ ลองกลยุทธ์ใหม่ ~200 แบบต่อตลาด backtest 4 ปีด้วยเครื่องคำนวณของหน้าเว็บ
+# ห้องทดลองกลยุทธ์ของฝ่ายเทคนิค: ทุกวันอาทิตย์ ลองกลยุทธ์ใหม่ ~1,000 แบบต่อตลาด backtest 10 ปี แล้วทดลองเทรดก่อนใช้จริง (รายละเอียดใน scripts/lab.js)
 # ผล → data/hist/lab.json (branch hist) · แบบที่ชนะกลยุทธ์ปัจจุบันทั้งช่วงสร้างและช่วงทดสอบ 2 สัปดาห์ติดจะถูกใช้จริง
 on:
   schedule:
-    - cron: "17 3 * * 0"
+    - cron: "17 3 * * *"
   workflow_dispatch:
 permissions:
   contents: write
@@ -28,9 +28,11 @@ jobs:
           mkdir -p data/hist
           git fetch origin gh-pages --depth=1 && git show origin/gh-pages:data/universe.json > data/universe.json && (git show origin/gh-pages:data/calib.json > data/calib.json || true)
           git fetch origin hist --depth=1 && git --work-tree=data/hist checkout origin/hist -- . && git reset -q
+      - name: Daily prices 10 years (for the daily backtest)
+        run: python3 research/hist10_fetch.py data 2>&1 | tail -2
       - name: Hourly prices for 4H / 1H (~2 years, the most free sources provide)
         run: OUTDIR=h1 python3 research/intra_fetch.py data 2>&1 | tail -3
-      - name: Backtest candidates (daily 4 years · 4H/1H 2 years)
+      - name: Backtest candidates (daily 10 years · 4H/1H 2 years) + paper-trading book
         run: node --max-old-space-size=6500 scripts/lab.js data ALL ALL
       - name: Save lab.json to branch hist
         env:

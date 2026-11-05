@@ -697,3 +697,4 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .mim-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:8px 16px;margin:8px 0;font-size:13.5px}
 .mim h4,.mim-d h4{margin:6px 0 2px;font-size:13.5px}.mim-n{margin:2px 0 6px;padding-left:18px;font-size:13.5px;line-height:1.6}.mim-ix{font-size:14px}
 .fc-own{font-size:12px;margin-top:6px}.fc-note{margin:8px 0}.fc-note p{margin:3px 0;font-size:13.5px}
+.lab-blk{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12.5px}.lab-blk span{white-space:nowrap}
