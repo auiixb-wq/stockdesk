@@ -63,6 +63,14 @@ jobs:
           mv _peer/fundmem.json data/hist/_fundmem.json
           rm -rf data/hist/peer && mv _peer/peer data/hist/peer
           touch data/.hist_new
+      - name: Broker reports desk (sector analysts check broker calls against our own view)
+        continue-on-error: true
+        run: |
+          if [ ! -f data/hist/_brokers.json ]; then git fetch origin archive --depth=1 && mkdir -p _arch && git --work-tree=_arch checkout origin/archive -- news && git reset -q || true; fi
+          h0=$(md5sum data/hist/_brokers.json 2>/dev/null)
+          python3 scripts/brokers.py --data data $( [ -d _arch/news ] && echo --archive _arch )
+          rm -rf _arch
+          [ "$h0" = "$(md5sum data/hist/_brokers.json 2>/dev/null)" ] || touch data/.hist_new
       - name: Market brief (manual)
         if: ${{ github.event.inputs.brief != '' && github.event.inputs.brief != null }}
         continue-on-error: true

@@ -148,7 +148,10 @@ SITE_Q = [
     ("site:thunhoon.com หุ้น", "th", "TH"), ("site:kaohoon.com หุ้น", "th", "TH"), ("site:infoquest.co.th หุ้น", "th", "TH"),
     ("site:thestandard.co หุ้น", "th", "TH"), ("site:moneychannel.co.th หุ้น", "th", "TH"), ("site:set.or.th", "th", "TH"),
     ("site:bangkokpost.com SET stocks", "en", "TH"), ("site:bangkokbiznews.com หุ้น", "th", "TH"),
-    ("site:thansettakij.com หุ้น", "th", "TH"), ("site:prachachat.net หุ้น", "th", "TH"), ("site:nationthailand.com SET stocks", "en", "TH"), ("site:stock2morrow.com หุ้น", "th", "TH"),
+    ("site:thansettakij.com หุ้น", "th", "TH"),
+    # บทวิเคราะห์โบรก: ให้ทีมรายกลุ่มเห็นความเห็นหลายสำนัก (scripts/brokers.py)
+    ("\"ราคาเป้าหมาย\" แนะนำ หุ้น", "th", "TH"), ("โบรก เคาะเป้า หุ้น", "th", "TH"), ("บล. แนะนำ ซื้อ เป้า", "th", "TH"), ("ปรับเป้า หุ้น โบรก", "th", "TH"),
+    ("\"price target\" raises OR lowers stock", "en", "US"), ("analyst upgrades OR downgrades stock", "en", "US"), ("site:prachachat.net หุ้น", "th", "TH"), ("site:nationthailand.com SET stocks", "en", "TH"), ("site:stock2morrow.com หุ้น", "th", "TH"),
 ]
 REL = re.compile(r"stock|share|equit|market|earning|revenue|profit|guidance|analyst|investor|dividend|ipo|merger|acquisi|deal|"
                  r"fed\b|rate|yield|inflation|oil|dollar|tariff|nasdaq|s&p|dow\b|wall street|"
