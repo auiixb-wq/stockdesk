@@ -119,7 +119,9 @@ const tp1Of=(lp,at,P,m)=>P.tp1?rt(lp+P.tp1*at,m,"floor"):undefined;
 const tpOf=(lp,at,P)=>P.tpP?lp*(1+P.tpP):lp+P.tp*at;
 // ขาขึ้นระยะยาว: ปิดเหนือ EMA200 และ EMA50 อยู่เหนือ EMA200
 const e200OK=(I,i)=>I.e200[i]!=null&&I.c[i]>I.e200[i]&&I.e50[i]>I.e200[i];
-const sigOK=(I,i,rsA,P)=>(P.wk===false||I.wk[i]>=0)&&rsPass(rsA,i)&&(P.adx==null||(I.adx[i]??0)>P.adx)&&volOK(I,i,P)&&(!P.st||I.sd[i]===1)&&(!P.e200||e200OK(I,i))&&(P.r2max==null||(r2Of(I)[i]??99)<P.r2max);
+// มูลค่าซื้อขายเฉลี่ย 20 วัน (ล้านบาท/ดอลลาร์) ต้องถึงเกณฑ์ เพื่อให้ซื้อขายได้จริงที่ราคาตั้ง
+const tvOK=(I,i,m)=>{if(!I._tv){const t=I.c.map((c,k)=>(c||0)*(I.v[k]||0)),o=Array(t.length).fill(null);let s=0;for(let k=0;k<t.length;k++){s+=t[k];if(k>=20)s-=t[k-20];if(k>=19)o[k]=s/20}I._tv=o}return (I._tv[i]??0)>=m*1e6};
+const sigOK=(I,i,rsA,P)=>(!P.tv||tvOK(I,i,P.tv))&&(P.wk===false||I.wk[i]>=0)&&rsPass(rsA,i)&&(P.adx==null||(I.adx[i]??0)>P.adx)&&volOK(I,i,P)&&(!P.st||I.sd[i]===1)&&(!P.e200||e200OK(I,i))&&(P.r2max==null||(r2Of(I)[i]??99)<P.r2max);
 
 /* ---------- state ---------- */
 const S={hist:{},fin:{},universe:[],summary:{},news:[],factors:[],meta:null,px:{},fa:{},watch:[],uid:null,db:null,dbState:"loading",mkt:"ALL",sort:"score",scr:"all",nf:"all",sec:null,cache:new Map(),bars:new Map(),charts:[],marks:true};
@@ -528,7 +530,8 @@ function allStocks(){const k=(S.universe?.length||0)+"|"+Object.keys(S.px).lengt
   S._all=out;S._allK=k;S._map=new Map(out.map(x=>[x.s,x]));return out}
 const stockBySym=s=>{allStocks();return S._map.get(s)};
 // หุ้นที่ซื้อขายคล่องพอจะใช้จัดอันดับ (กันหุ้นเล็กที่ราคากระโดดแรง)
-const liquid=st=>!st.uni||st.m==="US"||(st.mc||0)>=5e9;
+// หุ้นไทย: ขนาดขั้นต่ำ 5 พันล้านบาท หรือค่าที่ห้องทดลองพิสูจน์แล้ว (backtest 10 ปี + ทดลองเทรด) ว่าลดได้โดยยังแม่น
+const liquid=st=>!st.uni||st.m==="US"||(st.mc||0)>=(S.lab?.adopt?.TH?.rules?.mcMin||5e9);
 // สรุปผลวิเคราะห์ให้เล็กพอส่งทั้งตลาดในไฟล์เดียว (ใช้ใน scripts/summarize.js)
 // สรุปสั้นของแต่ละหุ้นสำหรับ data/summary.json (หน้าเว็บใช้แสดงรายการโดยไม่ต้องโหลดราคาย้อนหลัง)
 // sp = เส้นราคา 90 วันแบบย่อ เก็บเป็นส่วนพันของราคาล่าสุด (1000 = ราคาวันนี้) ให้ไฟล์เล็ก · c = ระดับความเชื่อถือ 0–3
