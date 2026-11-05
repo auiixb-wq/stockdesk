@@ -13,6 +13,7 @@ L = {
  "Globlex": ("https://www.globlex.co.th/research.aspx?cate=1", r"[^\"']+\.pdf|research_detail[^\"']+"),
  "Yuanta": ("https://www.yuanta.co.th/th/page/research", r"[^\"']+\.pdf|/th/page/research/[^\"'#?]+"),
  "Bualuang": ("https://www.bualuang.co.th/our-business/bualuang-research", r"[^\"']+\.pdf|bualuang-research/[^\"'#?]+"),
+ "KS": ("https://www.kasikornsecurities.com/th/research/thai-stocks/company-analysis", r"/th/research/thai-stocks/company-analysis/research-[0-9-]+"),
  "Maybank": ("https://www.maybank.co.th/securities/research", r"[^\"']+\.pdf|/securities/research/[^\"'#?]+"),
 }
 def get(u, n=3000000):
