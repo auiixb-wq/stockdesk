@@ -43,11 +43,11 @@ def one(k, u, rx):
         print(f"== {k} ERR {str(e)[:100]}")
     sys.stdout.flush()
 
-import concurrent.futures as cf
-with cf.ThreadPoolExecutor(6) as ex:
-    fs = {ex.submit(one, k, u, rx): k for k, (u, rx) in L.items()}
-    try:
-        for f in cf.as_completed(fs, timeout=240): pass
-    except Exception as e:
-        print("TIMEOUT", [fs[f] for f in fs if not f.done()])
-import os; os._exit(0)
+import concurrent.futures as cf, os
+ex = cf.ThreadPoolExecutor(8)
+fs = {ex.submit(one, k, u, rx): k for k, (u, rx) in L.items()}
+try:
+    for f in cf.as_completed(fs, timeout=240): pass
+except Exception:
+    print("TIMEOUT", [fs[f] for f in fs if not f.done()], flush=True)
+os._exit(0)

@@ -16,7 +16,7 @@ jobs:
       - name: Probe
         timeout-minutes: 8
         run: |
-          python3 scripts/${{ github.event.inputs.script || 'probe_th.py' }} > probe.txt 2>&1 || true
+          timeout 330 python3 -u scripts/${{ github.event.inputs.script || 'probe_th.py' }} > probe.txt 2>&1 || true
           cat probe.txt
       - name: Publish
         env:
