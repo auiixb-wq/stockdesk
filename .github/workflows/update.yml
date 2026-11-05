@@ -67,10 +67,11 @@ jobs:
         continue-on-error: true
         run: |
           if [ ! -f data/hist/_brokers.json ]; then git fetch origin archive --depth=1 && mkdir -p _arch && git --work-tree=_arch checkout origin/archive -- news && git reset -q || true; fi
-          h0=$(md5sum data/hist/_brokers.json 2>/dev/null)
+          h0=$(md5sum data/hist/_brokers.json data/hist/_reports.json 2>/dev/null)
+          timeout 600 python3 scripts/research_desk.py --data data || true
           python3 scripts/brokers.py --data data $( [ -d _arch/news ] && echo --archive _arch )
           rm -rf _arch
-          [ "$h0" = "$(md5sum data/hist/_brokers.json 2>/dev/null)" ] || touch data/.hist_new
+          [ "$h0" = "$(md5sum data/hist/_brokers.json data/hist/_reports.json 2>/dev/null)" ] || touch data/.hist_new
       - name: Market brief (manual)
         if: ${{ github.event.inputs.brief != '' && github.event.inputs.brief != null }}
         continue-on-error: true
