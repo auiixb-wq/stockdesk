@@ -70,8 +70,6 @@ function runMarket(m, tf = "D") {
     const blk = out.k.map((a, k) => ({ from: blocks[k], ...sm(a) })), used = blk.filter(b => b.n >= 10), neg = used.filter(b => b.avg <= 0).length;
     const stable = !blocks.length || (used.length >= 3 && neg <= 1 && Math.min(...used.map(b => b.avg)) > -1);
     return { build: sm(out.b), test: sm(out.t), blk, stable, ...(since ? { paper: sm(out.p) } : {}) } };
-  if (tf !== "D") { let raw = 0, sg = 0; const P = { ...base }; for (const x of prep.slice(0, 40)) { for (let i = 0; i < x.B.length; i++) if (C.sysTrig(x.A, x.I, i, P)) sg++; raw += C.simulate(x.B, x.I, i => C.sysTrig(x.A, x.I, i, P), 0, x.B.length, m, P).length }
-    console.log(tf, m, "debug: bars", prep[0]?.B.length, "first", prep[0]?.B[0]?.t, "last", prep[0]?.B.at(-1)?.t, "trig", sg, "trades(no filter)", raw, "from", from, "split", split, "warm", base.warm) }
   const K = tf === "D" ? m : `${m}@${tf}`, cur = test({}), champ = LAB.best?.[K]?.r, list = candidates(m, base, champ, sp), res = [];
   const keys = Object.keys(sp), diff = r => Object.fromEntries(keys.filter(k => (r[k] ?? null) !== (base[k] ?? null)).map(k => [k, r[k] ?? null]));
   const lane = (R, cur) => {
