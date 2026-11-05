@@ -1,4 +1,5 @@
 """รอบสอง: เปิดหน้ารายการบทวิเคราะห์ แล้วลองเปิดบทวิเคราะห์ 1 ฉบับ ดูว่าอ่านเนื้อหาได้แค่ไหน (ไม่แตะ SET/Settrade)"""
+import socket; socket.setdefaulttimeout(20)
 import re, urllib.request, urllib.parse, urllib.robotparser, json, sys, html as H
 UA = "Mozilla/5.0 (compatible; stockdesk-research-probe/1.0)"
 L = {
@@ -21,7 +22,7 @@ def text(b):
     s = b.decode("utf8", "ignore")
     s = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", s); s = H.unescape(re.sub(r"<[^>]+>", " ", s))
     return re.sub(r"\s+", " ", s).strip()
-for k, (u, rx) in L.items():
+def one(k, u, rx):
     try:
         ct, b = get(u); h = b.decode("utf8", "ignore")
         links = list(dict.fromkeys(re.findall(rx, h)))
@@ -40,3 +41,12 @@ for k, (u, rx) in L.items():
     except Exception as e:
         print(f"== {k} ERR {str(e)[:100]}")
     sys.stdout.flush()
+
+import concurrent.futures as cf
+with cf.ThreadPoolExecutor(6) as ex:
+    fs = {ex.submit(one, k, u, rx): k for k, (u, rx) in L.items()}
+    try:
+        for f in cf.as_completed(fs, timeout=240): pass
+    except Exception as e:
+        print("TIMEOUT", [fs[f] for f in fs if not f.done()])
+import os; os._exit(0)

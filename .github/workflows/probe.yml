@@ -14,6 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Probe
+        timeout-minutes: 8
         run: |
           python3 scripts/${{ github.event.inputs.script || 'probe_th.py' }} > probe.txt 2>&1 || true
           cat probe.txt
