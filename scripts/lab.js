@@ -25,7 +25,7 @@ let seed = +today.replace(/-/g, "") % 2147483647; const rnd = () => (seed = seed
 
 // พื้นที่ค้นหา (ฝ่ายเทคนิคคิดจากกราฟ): ตัวกรองแนวโน้ม/ความแข็ง · จุดเข้าแบบคะแนน ทะลุกรอบ หรือย่อแตะ EMA20 · ทางออกขาย 2 ขั้น
 const SPACE = {
-  TH: { trig: [null, null, "brk", "pb"], vol: [1.5, 2.2, 3], adx: [20, 25, 30], rs: [60, 70, 80], e200: [true, false], st: [true, false], lim: [0, .5, 1, 1.25, 1.5], ld: [1, 2], sl: [2, 3, 4], tp1: [1.5, 2, 3], tp1f: [.3, .5], tp: [4, 6, 8], hold: [5, 10, 20], dip: [10, 20] },
+  TH: { mcMin: [5e9, 5e9, 3e9, 2e9, 1e9], tv: [null, null, 5, 10, 20], trig: [null, null, "brk", "pb"], vol: [1.5, 2.2, 3], adx: [20, 25, 30], rs: [60, 70, 80], e200: [true, false], st: [true, false], lim: [0, .5, 1, 1.25, 1.5], ld: [1, 2], sl: [2, 3, 4], tp1: [1.5, 2, 3], tp1f: [.3, .5], tp: [4, 6, 8], hold: [5, 10, 20], dip: [10, 20] },
   US: { trig: [null, null, "brk", "pb"], vol: [2, 2.5, 3.5], adx: [15, 20, 25], rs: [80, 85, 90], e200: [false, true], st: [true, false], lim: [0, 1, 1.5, 2], ld: [1, 3], sl: [3, 4], tp1: [2, 3, 4], tp1f: [.3, .5], tp: [6, 8, 10], hold: [20, 40], dip: [10, 20], slCap: [.1, .12, .15] },
 };
 function candidates(m, base, champ, sp = SPACE[m]) {
@@ -53,7 +53,8 @@ function runMarket(m, tf = "D") {
   // เตรียมข้อมูลต่อหุ้นครั้งเดียว (อินดิเคเตอร์ + คะแนน) แล้วลองทุกกลยุทธ์บนข้อมูลชุดเดียวกัน
   const prep = [];
   if (tf !== "D") { S.intra = {}; S.intraRecent = null; for (const st of stocks) { const j = load(path.join(DATA, "h1", st.s + ".json"), null); if (j?.t) S.intra[st.s] = j } }
-  for (const st of stocks) { if (!C.liquid(st)) continue; S.bars.clear(); S.cache.clear(); const B = tf === "D" ? C.barsOf(st) : C.tfBars(st, tf); if (!B || B.length < (tf === "D" ? 300 : 200)) continue; const I = C.indicators(B);
+  // หุ้นไทย: เตรียมหุ้นตั้งแต่ 1 พันล้านบาท แล้วให้แต่ละแบบเลือกขนาดขั้นต่ำเอง (mcMin) · ค่าตั้งต้น 5 พันล้าน
+  for (const st of stocks) { if (m === "TH" ? (st.mc || 0) < 1e9 : !C.liquid(st)) continue; S.bars.clear(); S.cache.clear(); const B = tf === "D" ? C.barsOf(st) : C.tfBars(st, tf); if (!B || B.length < (tf === "D" ? 300 : 200)) continue; const I = C.indicators(B);
     const w = C.VOTES.map(v => v.w), A = I.c.map((_, i) => { if (!i) return 0; let s = 0, ws = 0; C.VOTES.forEach((v, k) => { const r = v.f(I, i, false); if (r) { s += w[k] * r.v; ws += w[k] * 2 } }); return ws ? s / ws * 100 : 0 });
     prep.push({ st, B, I, A, rs: {} }) }
   const base = { ...C.rulesFor(m, tf), noTrade: false }; delete base.exit;
@@ -64,7 +65,7 @@ function runMarket(m, tf = "D") {
   // ช่วงละ 2 ปี (เฉพาะกรอบวัน) ไว้ดูว่ากำไรมาจากทุกสภาพตลาด ไม่ใช่ช่วงเดียว
   const blocks = []; if (tf === "D") for (let y = Date.parse(from); y < Date.parse(today) - 365 * 864e5; y += 2 * 365.25 * 864e5) blocks.push(new Date(y).toISOString().slice(0, 10));
   const test = (r, since) => { const P = { ...base, ...r }, out = { b: [], t: [], k: blocks.map(() => []), p: [] };
-    for (const x of prep) { const rsA = P.rs != null ? (x.rs[P.rs] ??= tf === "D" ? C.rsSeries(x.st, x.B, P.rs) : C.rsTF(x.st, x.B, P.rs)) : null; const sig = i => C.sysTrig(x.A, x.I, i, P) && C.sigOK(x.I, i, rsA, P);
+    for (const x of prep) { if (m === "TH" && (x.st.mc || 0) < (P.mcMin || 5e9)) continue; const rsA = P.rs != null ? (x.rs[P.rs] ??= tf === "D" ? C.rsSeries(x.st, x.B, P.rs) : C.rsTF(x.st, x.B, P.rs)) : null; const sig = i => C.sysTrig(x.A, x.I, i, P) && C.sigOK(x.I, i, rsA, P);
       for (const t of C.simulate(x.B, x.I, sig, 0, x.B.length, m, P)) { const d = String(x.B[t.i].t).slice(0, 10); if (since && d > since) out.p.push(t.ret * 100); if (d < from) continue; (d < split ? out.b : out.t).push(t.ret * 100);
         for (let k = blocks.length - 1; k >= 0; k--) if (d >= blocks[k]) { out.k[k].push(t.ret * 100); break } } }
     const blk = out.k.map((a, k) => ({ from: blocks[k], ...sm(a) })), used = blk.filter(b => b.n >= 10), neg = used.filter(b => b.avg <= 0).length;
@@ -84,6 +85,7 @@ function runMarket(m, tf = "D") {
   for (const c of list) { const R = test(c.r), ln = lane(R, cur), ok = !!ln;
     res.push({ ch: diff(c.r), why: c.why, ...R, ok, lane: ln, score: Math.min(R.build.avg, R.test.avg) + Math.min(R.build.win, R.test.win) / 50 + (ln === "ไม้มากขึ้น" ? Math.log(R.test.n / Math.max(1, cur.test.n)) : 0) }) }
   res.sort((a, b) => (b.ok - a.ok) || b.score - a.score);
+  if (process.env.LABDUMP) for (const r of res.filter(r => Object.keys(r.ch).every(k => process.env.LABDUMP.split(",").includes(k)))) console.log("DUMP", JSON.stringify(r.ch), JSON.stringify(r.build), JSON.stringify(r.test), r.stable, JSON.stringify((r.blk || []).map(b => [b.from.slice(0, 4), b.n, b.avg])));
   const mon = (Date.parse(today) - Date.parse(split)) / 2.63e9;
   for (const r of [cur, ...res]) r.perMonth = +((r.test?.n || 0) / Math.max(1, mon)).toFixed(1);
   // สมุดทดลองเทรด: ตรวจทุกแบบที่อยู่ในสมุด (backtest ใหม่ทั้งชุด + ผลทดลองเทรดหลังวันที่เข้าสมุด)

@@ -38,6 +38,8 @@ jobs:
       - name: Hourly prices for 4H / 1H (~2 years, the most free sources provide)
         run: OUTDIR=h1 python3 research/intra_fetch.py data 2>&1 | tail -3
       - name: Backtest candidates (daily 10 years · 4H/1H 2 years) + paper-trading book
+        env:
+          LABDUMP: mcMin,tv
         run: for tf in $( [ "${{ github.event.inputs.tf || 'ALL' }}" = ALL ] && echo D 4H 1H || echo "${{ github.event.inputs.tf }}" ); do for m in $( [ "${{ github.event.inputs.m || 'ALL' }}" = ALL ] && echo TH US || echo "${{ github.event.inputs.m }}" ); do node --max-old-space-size=6500 scripts/lab.js data $m $tf; done; done
       - name: Save lab.json to branch hist
         env:
