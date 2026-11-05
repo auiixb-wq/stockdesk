@@ -104,7 +104,7 @@ def rating_in(t):
 TP_RX = re.compile(rf"(?:ราคาเป้าหมาย|มูลค่าพื้นฐาน|มูลค่าเหมาะสม|ราคาเหมาะสม|Target Price|Fair Value|Fair price|TP)(?:\s*(?:ปี|ของปี|FY)?\s*(?:20)?\d{{2}}F?E?)?\s*(?:ใหม่)?\s*(?:ที่|เป็น|อยู่ที่|:|ของเราที่)?\s*(?:Bt|THB|บาท)?\s*{NUM}\s*(?:บาท|บ\.|Bt|THB)?", re.I)
 METHOD_RX = re.compile(r"(P/?E(?:R)?|PER|P/?BV|PBV|EV/EBITDA|DCF|GGM|SOTP|DDM|Dividend Yield)[^\n]{0,40}?" + NUM + r"\s*(?:x|เท่า)", re.I)
 METHOD_NAME = re.compile(r"\b(DCF|GGM|SOTP|DDM|EV/EBITDA|P/?BV|PBV|P/?E(?:R)?|PER)\b", re.I)
-Q_PROFIT = re.compile(r"(?:กำไร(?:สุทธิ|ปกติ)?(?:ใน|ของ|ไตรมาส)?\s*)([1-4])Q(\d{2})\s*(?:อยู่ที่|ที่|เท่ากับ|ออกมา(?:ดีกว่าคาด|ต่ำกว่าคาด|ใกล้เคียงคาด)?(?:ที่)?)?\s*" + NUM + r"\s*(พันล้าน|ล้าน)\s*บาท", re.I)
+Q_PROFIT = re.compile(r"(?:กำไร(?:สุทธิ|ปกติ)?(?:ใน|ของ|งวด|ไตรมาส)?\s*)([1-4])Q(\d{2})\s*(?:อยู่ที่|ที่|เท่ากับ|ออกมา(?:ดีกว่าคาด|ต่ำกว่าคาด|ใกล้เคียงคาด)?(?:ที่)?)?\s*" + NUM + r"\s*(พันล้าน|ล้าน)\s*บาท", re.I)
 Q_PROFIT2 = re.compile(r"([1-4])Q(\d{2})[^\n]{0,30}?กำไร(?:สุทธิ|ปกติ)?[^\n\d]{0,25}" + NUM + r"\s*(พันล้าน|ล้าน)\s*บาท", re.I)
 Y_GROWTH = re.compile(r"กำไร(?:สุทธิ|ปกติ)?(?:ใน|ของ)?ปี\s*(20\d{2})[^\n]{0,40}?([+-]?\d+(?:\.\d+)?)%\s*YoY", re.I)
 
@@ -112,7 +112,7 @@ Y_GROWTH = re.compile(r"กำไร(?:สุทธิ|ปกติ)?(?:ใน|�
 def sentences(t, n=3):
     out = []
     for s in re.split(r"(?<=[.!?])\s+|\n|(?<=บาท)\s+(?=[ก-๙A-Z])", t):
-        s = s.strip()
+        s = re.sub(r"[*_#`]+", "", s).strip()
         if 40 <= len(s) and re.search(r"[ก-๙]|[a-z]{3}", s) and not re.search(r"เปิดบัญชี|คลิก|ดาวน์โหลด|Disclaimer|ข้อจำกัดความรับผิด|copyright|cookie", s, re.I):
             out.append(s[:220])
         if len(out) >= n:
@@ -128,15 +128,20 @@ def parse_report(text, sym_hint):
     rep["tp"] = fnum(m.group(1)) if m else None
     mm = METHOD_RX.search(body)
     if mm:
-        rep["method"], rep["mult"] = mm.group(1).upper().replace("PER", "P/E").replace("PBV", "P/BV"), fnum(mm.group(2))
+        rep["method"], rep["mult"] = mm.group(1), fnum(mm.group(2))
     else:
         mn = METHOD_NAME.search(body[:1500])
         rep["method"] = mn.group(1).upper() if mn else None
     claims = []
-    for rx in (Q_PROFIT, Q_PROFIT2):
-        for q, yy, v, unit in rx.findall(body[:6000]):
-            val = fnum(v) * (1e9 if unit == "พันล้าน" else 1e6)
-            claims.append({"q": f"{q}Q{yy}", "ni": val})
+    for mm in Q_PROFIT.finditer(body[:6000]):  # เฉพาะประโยคที่ระบุชัด "กำไร...ไตรมาส X อยู่ที่ Y" (ไม่เดาจากประโยคที่พูดหลายไตรมาส)
+        if "คาด" in body[max(0, mm.start() - 15):mm.start() + 8]:
+            continue  # ตัวเลขคาดการณ์ ไม่ใช่ผลจริง
+        q, yy, v, unit = mm.groups()
+        val = fnum(v) * (1e9 if unit == "พันล้าน" else 1e6)
+        claims.append({"q": f"{q}Q{yy}", "ni": val, "core": "ปกติ" in mm.group(0)})
+    if rep.get("method"):
+        mt = rep["method"].upper().replace(" ", "")
+        rep["method"] = "P/E" if mt in ("PE", "P/E", "PER", "P/ER") else "P/BV" if mt in ("PBV", "P/BV") else mt
     seen, rep["claims"] = set(), []
     for c in claims:
         if c["q"] not in seen:
@@ -217,6 +222,8 @@ def verify(sym, rep, price, fin, sec_pe):
     qd, qni = q.get("d") or [], q.get("ni") or []
     for c in rep.get("claims", []):
         n, yy = int(c["q"][0]), int(c["q"][2:])
+        if dt.date(2000 + yy, 3 * n, 28) > dt.date.today():
+            continue  # ไตรมาสในอนาคต (บริษัทที่ปีบัญชีไม่ตรงปีปฏิทิน หรือประมาณการ) ไม่ใช่ตัวเลขจริง
         end = {1: "03-31", 2: "06-30", 3: "09-30", 4: "12-31"}[n]
         k = f"20{yy:02d}-{end}"
         if k in qd and qni[qd.index(k)]:
@@ -225,6 +232,8 @@ def verify(sym, rep, price, fin, sec_pe):
             c["ours"] = ours
             if diff <= 0.05:
                 chk.append(f"กำไร {c['q']} ในรายงาน ({c['ni'] / 1e6:,.0f} ลบ.) ตรงกับงบที่เรามี")
+            elif c.get("core") or diff <= 0.15:
+                chk.append(f"กำไร{'ปกติ' if c.get('core') else ''} {c['q']} ในรายงาน ({c['ni'] / 1e6:,.0f} ลบ.) ต่างจากกำไรสุทธิในงบ ({ours / 1e6:,.0f} ลบ.) {diff * 100:.0f}% · น่าจะเป็นกำไรปกติที่ตัดรายการพิเศษออก ทีมใช้ตัวเลขงบเป็นหลัก")
             else:
                 ok = False
                 chk.append(f"กำไร {c['q']} ในรายงาน ({c['ni'] / 1e6:,.0f} ลบ.) ไม่ตรงกับงบที่เรามี ({ours / 1e6:,.0f} ลบ.) ต่างกัน {diff * 100:.0f}% ทีมไม่ใช้ตัวเลขนี้จนกว่าจะยืนยัน")
@@ -259,6 +268,9 @@ def main():
     SS = (load(os.path.join(D, "sector_stats.json"), {}) or {}).get("groups", {})
     memp = os.path.join(D, "hist", "_reports.json")
     mem = load(memp, {}) or {}
+    PV = 2  # รุ่นตัวอ่าน: ฉบับที่อ่านด้วยรุ่นเก่าจะถูกอ่านใหม่
+    mem = {k: [r for r in L if r.get("pv", 1) >= PV] for k, L in mem.items()}
+    mem = {k: L for k, L in mem.items() if L}
     seen = {r["u"] for L in mem.values() for r in L}
     items, errs = [], []
     for f in SOURCES:
@@ -308,7 +320,7 @@ def main():
             rec = {"d": it.get("d") or dt.date.today().isoformat(), "b": it["b"], "u": it["u"], "t": (title or f"{sym} {it.get('type', '')}").strip()[:160],
                    "r": rep["r"], "tp": rep["tp"], "method": rep.get("method"), "mult": rep.get("mult"), "ipe": rep.get("ipe"),
                    "claims": rep["claims"][:4], "growth": rep["growth"], "pts": rep["pts"], "chk": chk, "ok": ok and not rep.get("flag"),
-                   "flag": rep.get("flag"), "px": price, "read": int(time.time())}
+                   "flag": rep.get("flag"), "px": price, "read": int(time.time()), "pv": PV}
             L = mem.setdefault(sym, [])
             L.append(rec)
             mem[sym] = sorted(L, key=lambda x: x["d"])[-12:]
@@ -325,7 +337,7 @@ def main():
             if any("ยังไม่เข้าระบบ" in c for c in r.get("chk", [])):
                 g = SS.get(f"TH:{st.get('sec')}") or {}
                 sec_pe = ((g.get("m") or {}).get("pe") or [None, None, None])[2]
-                rr = {"tp": r.get("tp"), "claims": [{"q": c["q"], "ni": c["ni"]} for c in r.get("claims", [])], "growth": r.get("growth", []), "_sh": st.get("sh")}
+                rr = {"tp": r.get("tp"), "claims": [{"q": c["q"], "ni": c["ni"], "core": c.get("core")} for c in r.get("claims", [])], "growth": r.get("growth", []), "_sh": st.get("sh")}
                 ok, chk = verify(sym, rr, r.get("px"), fin, sec_pe)
                 r["chk"], r["claims"], r["ok"] = chk, rr["claims"], ok and not r.get("flag")
     if a.dry:
