@@ -205,6 +205,8 @@ function forwardSys() {
       // รายหุ้น: [สัญญาณ, ได้ของ, ปิดแล้ว, ชนะ, ผลรวม %, ประวัติล่าสุด [วันสัญญาณ, ผล %|null, ทางออก]]
       const ps = (per[sym] ??= [0, 0, 0, 0, 0, []]); ps[0]++;
       const log = (ret, how) => { ps[5].push([d, ret == null ? null : +ret.toFixed(2), how]); if (ps[5].length > 8) ps[5].shift() };
+      // แผนที่คิดจากราคาผิด (เช่นราคาหุ้นอีกตลาดชื่อย่อเดียวกัน) ไม่นับ: ราคาตั้งซื้อต้องใกล้ราคาปิดจริงของวันสัญญาณ
+      const bd = B.filter(b => b.t <= d).pop(); if (!bd || Math.abs(Math.log(lp / bd.c)) > Math.log(1.3)) { r.sig--; ps[0]--; continue; }
       const i0 = B.findIndex(b => b.t > d); if (i0 < 0) { r.open++; log(null, "wait"); continue; }
       let e = -1; for (let k = i0; k < Math.min(B.length, i0 + (P.ld || 1)); k++) if (B[k].l <= lp) { e = k; break; }
       if (e < 0) { if (i0 + (P.ld || 1) > B.length) { r.open++; log(null, "wait") } else log(null, "miss"); continue; }

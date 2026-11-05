@@ -17,6 +17,10 @@ def _refs():
     for k, v in load("summary.json", {}).get("s", {}).items():
         if v.get("p"):
             ref[k] = (v["p"], 2.5)
+    # ราคาจากรายชื่อหุ้น (ดึงด้วยสัญลักษณ์ Yahoo ของบริษัทนั้นเอง) เชื่อได้กว่า summary ที่อาจรับราคาผิดไปแล้วรอบก่อน
+    for i in load("universe.json", {"items": []})["items"]:
+        if (i.get("p") or 0) > 0:
+            ref[i["s"]] = (i["p"], 2.5)
     return ref
 
 

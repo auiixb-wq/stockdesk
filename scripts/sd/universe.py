@@ -116,7 +116,9 @@ def cnbc_th_quotes(uni):
     for rows in batches:
         for q in rows:
             try:
-                s = keys.get(str(q["symbol"]).removesuffix("-TH"), str(q["symbol"]).removesuffix("-TH"))
+                s = keys.get(str(q["symbol"]).removesuffix("-TH"))
+                if not s:  # ชื่อย่อที่ไม่อยู่ในรายชื่อหุ้นไทยของเรา ห้ามใช้ (อาจชนกับหุ้นสหรัฐฯ ชื่อเดียวกัน เช่น FE)
+                    continue
                 p = float(str(q["last"]).replace(",", ""))
                 prev = float(str(q.get("previous_day_closing") or "0").replace(",", "")) or None
                 ts = int(dt.datetime.strptime(q["last_time"], "%Y-%m-%dT%H:%M:%S.%f%z").timestamp())
