@@ -118,5 +118,47 @@ check("ไม่แปลงสกุลเงินซ้ำ", FN.raw_already(q
 iss = [c for c, _ in FA.check("X", {"q": qconv, "a": {}}, u, datetime.date(2027, 1, 1))]
 check("จับงบผิดหน่วย", "pe" in iss and not [c for c, _ in FA.check("X", {"q": qraw, "a": {}, "fx": 1}, u, datetime.date(2027, 1, 1))], iss)
 
+# ผังข้อมูลหลังบ้าน: งานหนึ่งส่งข้อมูลต้องไม่ทับไฟล์ที่อีกงานเพิ่งส่ง (scripts/sd/datasync.py)
+from sd import datasync as DS  # noqa: E402
+L = {"quotes.json": "q2", "ux.json": "u1", "agents.json": "a9", "new.json": "n1"}
+B = {"quotes.json": "q1", "ux.json": "u1", "agents.json": "a1"}
+R = {"quotes.json": "q1", "ux.json": "u2", "agents.json": "a2"}
+pk, wn = DS.plan("gh-pages", "update", L, B, R, {}, {})
+check("รวมไฟล์ตามเจ้าของ", pk == {"quotes.json": "local", "ux.json": "remote", "agents.json": "remote", "new.json": "local"}
+      and any("agents.json" in w for w in wn) and any("new.json" in w for w in wn), (pk, wn))
+pk, _ = DS.plan("gh-pages", "live", {"summary.json": "s3"}, {"summary.json": "s1"}, {"summary.json": "s2"}, {"summary.json": [200, "update"]}, {"summary.json": 100})
+pk2, _ = DS.plan("gh-pages", "live", {"summary.json": "s3"}, {"summary.json": "s1"}, {"summary.json": "s2"}, {"summary.json": [200, "update"]}, {"summary.json": 300})
+check("ไฟล์ที่สองงานแก้พร้อมกัน ใช้ของที่เขียนทีหลัง", pk["summary.json"] == "remote" and pk2["summary.json"] == "local", (pk, pk2))
+check("lab.json ใน hist เป็นของ lab", DS.owners("hist", "lab.json") == ("lab",) and DS.owners("hist", "fin/PTT.json") == DS.BOTH
+      and DS.owners("hist", "PTT.json") == DS.BOTH and DS.owners("gh-pages", "x.json") is None)
+doc = open(os.path.join(C.ROOT, "docs", "data.md"), encoding="utf-8").read()
+miss = [p for b in DS.OWNERS.values() for p, _, _ in b if f"`{p}`" not in doc]
+check("ทุกไฟล์ในตารางเจ้าของมีใน docs/data.md", not miss, miss)
+with tempfile.TemporaryDirectory() as d:
+    g = lambda *a, cwd: subprocess.run(["git", *a], cwd=cwd, check=True, capture_output=True)
+    W = lambda p, s: (os.makedirs(os.path.dirname(p), exist_ok=True), open(p, "w").write(s))
+    bare, wk, other = os.path.join(d, "o.git"), os.path.join(d, "w"), os.path.join(d, "x")
+    g("init", "-q", "--bare", bare, cwd=d)
+    for k in ("ux", "quotes", "agents"):
+        W(os.path.join(other, "data", k + ".json"), f'"{k}1"')
+    g("init", "-q", "-b", "gh-pages", cwd=other); g("add", "-A", cwd=other)
+    g("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "1", cwd=other); g("push", "-q", bare, "gh-pages", cwd=other)
+    g("init", "-q", wk, cwd=d); g("remote", "add", "origin", bare, cwd=wk)
+    g("fetch", "-q", "origin", "gh-pages", cwd=wk); g("checkout", "-q", "FETCH_HEAD", "--", "data", cwd=wk); g("reset", "-q", cwd=wk)
+    DS.ROOT, DS.SYNC = wk, os.path.join(wk, "data", ".sync")
+    DS.mark("gh-pages")
+    W(os.path.join(other, "data", "ux.json"), '"ux2"'); W(os.path.join(other, "data", "agents.json"), '"agents2"')  # อีกงานส่งของใหม่
+    g("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "2", cwd=other); g("push", "-q", bare, "gh-pages", cwd=other)
+    W(os.path.join(wk, "data", "quotes.json"), '"quotes2"')  # งานนี้แก้ราคา
+    out = os.path.join(d, "site")
+    DS.merge("gh-pages", "live", out)
+    rd = lambda p: open(p).read()
+    man = json.load(open(os.path.join(out, "_files.json")))
+    lease = rd(os.path.join(DS.SYNC, "gh-pages.lease"))
+    head = subprocess.run(["git", "rev-parse", "gh-pages"], cwd=bare, capture_output=True, text=True).stdout.strip()
+    check("ส่งข้อมูลไม่ทับของงานอื่น", [rd(os.path.join(out, k + ".json")) for k in ("ux", "quotes", "agents")] == ['"ux2"', '"quotes2"', '"agents2"']
+          and rd(os.path.join(wk, "data", "ux.json")) == '"ux2"' and man["quotes.json"][1] == "live" and lease == head, (os.listdir(out), man, lease, head))
+    DS.ROOT, DS.SYNC = C.ROOT, os.path.join(C.ROOT, "data", ".sync")
+
 print("ผ่านทั้งหมด" if not fails else "ไม่ผ่าน:\n- " + "\n- ".join(fails))
 sys.exit(1 if fails else 0)
