@@ -132,6 +132,48 @@ def cnbc_th_quotes(uni):
     return got
 
 
+_ST = {}
+
+
+def settrade_th_quotes(uni, limit=400):
+    """ราคาหุ้นไทยแบบเรียลไทม์จาก Settrade Open API (ใช้ key ใน GitHub Secrets ของเจ้าของเว็บ)
+    ไม่มี key / เป็น sandbox (ข้อมูลทดสอบ ไม่ใช่ราคาจริง) / ล้ม → คืนค่าว่าง แล้วใช้แหล่งเดิม (CNBC ล่าช้า ~15 นาที)"""
+    env = {k: os.environ.get("SETTRADE_" + k, "") for k in ("APP_ID", "APP_SECRET", "APP_CODE", "BROKER_ID")}
+    if not all(env.values()) or env["BROKER_ID"].upper() == "SANDBOX" or _ST.get("off"):
+        return {}
+    try:
+        if "mkt" not in _ST:
+            from settrade_v2 import Investor
+            inv = Investor(app_id=env["APP_ID"], app_secret=env["APP_SECRET"], app_code=env["APP_CODE"], broker_id=env["BROKER_ID"], is_auto_queue=False)
+            _ST["mkt"] = inv.MarketData()
+        mkt = _ST["mkt"]
+    except Exception as e:
+        _ST["fail"] = _ST.get("fail", 0) + 1
+        if _ST["fail"] >= 3:
+            _ST["off"] = 1  # login ไม่ผ่านซ้ำ ๆ: หยุดลองในงานนี้ ไม่ให้ถ่วงรอบราคา
+        ERRORS.append(f"settrade login: {type(e).__name__}")
+        return {}
+    th = sorted([i for i in uni["items"] if i["m"] == "TH" and re.fullmatch(r"[A-Z0-9]+", plain(i["s"]))], key=lambda i: -(i.get("mc") or 0))[:limit]
+    now, got, bad = int(time.time()), {}, [0]
+
+    def one(i):
+        try:
+            d = mkt.get_quote_symbol(plain(i["s"]))
+            f = lambda *ks: next((float(d[k]) for k in ks if d.get(k) not in (None, "", 0)), None)
+            p, prev = f("last"), f("prior", "previousClose")
+            if p and p > 0:
+                got[i["s"]] = {"p": p, "prev": prev, "chg": round((p / prev - 1) * 100, 3) if prev else None, "ts": now,
+                               "v": int(f("totalVolume", "volume") or 0) or None, "o": f("open", "open1"), "h": f("high"), "l": f("low"), "src": "SET"}
+        except Exception:
+            bad[0] += 1
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(8) as ex:
+        list(ex.map(one, th))
+    if bad[0]:
+        ERRORS.append(f"settrade quote: ล้ม {bad[0]} ตัว")
+    return got
+
+
 def fetch_universe():
     """รายชื่อหุ้นทั้งตลาดพร้อมกลุ่มอุตสาหกรรม (วันละครั้ง) แยก query ตาม sector เพื่อได้ sector มาด้วย"""
     old = load("universe.json", {"items": []})

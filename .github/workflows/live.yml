@@ -34,4 +34,8 @@ jobs:
       - name: Stream quotes while markets are open
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SETTRADE_APP_ID: ${{ secrets.SETTRADE_APP_ID }}
+          SETTRADE_APP_SECRET: ${{ secrets.SETTRADE_APP_SECRET }}
+          SETTRADE_APP_CODE: ${{ secrets.SETTRADE_APP_CODE }}
+          SETTRADE_BROKER_ID: ${{ secrets.SETTRADE_BROKER_ID }}
         run: python -u scripts/live.py
