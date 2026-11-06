@@ -81,6 +81,11 @@ def fetch_quotes(prices):
             old = load("quotes.json", {"q": {}})["q"]
             t1 = time.time()
             allq = {**old, **market_quotes(uni, open_m)}
+            # ตลาดที่ปิดไปแล้วแต่ราคาที่เก็บไว้ยังเป็นก่อนปิด (CNBC หยุดตอนจบเวลาทำงาน ก่อนราคาปิด ATC เข้า) ดึงราคาปิดจริงอีกรอบ
+            catch = [m for m in ("TH", "US") if m not in open_m and missed_close(m, uni, old)]
+            if catch:
+                late = market_quotes(uni, catch)
+                allq.update({k: v for k, v in late.items() if (v.get("ts") or 0) > (allq.get(k, {}).get("ts") or 0)})
             QUOTE_T["screener"] = round(time.time() - t1, 1)
             allq.update({k: v for k, v in q.items() if v.get("ts") and (k not in allq or (allq[k].get("ts") or 0) <= v["ts"])})
             if "TH" in open_m:
@@ -94,6 +99,31 @@ def fetch_quotes(prices):
     sanitize_quotes(q)
     save("quotes.json", {"updated": int(time.time()), "q": q})
     return q
+
+
+CLOSE = {"TH": ("Asia/Bangkok", 16, 30), "US": ("America/New_York", 16, 0)}  # เวลาเริ่มจับคู่ราคาปิด
+
+
+def last_close(m, now=None):
+    """เวลาปิดตลาดล่าสุด (วันทำการจันทร์-ศุกร์) ที่ผ่านมาแล้ว เป็น datetime ตามเขตเวลาตลาด"""
+    from zoneinfo import ZoneInfo
+    tz, h, mi = CLOSE[m]
+    loc = (now or dt.datetime.now(dt.timezone.utc)).astimezone(ZoneInfo(tz))
+    for d in range(8):
+        c = (loc - dt.timedelta(days=d)).replace(hour=h, minute=mi, second=0, microsecond=0)
+        if c.weekday() < 5 and c <= loc:
+            return c
+
+
+def missed_close(m, uni, old, now=None):
+    """ราคาที่เก็บไว้ของตลาด m มาจากวันทำการล่าสุดแต่ยังก่อนเวลาปิด = ยังไม่ได้ราคาปิด (วันหยุดตลาดไม่มีราคาวันนั้นจึงไม่ดึงซ้ำ)"""
+    c = last_close(m, now)
+    syms = {i["s"] for i in uni["items"] if i["m"] == m}
+    ts = max(((old.get(s) or {}).get("ts") or 0 for s in syms), default=0)
+    if not c or not ts:
+        return False
+    t = dt.datetime.fromtimestamp(ts, c.tzinfo)
+    return t.date() == c.date() and t < c
 
 
 def market_open(m):
