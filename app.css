@@ -698,3 +698,13 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .mim h4,.mim-d h4{margin:6px 0 2px;font-size:13.5px}.mim-n{margin:2px 0 6px;padding-left:18px;font-size:13.5px;line-height:1.6}.mim-ix{font-size:14px}
 .fc-own{font-size:12px;margin-top:6px}.fc-note{margin:8px 0}.fc-note p{margin:3px 0;font-size:13.5px}
 .lab-blk{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12.5px}.lab-blk span{white-space:nowrap}
+/* ---------- Quant (#quant) ---------- */
+.qfind{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}.qfind .field{flex:1;min-width:180px;margin:0}
+.qtab td,.qtab th{white-space:nowrap}.qsym{display:inline-flex;align-items:center;gap:8px;color:inherit;text-decoration:none}
+.qgrid td{line-height:1.25}.qgrid td b,.qgrid td span{display:block}.qgrid td span{font-size:11.5px}
+.qgrid td.qcur{outline:2px solid var(--ink);outline-offset:-2px;border-radius:6px}
+.qchk .warn,.num.warn{color:var(--warn)}.qchk .up{color:var(--up)}.qchk .down{color:var(--down)}
+.qsize{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:end;margin-top:12px}
+.qsize>div{background:var(--surface-2);border-radius:var(--r-sm);padding:10px 12px;display:flex;flex-direction:column;gap:2px}.qsize .field{margin:0}
+@media (max-width:560px){.qsize{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.qtab td{vertical-align:middle}

@@ -3,7 +3,7 @@
 // ผลลัพธ์: data/ux.json → หน้า "สถานะข้อมูล"
 const { chromium } = require("playwright"), fs = require("fs"), path = require("path");
 const SITE = process.env.SITE_URL || "https://auiixb-wq.github.io/stockdesk/";
-const PAGES = ["#home", "#market", "#watch", "#news", "#factors", "#signals", "#accuracy", "#data", "#more", "#brief", "#office", "#s-PTT", "#s-AAPL", "#s-KBANK", "#s-NVDA"];
+const PAGES = ["#home", "#market", "#watch", "#news", "#factors", "#signals", "#accuracy", "#data", "#more", "#brief", "#office", "#quant", "#q-PTT", "#q-NVDA", "#s-PTT", "#s-AAPL", "#s-KBANK", "#s-NVDA"];
 const TABS = ["news", "fa", "val", "risk", "peers", "chart", "bt"], TFS = ["1H", "4H", "W", "D"];
 (async () => {
   const b = await chromium.launch(), rows = [];

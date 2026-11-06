@@ -35,7 +35,7 @@ const STOCKS=[
  {s:"KO",n:"Coca-Cola",m:"US",sec:"consumer",p:70,v:.01}
 ];
 // ค่ากลางงบการเงินของข้อมูลตัวอย่างแต่ละ sector
-const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare","signals","sync","brief","office"];
+const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare","signals","sync","brief","office","quant"];
 const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more",compare:"more",signals:"home",sync:"watch"};
 const DEF_COST={TH:.17,US:.10}; // % ต่อขา: ค่าคอมออนไลน์ไทย ~0.157% + VAT, สหรัฐฯ เผื่อสเปรดและค่าแปลงสกุลเงิน
 // ค่าเริ่มต้นเลือกจากการทดสอบราคาจริง 24 หุ้น 5 ปี (28 ต.ค. 2569): ชนะ 66% ช่วงสร้าง / 71% ช่วงทดสอบ และกำไรทั้งสองช่วง
@@ -595,3 +595,33 @@ function priceRisk(B){const c=B.map(b=>b.c),n=c.length,r=[];for(let i=Math.max(1
   let pk=-Infinity,dd=0;for(let i=Math.max(0,n-756);i<n;i++){pk=Math.max(pk,c[i]);dd=Math.max(dd,1-c[i]/pk)}
   let w20=0;for(let i=Math.max(20,n-756);i<n;i++)w20=Math.min(w20,c[i]/c[i-20]-1);
   return{vol:sd*Math.sqrt(252)*100,dd:dd*100,w20:w20*100,cur:(1-c[n-1]/Math.max(...c.slice(-252)))*100}}
+
+// ---------- Quant (หน้า #quant): สถิติราคา + ตรวจแผนซื้อขายด้วยความผันผวน ----------
+// ไม่เปลี่ยนจุดเข้า/SL/TP ของระบบ (ค่าพวกนั้นผ่าน backtest 10 ปีและ paper trading มาแล้ว) แต่บอกว่าแผนวันนี้
+// "คุ้มความเสี่ยงไหม" และควรใช้ขนาดไม้เท่าไร · อัตราผลตอบแทนไร้ความเสี่ยงที่ใช้คิด Sharpe เป็นค่าสมมติ
+const QRF={TH:.02,US:.04};
+const qSd=a=>{const k=a.length;if(k<2)return 0;const mu=a.reduce((x,y)=>x+y,0)/k;return Math.sqrt(a.reduce((x,y)=>x+(y-mu)**2,0)/(k-1))};
+function quantStats(B,m){const n=B.length;if(n<60)return null;const A=252,c=B.map(b=>b.c),r=[];for(let i=1;i<n;i++)r.push(c[i]/c[i-1]-1);
+  const avg=a=>a.reduce((x,y)=>x+y,0)/(a.length||1),yrs=(n-1)/A,cagr=(c[n-1]/c[0])**(1/yrs)-1,mean=avg(r)*A,vol=qSd(r)*Math.sqrt(A);
+  const r1=r.slice(-A),dVol=qSd(r1),vol1=dVol*Math.sqrt(A),d20=qSd(r.slice(-20)),vol20=d20*Math.sqrt(A);
+  // ความผันผวน 20 วันตอนนี้สูงกว่ากี่ % ของช่วง 20 วันในอดีต
+  const roll=[];for(let i=20;i<=r.length;i+=5)roll.push(qSd(r.slice(i-20,i)));const pctl=roll.length?roll.filter(x=>x<=d20).length/roll.length*100:null;
+  let pk=0,mdd=0,pi=0,ti=0;for(let i=0;i<n;i++){if(c[i]>c[pk])pk=i;const d=c[i]/c[pk]-1;if(d<mdd){mdd=d;pi=pk;ti=i}}
+  let rec=null;for(let i=ti;i<n;i++)if(c[i]>=c[pi]){rec=i;break}
+  let hi=0;for(let i=1;i<n;i++)if(c[i]>=c[hi])hi=i;const dd=c[n-1]/c[hi]-1;
+  const srt=[...r].sort((a,b)=>a-b),k5=Math.max(1,Math.floor(srt.length*.05)),rf=QRF[m]??.03;
+  return{n,yrs,from:B[0].t,to:B[n-1].t,cagr,mean,drag:mean-cagr,vol,vol1,vol20,dVol,reg:vol1?vol20/vol1:null,pctl,rf,
+    sharpe:vol?(mean-rf)/vol:null,sh1:vol1?(avg(r1)*A-rf)/vol1:null,ret1:n>A?c[n-1]/c[n-1-A]-1:null,
+    mdd,mddPk:B[pi].t,mddTr:B[ti].t,mddRec:rec!=null?B[rec].t:null,dd,ddPk:B[hi].t,need:dd<0?1/(1+dd)-1:0,
+    calmar:mdd?cagr/-mdd:null,cvar:avg(srt.slice(0,k5)),worst:srt[0],best:srt.at(-1)}}
+// ฐานเทียบ "ซื้อวันไหนก็ได้": ทุกวันในอดีต (≤5 ปี) ถ้าซื้อที่ราคาปิดแล้วตั้ง SL/TP ระยะ % เดียวกับแผน อะไรโดนก่อนภายในวันถือ
+// แท่งเดียวกันโดนทั้งคู่นับเป็น SL (แบบเดียวกับ simulate) · ไม่หักค่าคอม · ไม่คิดเปิดกระโดดผ่าน SL
+function quantTouch(B,slP,tpP,hold){const n=B.length;let sl=0,tp=0,tm=0,tr=0,k=0;
+  for(let i=Math.max(0,n-1260);i+hold<n;i++){const e=B[i].c,L=e*(1-slP),H=e*(1+tpP);let o=0;
+    for(let j=i+1;j<=i+hold;j++){if(B[j].l<=L){o=-1;break}if(B[j].h>=H){o=1;break}}
+    k++;if(o<0)sl++;else if(o>0)tp++;else{tm++;tr+=B[i+hold].c/e-1}}
+  return k?{k,pS:sl/k,pT:tp/k,pM:tm/k,avgM:tm?tr/tm:0,ev:(tp*tpP-sl*slP+tr)/k}:null}
+// ทดลองปรับ SL/TP (เท่าของ ATR) กับสัญญาณชุดเดียวกับระบบบนหุ้นตัวนี้ · ใช้ดูว่าผลไวต่อค่าแค่ไหน ไม่ใช่ให้เลือกช่องที่ดีสุด
+const QGRID={SL:[2,3,4,5],TP:[3,4,6,8,10]};
+function quantGrid(R){const st=R.st,B=R.B,I=R.I,arr=R.model?.arr;if(!arr||B.length<260)return null;const RP=rulesFor(st.m),rsA=RP.rs!=null?rsSeries(st,B,RP.rs):null,sig=i=>sysTrig(arr,I,i,RP)&&sigOK(I,i,rsA,RP),sp=R.split||Math.floor(B.length*RULES.split);
+  return{cur:[RP.sl,RP.tp],tp1:RP.tp1||null,cell:QGRID.SL.map(s=>QGRID.TP.map(t=>{const P={...RP,sl:s,tp:t,tp1:RP.tp1&&RP.tp1<t?RP.tp1:null},a=simulate(B,I,sig,0,sp,st.m,P),b=simulate(B,I,sig,sp,B.length,st.m,P);return{all:stats(a.concat(b)),oos:stats(b)}}))}}

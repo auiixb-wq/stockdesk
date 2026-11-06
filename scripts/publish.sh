@@ -6,7 +6,7 @@ set -euo pipefail
 pushr() { for k in 1 2 3; do git push -qf "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$1" && return 0; echo "push $1 failed ($k)"; sleep $((k * 10)); done; return 1; }
 rm -rf _site && mkdir -p _site/data
 # ใช้ไฟล์หน้าเว็บและ manual.json ล่าสุดจาก main เสมอ (งานที่เปิดค้างทั้งวันจะได้ไม่เอาโค้ดเก่าทับ)
-SITE="index.html app.css app.js core.js office.js manifest.webmanifest sw.js icon.svg symbols.json manual.json vendor i18n.js i18n-en.js"
+SITE="index.html app.css app.js core.js office.js quant.js manifest.webmanifest sw.js icon.svg symbols.json manual.json vendor i18n.js i18n-en.js"
 git fetch -q origin main --depth=1 && git checkout -q FETCH_HEAD -- $SITE || echo "ใช้ไฟล์เดิม: ดึง main ไม่สำเร็จ"
 cp -r $SITE _site/
 find data -maxdepth 1 -type f -name '*.json' -exec cp {} _site/data/ \;
