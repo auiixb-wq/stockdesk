@@ -79,7 +79,7 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode, mim })
       case "deliver": return [{ go: "bossv", st: "นำสรุปตลาดไปส่งบอส", m }, { fn: () => { delivered = true; onBoss?.("delivered") }, say: t, wait: 3200 }, { go: a.home, st: "กลับโต๊ะ" }];
       case "read": return [{ waitFor: () => delivered, st: "รอสรุปตลาดจากทีม", m }, { fn: () => onBoss?.("read"), say: t, wait: 3600, st: "อ่านสรุปตลาด" }];
       case "web": return [{ go: e.at || "web", st: "ไล่ตรวจเว็บ", m }, { say: t, wait: 1900 }];
-      case "sig": case "earn": return [{ go: a.home, st: e.a === "sig" ? "ติดตามสัญญาณ" : "อ่านงบ", m }, { say: t, wait: 2000 }];
+      case "sig": case "earn": case "quant": return [{ go: a.home, st: e.a === "sig" ? "ติดตามสัญญาณ" : e.a === "quant" ? "จดผลตรวจ quant" : "อ่านงบ", m }, { say: t, wait: 2000 }];
       case "sigweek": return [{ go: "bossv", st: "รายงานผลสัญญาณรายสัปดาห์", m }, { say: t, wait: 3000 }, { go: a.home }];
       case "audit": return [{ go: a.home, st: "ตรวจข้อมูลหุ้นในเว็บ", m }, { say: t, wait: 2000 }];
       case "help": return [{ go: e.to === "earn" ? "ernv" : "sigv", st: e.to === "earn" ? "ช่วยทีมงบประกาศ" : "ช่วยทีมสัญญาณ", m }, { say: t, wait: 2400 }, { go: a.home }];

@@ -708,3 +708,5 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .qsize>div{background:var(--surface-2);border-radius:var(--r-sm);padding:10px 12px;display:flex;flex-direction:column;gap:2px}.qsize .field{margin:0}
 @media (max-width:560px){.qsize{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .qtab td{vertical-align:middle}
+.qcor td,.qcor th{white-space:nowrap;padding:6px 8px}.qcor td.qc-hi{background:var(--down-bg);color:var(--down);font-weight:600}.qcor td.qc-md{background:var(--warn-bg);color:var(--warn)}.qcor td.qc-neg{background:var(--up-bg);color:var(--up)}
+.qchk li.qinfo{opacity:.62}.qtab tr.qadopt td{background:var(--up-bg)}.qtab td.warn{color:var(--warn)}

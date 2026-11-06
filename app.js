@@ -1,3 +1,150 @@
+/* ========== Quant (#quant, #q-SYM) ========== */
+// ผลทดสอบย้อนหลังกติกาลดขนาดไม้ (research/quant_bt.js --embed เขียนบรรทัดนี้)
+const QBT={"at":"2026-11-06","stocks":733,"split":"2024-04-01","M":{"TH":{"from":"2022-12-06","trades":159,"g":{"0":{"n":0},"1":{"n":69,"win":76.8,"avg":3.89},"2":{"n":90,"win":64.4,"avg":1.44}},"comp":{"reg":{"hit":{"n":53,"win":73.6,"avg":3.39},"ok":{"n":106,"win":67.9,"avg":2.06}},"sl":{"hit":{"n":13,"win":84.6,"avg":6.02},"ok":{"n":146,"win":68.5,"avg":2.19}},"earn":{"hit":{"n":9,"win":77.8,"avg":2.59},"ok":{"n":150,"win":69.3,"avg":2.5}},"edge":{"hit":{"n":0},"ok":{"n":159,"win":69.8,"avg":2.5}}},"V":{"all":{"all":{"cagr":10.9,"vol":9.1,"sharpe":0.96,"mdd":-8.8,"calmar":1.24},"a":{"cagr":4.1,"vol":7.5,"sharpe":0.31,"mdd":-6.2,"calmar":0.67},"b":{"cagr":14.7,"vol":9.8,"sharpe":1.24,"mdd":-8.8,"calmar":1.67},"taken":133,"expo":18},"regsl":{"all":{"cagr":11.5,"vol":9.2,"sharpe":1.01,"mdd":-8.8,"calmar":1.32},"a":{"cagr":5,"vol":7.7,"sharpe":0.41,"mdd":-6.2,"calmar":0.8},"b":{"cagr":15.3,"vol":10,"sharpe":1.28,"mdd":-8.8,"calmar":1.74},"taken":133,"expo":19},"equal":{"all":{"cagr":14.9,"vol":11.1,"sharpe":1.13,"mdd":-9.3,"calmar":1.6},"a":{"cagr":6.7,"vol":8.5,"sharpe":0.57,"mdd":-6.2,"calmar":1.09},"b":{"cagr":19.6,"vol":12.3,"sharpe":1.36,"mdd":-9.3,"calmar":2.11},"taken":133,"expo":22},"reg":{"all":{"cagr":12.3,"vol":9.6,"sharpe":1.05,"mdd":-8.5,"calmar":1.46},"a":{"cagr":6.5,"vol":8.2,"sharpe":0.57,"mdd":-6.2,"calmar":1.06},"b":{"cagr":15.7,"vol":10.3,"sharpe":1.27,"mdd":-8.5,"calmar":1.85},"taken":133,"expo":19},"sl":{"all":{"cagr":14.1,"vol":10.7,"sharpe":1.1,"mdd":-9.7,"calmar":1.45},"a":{"cagr":5.1,"vol":8,"sharpe":0.41,"mdd":-6.2,"calmar":0.83},"b":{"cagr":19.2,"vol":11.9,"sharpe":1.37,"mdd":-9.7,"calmar":1.97},"taken":133,"expo":21},"earn":{"all":{"cagr":14.2,"vol":10.9,"sharpe":1.09,"mdd":-9.3,"calmar":1.53},"a":{"cagr":5.8,"vol":8.3,"sharpe":0.48,"mdd":-6.2,"calmar":0.93},"b":{"cagr":19.1,"vol":12.1,"sharpe":1.34,"mdd":-9.3,"calmar":2.05},"taken":133,"expo":21},"edge":{"all":{"cagr":14.9,"vol":11.1,"sharpe":1.13,"mdd":-9.3,"calmar":1.6},"a":{"cagr":6.7,"vol":8.5,"sharpe":0.57,"mdd":-6.2,"calmar":1.09},"b":{"cagr":19.6,"vol":12.3,"sharpe":1.36,"mdd":-9.3,"calmar":2.11},"taken":133,"expo":22},"adopt":{"all":{"cagr":14.9,"vol":11.1,"sharpe":1.13,"mdd":-9.3,"calmar":1.6},"a":{"cagr":6.7,"vol":8.5,"sharpe":0.57,"mdd":-6.2,"calmar":1.09},"b":{"cagr":19.6,"vol":12.3,"sharpe":1.36,"mdd":-9.3,"calmar":2.11},"taken":133,"expo":22}},"mc":{"equal":{"dd5":-10.8,"dd50":-5.9,"ret5":0.4,"ret50":15.7,"ret95":38.1,"loss":5},"adopt":{"dd5":-10.8,"dd50":-5.9,"ret5":0.4,"ret50":15.7,"ret95":38.1,"loss":5}},"use":{}},"US":{"from":"2022-11-21","trades":1469,"g":{"0":{"n":1,"win":0,"avg":-15.17},"1":{"n":1076,"win":62.1,"avg":3.9},"2":{"n":392,"win":61.7,"avg":2.67}},"comp":{"reg":{"hit":{"n":293,"win":57.7,"avg":3.48},"ok":{"n":1176,"win":63,"avg":3.58}},"sl":{"hit":{"n":91,"win":42.9,"avg":4.96},"ok":{"n":1378,"win":63.2,"avg":3.47}},"earn":{"hit":{"n":878,"win":63,"avg":4.05},"ok":{"n":591,"win":60.4,"avg":2.82}},"edge":{"hit":{"n":1,"win":0,"avg":-15.17},"ok":{"n":1468,"win":62,"avg":3.57}}},"V":{"all":{"all":{"cagr":13.4,"vol":20.4,"sharpe":0.52,"mdd":-21.4,"calmar":0.63},"a":{"cagr":25.1,"vol":19.8,"sharpe":1.03,"mdd":-21.2,"calmar":1.18},"b":{"cagr":2.9,"vol":23.2,"sharpe":0.07,"mdd":-26.6,"calmar":0.11},"taken":202,"expo":59},"regsl":{"all":{"cagr":23.9,"vol":29.1,"sharpe":0.75,"mdd":-28,"calmar":0.85},"a":{"cagr":33.9,"vol":25.4,"sharpe":1.12,"mdd":-26.9,"calmar":1.26},"b":{"cagr":7.1,"vol":32.9,"sharpe":0.25,"mdd":-33.8,"calmar":0.21},"taken":202,"expo":85},"equal":{"all":{"cagr":19.2,"vol":32.5,"sharpe":0.58,"mdd":-33.4,"calmar":0.57},"a":{"cagr":25.3,"vol":27.7,"sharpe":0.81,"mdd":-33.4,"calmar":0.76},"b":{"cagr":2.7,"vol":37.3,"sharpe":0.15,"mdd":-38.2,"calmar":0.07},"taken":202,"expo":94},"reg":{"all":{"cagr":22.9,"vol":29.9,"sharpe":0.71,"mdd":-28.6,"calmar":0.8},"a":{"cagr":31.4,"vol":26.1,"sharpe":1.02,"mdd":-28.1,"calmar":1.12},"b":{"cagr":6.5,"vol":33.7,"sharpe":0.24,"mdd":-33.9,"calmar":0.19},"taken":202,"expo":87},"sl":{"all":{"cagr":20.6,"vol":31.6,"sharpe":0.63,"mdd":-31.5,"calmar":0.66},"a":{"cagr":29.1,"vol":26.9,"sharpe":0.94,"mdd":-31.5,"calmar":0.93},"b":{"cagr":3.6,"vol":36.6,"sharpe":0.17,"mdd":-38.6,"calmar":0.09},"taken":202,"expo":92},"earn":{"all":{"cagr":9.3,"vol":23,"sharpe":0.33,"mdd":-28.2,"calmar":0.33},"a":{"cagr":18.3,"vol":22.1,"sharpe":0.69,"mdd":-28.2,"calmar":0.65},"b":{"cagr":-1,"vol":26.8,"sharpe":-0.05,"mdd":-33.2,"calmar":-0.03},"taken":202,"expo":65},"edge":{"all":{"cagr":19.2,"vol":32.5,"sharpe":0.58,"mdd":-33.4,"calmar":0.57},"a":{"cagr":25.3,"vol":27.7,"sharpe":0.81,"mdd":-33.4,"calmar":0.76},"b":{"cagr":2.7,"vol":37.3,"sharpe":0.15,"mdd":-38.2,"calmar":0.07},"taken":202,"expo":94},"adopt":{"all":{"cagr":23.9,"vol":29.1,"sharpe":0.75,"mdd":-28,"calmar":0.85},"a":{"cagr":33.9,"vol":25.4,"sharpe":1.12,"mdd":-26.9,"calmar":1.26},"b":{"cagr":7.1,"vol":32.9,"sharpe":0.25,"mdd":-33.8,"calmar":0.21},"taken":202,"expo":85}},"mc":{"equal":{"dd5":-44.7,"dd50":-25,"ret5":-28.2,"ret50":23,"ret95":105.9,"loss":27},"adopt":{"dd5":-37.1,"dd50":-21.2,"ret5":-18.3,"ret50":27.3,"ret95":99.9,"loss":18}},"use":{"reg":1,"sl":1}}}};
+// หน้า Quant (#quant, #q-SYM): อ่านหุ้นและแผนซื้อขายด้วยตัวเลข quant
+// - ไม่แก้จุดเข้า/SL/TP ของระบบ (ผ่าน backtest + paper trading แล้ว) แต่ตรวจว่าแผนวันนี้คุ้มความเสี่ยงไหม และควรซื้อขนาดเท่าไร
+// - ตัวคำนวณอยู่ใน core.js (quantStats, quantTouch, quantGrid) ใช้ร่วมกับสคริปต์ได้
+// ตัดสินด้วย 4 ข้อ: ระบบได้เปรียบกับหุ้นตัวนี้จริงไหม · SL กว้างพอพ้นการแกว่งปกติไหม · ตอนนี้ผันผวนผิดปกติไหม · มีประกาศงบในช่วงถือไหม
+
+const QV={ok:["✓","up"],warn:["!","warn"],bad:["✕","down"],na:["–","muted"]};
+function quantCheck(R){if(!R||R.lite||R.sample||!R.B)return null;S.qc??=new Map();const hit=S.qc.get(R.st.s);if(hit&&hit.key===R.key)return hit.v;
+  const v=quantEval(R);if(v&&v.lv!=null){const Q=v.Q,s=v.s,bt=v.bt,regM=Q.reg>QRULE.regHi?QRULE.mRegHi:QRULE.mReg;
+    v.C=[
+      {k:"edge",s:s.edge,h:"ระบบได้เปรียบกับหุ้นตัวนี้",
+        t:v.edge==null?`สัญญาณในอดีตยังน้อย (${bt?.n||0} ไม้ ต้อง ≥ ${QRULE.minN}) ยังสรุปไม่ได้ ใช้ค่าเฉลี่ยทั้งระบบแทน`:`ทดสอบ 5 ปี ${bt.n} ไม้ กำไรเฉลี่ย ${pct(bt.avg,2)}/ไม้ เทียบซื้อวันไหนก็ได้ด้วย SL/TP เดียวกัน ${pct(v.base,2)} (หักค่าคอมแล้ว) → ${v.edge>0?"ได้เปรียบ":"เสียเปรียบ"} ${pct(v.edge,2)}`},
+      {k:"noise",s:s.noise,h:"SL พ้นการแกว่งปกติ",
+        t:v.slS==null?"–":`SL ห่าง ${(v.slP*100).toFixed(1)}% = ${v.slS.toFixed(2)} เท่าของการแกว่งปกติใน ${v.nh} วันทำการ (${(v.sH*100).toFixed(1)}%)${s.noise==="warn"?" แคบไป โอกาสโดนจากการแกว่งธรรมดาสูง":""}`},
+      {k:"reg",s:s.reg,h:"ความผันผวนตอนนี้ปกติ",
+        t:Q.reg==null?"–":`20 วันล่าสุด ${(Q.vol20*100).toFixed(0)}%/ปี เทียบ 1 ปี ${(Q.vol1*100).toFixed(0)}%/ปี (${Q.reg.toFixed(2)} เท่า) · สูงกว่า ${Q.pctl.toFixed(0)}% ของช่วงในอดีต${v.hot?` ช่วงพายุ`:""}`},
+      {k:"earn",s:s.earn,h:"ไม่มีประกาศงบในช่วงถือ",
+        t:v.earn?`ประกาศงบราว ${thDate(new Date(v.ed*1e3).toISOString().slice(0,10))} ราคาอาจเปิดกระโดดผ่าน SL`:"ไม่พบวันประกาศงบภายในช่วงถือ"}];
+    const U=v.use||{},K={edge:"edge",noise:"sl",reg:"reg",earn:"earn"};v.C.forEach(c=>{c.used=!!U[K[c.k]];if(!c.used&&c.s!=="ok"&&c.s!=="na")c.t+=" · ข้อนี้ไม่ใช้ลดขนาดไม้"+(R.st.m==="TH"?"ในหุ้นไทย":"")+" (ทดสอบย้อนหลังแล้วไม่ช่วย หรือยังพิสูจน์ไม่ได้)";else if(c.used&&c.s==="warn")c.t+=` → ลดขนาดไม้ ×${c.k==="reg"?regM:QRULE.mSl}`});}
+  S.qc.set(R.st.s,{key:R.key,v});return v}
+const qVerdict=v=>!v||v.lv==null?`<span class="pill p-hold">ไม่มีแผนซื้อ</span>`:v.lv===2?`<span class="pill p-buy2">ผ่าน · ขนาดเต็ม</span>`:v.lv===1?`<span class="pill p-warn">ระวัง · ขนาด ×${v.mult.toFixed(2).replace(/0$/,"")}</span>`:`<span class="pill p-sell">ไม่ผ่าน · ข้าม</span>`;
+const qp=(x,d=1)=>x==null||!isFinite(x)?"–":(x*100).toFixed(d)+"%";
+const qd=t=>t?thDate(String(t).slice(0,10)):"–";
+
+function vQuant(sym){return sym?quantStock(sym):quantHome()}
+
+// ---------- หน้ารวม: สัญญาณวันนี้ + รายการโปรด ผ่านการตรวจแบบ quant ----------
+function quantHome(){const mk=S.mkt==="US"?"US":"TH";
+  const sig=allStocks().filter(st=>st.m===mk&&liquid(st)).map(info).filter(R=>R.sys).sort((a,b)=>(b.rs?.pctl??0)-(a.rs?.pctl??0)).slice(0,15);
+  const need=sig.map(R=>R.st).filter(st=>!hasBars(st)&&!S.summary?.[st.s]?.q).map(st=>st.s);if(need.length)loadHist(need);
+  return `<div><h1>Quant</h1><p class="muted" style="margin:4px 0 0">อ่านหุ้นด้วยตัวเลข: ผลตอบแทน ความผันผวน Sharpe และ drawdown แล้วตรวจแผนซื้อขายของระบบว่าคุ้มความเสี่ยงไหม ควรซื้อขนาดเท่าไร · ไม่เปลี่ยนจุดเข้า/SL/TP ที่ผ่านการทดสอบมาแล้ว</p></div>
+  <div class="chips"><button class="chip" data-mkt="TH" aria-pressed="${mk==="TH"}">หุ้นไทย</button><button class="chip" data-mkt="US" aria-pressed="${mk==="US"}">หุ้นสหรัฐฯ</button></div>
+  <form class="card qfind" id="qFind"><label class="field">ดูหุ้นตัวไหนก็ได้<input name="s" type="search" placeholder="เช่น PTT, MRVL" autocomplete="off" required></label><button class="btn primary" type="submit">วิเคราะห์</button></form>
+  <section class="card"><div class="card-h"><h2>สัญญาณซื้อวันนี้ผ่านการตรวจแบบ quant</h2><span class="muted" style="font-size:13px">${sig.length} ตัว</span></div>
+   ${sig.length?`<div class="tscroll"><table class="qtab">${QHEAD}<tbody>${sig.map(R=>qRow(R.st)).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">วันนี้ยังไม่มีสัญญาณซื้อตามระบบ</p>`}</section>
+  ${qPortCard(mk,sig)}${qProofCard(mk)}${qLiveCard(mk)}${qAllCard(mk)}${qGuide()}`}
+
+// ข้อมูลแถว: วิเคราะห์เต็มถ้ามีราคาย้อนหลังในเครื่อง ไม่งั้นใช้ผลที่คำนวณไว้ใน summary.json (q)
+function qRowData(st){if(hasBars(st)){const v=quantCheck(info(st));if(v)return{lv:v.lv,mult:v.mult,vol1:v.Q.vol1,reg:v.Q.reg,sh1:v.Q.sh1,dd:v.Q.dd,slS:v.slS,edge:v.edge,sh5:v.Q.sharpe,mdd:v.Q.mdd}}
+  const q=S.summary?.[st.s]?.q;return q?{lv:q[0],mult:q[1],vol1:q[2],reg:q[3],sh1:q[4],dd:q[5],slS:q[6],edge:q[7],sh5:q[8],mdd:q[9]}:null}
+const QHEAD=`<thead><tr><th>หุ้น</th><th class="r">ผันผวน 1 ปี</th><th class="r">20 วัน/1 ปี</th><th class="r">Sharpe 1 ปี</th><th class="r">Sharpe 5 ปี</th><th class="r">MDD 5 ปี</th><th class="r">ห่างจุดสูงสุด</th><th class="r">SL/การแกว่ง</th><th>Quant</th></tr></thead>`;
+function qRow(st){const d=qRowData(st),f=(x,g)=>x==null?"–":g(x),wait=!d?`<span class="muted">${S.histFail?.[st.s]?"ไม่มีราคาย้อนหลัง":hasBars(st)?"ข้อมูลไม่พอ":"รอคำนวณ…"}</span>`:"";
+  return `<tr><td><a href="#q-${esc(st.s)}" class="qsym">${logo(st.s)}<b>${esc(dsym(st.s))}</b></a></td>
+   <td class="r num">${f(d?.vol1,x=>qp(x,0))}</td><td class="r num ${d?.reg>QRULE.reg?"warn":""}">${f(d?.reg,x=>x.toFixed(2)+"×")}</td><td class="r num">${f(d?.sh1,x=>x.toFixed(2))}</td><td class="r num">${f(d?.sh5,x=>x.toFixed(2))}</td><td class="r num down">${f(d?.mdd,x=>qp(x,0))}</td>
+   <td class="r num ${d?cls(d.dd):""}">${f(d?.dd,x=>qp(x,0))}</td><td class="r num">${f(d?.slS,x=>x.toFixed(2)+"σ")}</td><td>${wait||(d.lv==null?`<span class="muted">ไม่มีแผนซื้อ</span>`:qVerdict(d))}</td></tr>`}
+
+// ---------- ทุกหุ้นในตลาด: เรียงและกรองได้ ----------
+const QSORT=[["sh1","Sharpe 1 ปี",-1],["sh5","Sharpe 5 ปี",-1],["vol1","ผันผวนน้อย",1],["mdd","MDD ตื้น",-1],["dd","ใกล้จุดสูงสุด",-1],["reg","ผันผวนผิดปกติ",-1]];
+function qAllCard(mk){const k=S.qsort||"sh1",fl=S.qflt||"all",lim=S.qlim||30,ord=QSORT.find(x=>x[0]===k)||QSORT[0];
+  let L=allStocks().filter(st=>st.m===mk).map(st=>({st,d:qRowData(st)}));const tot=L.length,ready=L.filter(x=>x.d).length;
+  L=L.filter(x=>x.d&&(fl==="all"||fl==="plan"&&x.d.lv!=null||fl==="hot"&&x.d.reg>QRULE.reg||fl==="low"&&x.d.vol1!=null&&x.d.vol1<.25));
+  L.sort((a,b)=>((a.d[k]??(ord[2]>0?9e9:-9e9))-(b.d[k]??(ord[2]>0?9e9:-9e9)))*ord[2]);
+  return `<section class="card"><div class="card-h"><h2>ทุกหุ้น${mk==="TH"?"ไทย":"สหรัฐฯ"}</h2><span class="muted" style="font-size:13px">${ready.toLocaleString()} / ${tot.toLocaleString()} ตัวมีผลคำนวณ</span></div>
+   ${ready?`<div class="chips" style="margin-bottom:8px">${QSORT.map(([id,l])=>`<button class="chip" data-qsort="${id}" aria-pressed="${k===id}">${l}</button>`).join("")}</div>
+   <div class="chips" style="margin-bottom:10px">${[["all","ทั้งหมด"],["plan","มีแผนซื้อ"],["hot","กำลังผันผวนผิดปกติ"],["low","ผันผวนต่ำ (< 25%/ปี)"]].map(([id,l])=>`<button class="chip" data-qflt="${id}" aria-pressed="${fl===id}">${l}</button>`).join("")}</div>
+   <div class="tscroll"><table class="qtab">${QHEAD}<tbody>${L.slice(0,lim).map(x=>qRow(x.st)).join("")}</tbody></table></div>
+   ${L.length>lim?`<button class="btn sm" data-qmore style="margin-top:10px">ดูเพิ่ม (${(L.length-lim).toLocaleString()} ตัว)</button>`:""}`
+   :`<p class="muted" style="margin:0">ผลของทุกหุ้นคำนวณในรอบสรุปข้อมูลอัตโนมัติ (รอบใหญ่ทุกคืน 04:37 น.) จะขึ้นที่นี่หลังรอบถัดไป ระหว่างนี้ค้นหุ้นรายตัวด้านบนได้</p>`}</section>`}
+
+// ---------- พอร์ตของฉัน: ความเสี่ยงรวม + correlation + Monte Carlo ----------
+function qPortCard(mk,sig){const h=holds(),own=Object.keys(h).filter(s=>h[s]?.q>0&&stockBySym(s)?.m===mk);
+  let syms=own,src="หุ้นที่ถืออยู่ (ถ่วงตามมูลค่า)";if(syms.length<2){syms=S.watch.filter(s=>stockBySym(s)?.m===mk).slice(0,12);src="รายการโปรด (ถ่วงเท่ากัน)"}
+  const hd=`<div class="card-h"><h2>พอร์ตของฉัน</h2><span class="muted" style="font-size:13px">${src}</span></div>`;
+  if(syms.length<2)return `<section class="card">${hd}<p class="muted" style="margin:0">บันทึกหุ้นที่ซื้อในหน้าสัญญาณ หรือเพิ่มหุ้น${mk==="TH"?"ไทย":"สหรัฐฯ"}ในรายการโปรดอย่างน้อย 2 ตัว เพื่อดูความเสี่ยงของพอร์ตรวม</p></section>`;
+  const cand=sig.map(R=>R.st.s).filter(s=>!syms.includes(s)).slice(0,5),all=[...syms,...cand],miss=all.filter(s=>!hasBars(stockBySym(s)));
+  if(miss.length){loadHist(miss);if(syms.some(s=>miss.includes(s)&&!S.histFail?.[s]))return `<section class="card">${hd}<p class="muted" style="margin:0">กำลังโหลดราคาย้อนหลัง…</p></section>`}
+  const ok=syms.filter(s=>hasBars(stockBySym(s)));if(ok.length<2)return `<section class="card">${hd}<p class="muted" style="margin:0">ราคาย้อนหลังไม่พอคำนวณ</p></section>`;
+  const P=quantPort(ok.map(s=>{const st=stockBySym(s);return{s,B:barsOf(st),w:own.length>=2?(h[s].q*(info(st).last||h[s].c)):1}}),mk);
+  if(!P)return `<section class="card">${hd}<p class="muted" style="margin:0">วันที่ซื้อขายร่วมกันน้อยเกินไป</p></section>`;
+  const C2=cand.filter(s=>hasBars(stockBySym(s))).map(s=>{const r=quantRets(barsOf(stockBySym(s)),P.dates);if(!r)return null;let mx=null;P.R.forEach((x,i)=>{const c=quantCorr(r,x);if(mx==null||c>mx[1])mx=[P.syms[i],c]});return mx?[s,...mx]:null}).filter(Boolean);
+  const pairs=[];for(let i=0;i<P.syms.length;i++)for(let j=i+1;j<P.syms.length;j++)if(P.cor[i][j]>=.7)pairs.push([P.syms[i],P.syms[j],P.cor[i][j]]);
+  const M=quantMC(P.r),top=P.syms.slice(0,8),cc=c=>c>=.7?"qc-hi":c>=.4?"qc-md":c<0?"qc-neg":"";
+  return `<section class="card">${hd}
+   <div class="stat">${statBox("ความผันผวนพอร์ตต่อปี",qp(P.vol,0),`ถ้าไม่กระจายเลยจะเป็น ${qp(P.wvol,0)}`)}${statBox("Sharpe 1 ปี",P.sharpe!=null?P.sharpe.toFixed(2):"–",`ผลตอบแทน 1 ปี ${qp(P.ret,0)}`,cls(P.ret))}${statBox("ลงลึกสุดใน 1 ปี",qp(P.mdd,0),`วันที่แย่สุด 5%: ${qp(P.cvar)}`,"down")}${statBox("ปีหน้า (Monte Carlo)",M?`โอกาส 5% ลึกกว่า ${qp(M.dd5,0)}`:"–",M?`กลางๆ ${qp(M.ret50,0)} · โอกาสขาดทุน ${M.loss.toFixed(0)}%`:"","down")}</div>
+   <p class="foot" style="margin:8px 0 0">${P.n} วันทำการล่าสุดที่ทุกตัวมีราคา · Monte Carlo สุ่มช่วง 20 วันของผลรายวันพอร์ตนี้มาต่อกันเป็น 1 ปี 5,000 รอบ · สมมติถือสัดส่วนเดิมตลอด ไม่รวมค่าเงิน</p>
+   <h3 style="margin:14px 0 6px;font-size:15px">หุ้นในพอร์ตขึ้นลงตามกันแค่ไหน (correlation 1 ปี)</h3>
+   <div class="tscroll"><table class="qcor"><thead><tr><th></th>${top.map(s=>`<th class="r">${esc(dsym(s))}</th>`).join("")}</tr></thead><tbody>${top.map((s,i)=>`<tr><th>${esc(dsym(s))}</th>${top.map((_,j)=>`<td class="r num ${i===j?"":cc(P.cor[i][j])}">${i===j?"–":P.cor[i][j].toFixed(2)}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+   <ul class="chk" style="margin-top:10px">${pairs.length?pairs.slice(0,6).map(([a,b,c])=>`<li><span class="warn">!</span><span><b>${esc(dsym(a))} กับ ${esc(dsym(b))}</b> <span class="muted">· correlation ${c.toFixed(2)} ขึ้นลงตามกันมาก ถือทั้งคู่เหมือนเดิมพันเรื่องเดียวกันสองเท่า</span></span></li>`).join(""):`<li><span class="up">✓</span><span><b>ไม่มีคู่ที่ขึ้นลงตามกันมาก</b> <span class="muted">· ทุกคู่ correlation ต่ำกว่า 0.7</span></span></li>`}
+   ${C2.map(([s,w,c])=>`<li><span class="${c>=.7?"warn":"up"}">${c>=.7?"!":"✓"}</span><span><b>สัญญาณ ${esc(dsym(s))}</b> <span class="muted">· ใกล้กับ ${esc(dsym(w))} มากสุด (${c.toFixed(2)}) ${c>=.7?"ซื้อเพิ่มแล้วซ้ำความเสี่ยงเดิม":"ช่วยกระจายความเสี่ยง"}</span></span></li>`).join("")}</ul></section>`}
+
+// ---------- พิสูจน์กติกาลดขนาดไม้ (research/quant_bt.js) ----------
+function qProofCard(mk){const M=typeof QBT!=="undefined"&&QBT.M?.[mk];if(!M)return "";const V=M.V,u=M.use||{},on=Object.keys(u).filter(k=>u[k]);
+  const NM={equal:"ขนาดเท่ากันทุกไม้",all:"ใช้ทุกข้อ (แบบแรก)",reg:"เฉพาะความผันผวนผิดปกติ",sl:"เฉพาะ SL แคบ",earn:"เฉพาะงบในช่วงถือ",regsl:"ความผันผวน + SL แคบ",adopt:"ที่ใช้อยู่ตอนนี้"};
+  const rows=["equal","all","reg","sl","earn","regsl"].filter(k=>V[k]?.all);const base=V.equal.all;
+  const td=(x,b,hi)=>x==null?`<td class="r">–</td>`:`<td class="r num ${b!=null&&x!==b?((x>b)===hi?"up":"down"):""}">${x}</td>`;
+  return `<section class="card"><div class="card-h"><h2>พิสูจน์กติกาลดขนาดไม้ด้วย backtest</h2><span class="muted" style="font-size:13px">ไม้จริงของระบบ ${M.trades.toLocaleString()} ไม้ · ${qd(M.from)} – ${qd(QBT.at)}</span></div>
+   <p style="margin:0 0 10px"><b>ผล${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}:</b> ${on.length?`ใช้เฉพาะข้อ${on.map(k=>({reg:"ความผันผวนผิดปกติ",sl:"SL แคบ",earn:"งบในช่วงถือ",edge:"ได้เปรียบรายหุ้น"})[k]).join(" + ")} เพราะทำให้ Sharpe ${base.sharpe} → ${V.adopt.all.sharpe} และ MDD ${base.mdd}% → ${V.adopt.all.mdd}% ดีขึ้นทั้งช่วงก่อนและหลัง ${qd(QBT.split)}`:`ยังไม่มีข้อไหนทำให้พอร์ตดีขึ้น จึงไม่ลดขนาดไม้ แสดงผลตรวจเป็นข้อมูลประกอบอย่างเดียว`}</p>
+   <div class="tscroll"><table class="qtab"><thead><tr><th>วิธีกำหนดขนาดไม้</th><th class="r">ผลตอบแทน/ปี</th><th class="r">ผันผวน</th><th class="r">Sharpe</th><th class="r">MDD</th><th class="r">Sharpe ก่อน ${qd(QBT.split)}</th><th class="r">Sharpe หลัง</th><th class="r">ใช้เงินเฉลี่ย</th></tr></thead><tbody>
+   ${rows.map(k=>{const a=V[k].all,isA=JSON.stringify(V[k].all)===JSON.stringify(V.adopt.all)&&(k!=="equal"||!on.length);return `<tr${isA?' class="qadopt"':""}><td>${NM[k]}${isA?" ✓":""}</td>${td(a.cagr+"%",null)}${td(a.vol+"%",null)}${td(a.sharpe,k==="equal"?null:base.sharpe,true)}${td(a.mdd,k==="equal"?null:base.mdd,true)}${td(V[k].a?.sharpe,k==="equal"?null:V.equal.a?.sharpe,true)}${td(V[k].b?.sharpe,k==="equal"?null:V.equal.b?.sharpe,true)}<td class="r num">${V[k].expo}%</td></tr>`}).join("")}</tbody></table></div>
+   ${M.mc?.equal?`<div class="stat" style="margin-top:12px">${statBox("Monte Carlo 1 ปี: ขนาดเท่ากัน",`โอกาส 5% ลึกกว่า ${M.mc.equal.dd5}%`,`กลางๆ ${M.mc.equal.ret50>0?"+":""}${M.mc.equal.ret50}% · โอกาสขาดทุน ${M.mc.equal.loss}%`)}${on.length?statBox("Monte Carlo 1 ปี: ที่ใช้อยู่",`โอกาส 5% ลึกกว่า ${M.mc.adopt.dd5}%`,`กลางๆ ${M.mc.adopt.ret50>0?"+":""}${M.mc.adopt.ret50}% · โอกาสขาดทุน ${M.mc.adopt.loss}%`):""}${statBox("ไม้ที่ได้ “ระวัง”",M.g[1].n?`ชนะ ${M.g[1].win}%`:"–",M.g[1].n?`${M.g[1].n} ไม้ · เฉลี่ย ${M.g[1].avg}%/ไม้`:"")}${statBox("ไม้ที่ได้ “ผ่าน”",M.g[2].n?`ชนะ ${M.g[2].win}%`:"–",M.g[2].n?`${M.g[2].n} ไม้ · เฉลี่ย ${M.g[2].avg}%/ไม้`:"")}</div>`:""}
+   <p class="foot" style="margin:10px 0 0">พอร์ตจำลองถือได้ 5 ตัว ตัวละ 1/5 × ตัวคูณ หักค่าคอมแล้ว · แต่ละไม้ตรวจด้วยข้อมูลก่อนวันเข้าเท่านั้น (วันประกาศงบจริงในอดีต) · ไม้ “ระวัง” กำไรต่อไม้เป็น % สูงกว่าเพราะเป็นหุ้นที่เหวี่ยงแรง ความเสี่ยงก็สูงตาม จึงตัดสินที่ Sharpe และ MDD ของพอร์ต · ผลในอดีตไม่รับประกันอนาคต ทีม Agent ติดตามผลจริงต่อด้านล่าง</p></section>`}
+
+// ---------- ผลจริงไปข้างหน้า (ทีม Agent ฝ่ายสัญญาณจดผลตรวจตอนออกสัญญาณ) ----------
+function qLiveCard(mk){const Q=S.agents?.sig?.qst?.[mk],G=[[2,"ผ่าน"],[1,"ระวัง"],[0,"ไม่ผ่าน"]],since=S.agents?.sig?.qsince;
+  const has=Q&&G.some(([k])=>Q[k]?.n);const open=Object.values(S.agents?.sig?.pos||{}).filter(p=>p.m===mk&&p.st!=="done"&&p.ql!=null);
+  return `<section class="card"><div class="card-h"><h2>ผลจริงของสัญญาณตามผลตรวจ</h2><span class="muted" style="font-size:13px">ทีม Agent ฝ่ายสัญญาณจด${since?" ตั้งแต่ "+qd(since):""}</span></div>
+   ${has?`<div class="tscroll"><table class="qtab"><thead><tr><th>ผลตรวจตอนออกสัญญาณ</th><th class="r">ปิดแล้ว</th><th class="r">ชนะ</th><th class="r">เฉลี่ย/ไม้</th><th class="r">เฉลี่ยถ้าใช้ตัวคูณ</th></tr></thead><tbody>${G.filter(([k])=>Q[k]?.n).map(([k,l])=>{const x=Q[k];return `<tr><td>${l}</td><td class="r num">${x.n}</td><td class="r num">${(x.w/x.n*100).toFixed(0)}%</td><td class="r num ${cls(x.s)}">${pct(x.s/x.n,2)}</td><td class="r num ${cls(x.sm)}">${pct(x.sm/x.n,2)}</td></tr>`}).join("")}</tbody></table></div>`
+   :`<p class="muted" style="margin:0">เริ่มจดแล้ว ยังไม่มีไม้ที่ปิด${open.length?` · กำลังติดตาม ${open.length} ไม้ (ผ่าน ${open.filter(p=>p.ql===2).length} · ระวัง ${open.filter(p=>p.ql===1).length})`:""} · ใช้เวลาราว 1 เดือนกว่าจะเริ่มเห็นความต่าง</p>`}
+   <p class="foot" style="margin:8px 0 0">ทุกสัญญาณใหม่จดผลตรวจ quant และตัวคูณ ณ วันที่ออก แล้วเทียบผลจริงตอนปิดไม้ ถ้ากลุ่ม “ระวัง” ไม่ได้แย่กว่าเมื่อเทียบความเสี่ยง กติกาก็ต้องปรับ</p></section>`}
+
+// ---------- หน้ารายตัว ----------
+function quantStock(sym){const st=stockBySym(sym);if(!st)return `<a class="back" href="#quant">← Quant</a><div class="card empty">ไม่พบหุ้น ${esc(sym)}</div>`;
+  const top=`<a class="back" href="#quant">← Quant</a><div class="shead">${logo(st.s,true)}<div style="min-width:0;flex:1"><div class="sym" style="font-size:22px">${esc(dsym(st.s))} <span class="mk">${st.m}</span></div><div class="nm">${esc(st.n)} · <a href="#s-${esc(st.s)}">เปิดหน้าหุ้น →</a></div></div></div>`;
+  if(!hasBars(st)){loadHist([st.s]);return top+`<section class="card empty">${S.histFail?.[st.s]?"โหลดราคาย้อนหลังของหุ้นนี้ไม่สำเร็จ":"กำลังโหลดราคาย้อนหลัง…"}</section>`}
+  const R=analyze(st),v=quantCheck(R);if(!v)return top+`<section class="card empty">ราคาย้อนหลังยังไม่พอคำนวณ (ต้องมีอย่างน้อย 60 วัน)</section>`;
+  return top+qPlanCard(R,v)+qStatCard(v.Q,st)+qGridCard(R)+qGuide()}
+
+function qPlanCard(R,v){const m=R.st.m,c=cur(m);if(v.lv==null)return `<section class="card"><div class="card-h"><h2>Quant ตรวจแผนซื้อขาย</h2>${qVerdict(v)}</div><p class="muted" style="margin:0">วันนี้ระบบยังไม่มีแผนซื้อที่ใช้ตรวจได้ ดูสถิติราคาด้านล่างแทน</p></section>`;
+  const mk=m==="US"?"US":"TH",cap=+(lsGet("cap"+mk)||(mk==="TH"?100000:10000)),rk=+(lsGet("risk")||1),lot=m==="TH"?100:1;
+  const per=v.en-v.sl,raw=per>0?Math.min(cap*rk/100/per,cap/SLOTS/v.en):0,full=Math.floor(raw/lot)*lot,adj=Math.floor(raw*v.mult/lot)*lot,T=v.T;
+  return `<section class="card"><div class="card-h"><h2>Quant ตรวจแผนซื้อขาย</h2>${qVerdict(v)}</div>
+   <p style="margin:0 0 10px">${v.official?"สัญญาณระบบวันนี้":"แผนจากคะแนนวันนี้ (ยังไม่ใช่สัญญาณระบบ)"}: ตั้งซื้อ <b class="num">${c}${fmt(v.en)}</b> · ตัดขาดทุน <b class="num down">${c}${fmt(v.sl)}</b> (${pct(-v.slP*100,1)})${v.t1?` · TP1 <b class="num up">${c}${fmt(v.t1)}</b>`:""} · ขายกำไร <b class="num up">${c}${fmt(v.tp)}</b> (${pct(v.tpP*100,1)}) · ถือไม่เกิน ${v.hold} วัน</p>
+   <div class="stat">${statBox("กำไร : ขาดทุน",`1 : ${(v.tpP/v.slP).toFixed(1)}`,`ต้องชนะ ≥ ${v.be.toFixed(0)}% ถึงคุ้มทุน`)}${statBox("ระบบชนะจริง (หุ้นนี้ 5 ปี)",v.bt?.n?v.bt.win.toFixed(0)+"%":"–",v.bt?.n?`${v.bt.n} ไม้ · เฉลี่ย ${pct(v.bt.avg,2)}`:"ยังไม่เคยเกิดสัญญาณ")}${statBox("ซื้อวันไหนก็ได้ (ฐานเทียบ)",T?`โดน TP ${qp(T.pT,0)} · โดน SL ${qp(T.pS,0)}`:"–",T?`ครบเวลา ${qp(T.pM,0)} · เฉลี่ย ${pct(v.base,2)}/ไม้`:"")}${statBox("ได้เปรียบเหนือฐานเทียบ",v.edge!=null?pct(v.edge,2):"–","ต่อไม้",v.edge!=null?cls(v.edge):"")}</div>
+   <ul class="chk qchk" style="margin-top:12px">${v.C.map(x=>`<li${!x.used&&x.s!=="ok"?' class="qinfo"':""}><span class="${QV[x.s][1]}">${QV[x.s][0]}</span><span><b>${x.h}</b> <span class="muted">· ${x.t}</span></span></li>`).join("")}</ul>
+   <div class="qsize"><label class="field">เงินพอร์ต (${c})<input data-cap="${mk}" type="number" min="0" step="${mk==="TH"?10000:1000}" value="${cap}" inputmode="decimal"></label><label class="field">ยอมเสียต่อไม้ (% ของพอร์ต)<input id="qRisk" type="number" min="0.1" max="5" step="0.1" value="${rk}" inputmode="decimal"></label>
+    <div><span class="muted">ขนาดตามความเสี่ยง</span><b class="num">${full.toLocaleString()} หุ้น</b></div><div><span class="muted">หลังปรับแบบ quant ×${v.mult.toFixed(2)}</span><b class="num ${v.mult<1?"warn":""}">${adj.toLocaleString()} หุ้น</b><span class="muted">${adj?`ใช้เงิน ${c}${Math.round(adj*v.en).toLocaleString()} · เสียสูงสุด ${c}${Math.round(adj*per).toLocaleString()}`:"ข้ามไม้นี้"}</span></div></div>
+   <p class="foot" style="margin:10px 0 0">ขนาดตามความเสี่ยง = เงินพอร์ต × % ที่ยอมเสีย ÷ ระยะถึง SL (ไม่เกิน 1/${SLOTS} ของพอร์ต) · ตัวคูณ quant ใช้เฉพาะข้อที่ทดสอบย้อนหลังแล้วช่วยพอร์ตจริง (ตอนนี้: หุ้นสหรัฐฯ ลดเมื่อผันผวนผิดปกติหรือ SL แคบ · หุ้นไทยยังไม่มีข้อที่ผ่าน) ลดอย่างเดียว ไม่เพิ่มขนาดเกินแผนเดิม · ฐานเทียบหักค่าคอมแล้ว แต่ไม่คิดราคาเปิดกระโดดผ่าน SL</p></section>`}
+
+function qStatCard(Q,st){const sb=statBox;
+  return `<section class="card"><div class="card-h"><h2>สถิติราคา</h2><span class="muted" style="font-size:13px">${qd(Q.from)} – ${qd(Q.to)} · ${Q.yrs.toFixed(1)} ปี</span></div>
+   <div class="stat">${sb("ผลตอบแทนต่อปี (ทบต้น)",qp(Q.cagr),`เฉลี่ยตรงๆ ${qp(Q.mean)} · หายไปกับการแกว่ง ${qp(Q.drag)}`,cls(Q.cagr))}${sb("ความผันผวนต่อปี",qp(Q.vol,0),`1 ปี ${qp(Q.vol1,0)} · 20 วัน ${qp(Q.vol20,0)}`)}${sb("Sharpe",Q.sharpe!=null?Q.sharpe.toFixed(2):"–",`1 ปี ${Q.sh1!=null?Q.sh1.toFixed(2):"–"} · ไร้ความเสี่ยง ${(Q.rf*100).toFixed(0)}%`)}${sb("Calmar",Q.calmar!=null?Q.calmar.toFixed(2):"–","ผลตอบแทนต่อปี ÷ หลุมลึกสุด")}</div>
+   <div class="stat" style="margin-top:10px">${sb("ลงลึกสุด (MDD)",qp(Q.mdd,0),`${qd(Q.mddPk)} → ${qd(Q.mddTr)} · ${Q.mddRec?"ฟื้นเมื่อ "+qd(Q.mddRec):"ยังไม่ฟื้น"}`,"down")}${sb("ตอนนี้ห่างจุดสูงสุด",qp(Q.dd,0),Q.dd<0?`ต้องขึ้น ${qp(Q.need,0)} ถึงกลับไปจุดสูงสุด ${qd(Q.ddPk)}`:"อยู่ที่จุดสูงสุด",cls(Q.dd))}${sb("วันที่แย่สุด 5% (CVaR)",qp(Q.cvar),`แย่สุด ${qp(Q.worst)} · ดีสุด ${qp(Q.best)}`,"down")}${sb("ความผันผวนตอนนี้",Q.pctl!=null?`สูงกว่า ${Q.pctl.toFixed(0)}%`:"–","ของช่วง 20 วันในอดีต")}</div>
+   <p class="foot" style="margin:10px 0 0">คำนวณจากราคาปิดรายวัน (ราคาปรับปันผล/แตกพาร์ตามแหล่งข้อมูล) · Sharpe ใช้อัตราไร้ความเสี่ยงสมมติ ไทย 2% สหรัฐฯ 4% · MDD ในอดีตไม่ใช่เพดานของอนาคต</p></section>`}
+
+function qGridCard(R){const G=quantGrid(R);if(!G)return "";if(Math.max(...G.cell.flat().map(x=>x.all.n||0))<5)return `<section class="card"><h2 style="margin-bottom:6px">ถ้าปรับ SL / TP ผลกับหุ้นตัวนี้เปลี่ยนแค่ไหน</h2><p class="muted" style="margin:0">ระบบออกสัญญาณซื้อกับหุ้นตัวนี้ในอดีตน้อยกว่า 5 ไม้ ทดลองปรับไปก็สรุปอะไรไม่ได้ ค่า SL/TP ของระบบเลือกจากหุ้น ~1,600 ตัวพร้อมกัน</p></section>`;const cap=rulesFor(R.st.m).slCap;
+  const cell=(x,s,t)=>{const a=x.all,on=s===G.cur[0]&&t===G.cur[1];return `<td class="r num${on?" qcur":""}">${a.n?`<b class="${cls(a.avg)}">${pct(a.avg,2)}</b><span class="muted">ชนะ ${a.win.toFixed(0)}% · ${a.n}</span>`:`<span class="muted">–</span>`}</td>`};
+  return `<section class="card"><div class="card-h"><h2>ถ้าปรับ SL / TP ผลกับหุ้นตัวนี้เปลี่ยนแค่ไหน</h2><span class="muted" style="font-size:13px">กำไรเฉลี่ยต่อไม้ · อัตราชนะ · จำนวนไม้</span></div>
+   <div class="tscroll"><table class="qgrid"><thead><tr><th>SL \\ TP</th>${QGRID.TP.map(t=>`<th class="r">TP ${t} ATR</th>`).join("")}</tr></thead><tbody>${QGRID.SL.map((s,i)=>`<tr><th>SL ${s} ATR</th>${QGRID.TP.map((t,j)=>cell(G.cell[i][j],s,t)).join("")}</tr>`).join("")}</tbody></table></div>
+   <p class="foot" style="margin:10px 0 0">ช่องกรอบคือค่าที่ระบบใช้ (SL ${G.cur[0]} · TP ${G.cur[1]} ATR${G.tp1?` · ขายบางส่วนที่ TP1 ${G.tp1} ATR`:""})${cap?` · SL ไม่เกิน ${(cap*100).toFixed(0)}% ของราคาซื้อ แถว SL กว้างๆ จึงอาจได้ผลเท่ากัน`:""} · สัญญาณชุดเดียวกับระบบ หักค่าคอมแล้ว · <b>อย่าเลือกช่องที่ดีที่สุดของหุ้นตัวเดียวมาใช้</b> ไม้มีน้อย ช่องที่ดีสุดมักเป็นความบังเอิญ (overfitting) ใช้ดูว่าผลนิ่งไหม ถ้าช่องรอบๆ ค่าที่ใช้ให้ผลใกล้กัน แปลว่าค่านั้นไว้ใจได้ ค่าของระบบเลือกจากหุ้น ~1,600 ตัวพร้อมกัน</p></section>`}
+
+function qGuide(){return `<section class="card"><h2 style="margin-bottom:6px">อ่านตัวเลขยังไง</h2><ul class="chk">
+  <li><span>①</span><span><b>ผลตอบแทนทบต้นต่ำกว่าเฉลี่ยตรงๆ เสมอ</b> <span class="muted">ส่วนต่างคือเงินที่หายไปกับการแกว่ง (volatility drag) หุ้นยิ่งเหวี่ยง ยิ่งหายมาก</span></span></li>
+  <li><span>②</span><span><b>Sharpe</b> <span class="muted">ผลตอบแทนส่วนเกินต่อความผันผวน 1 หน่วย · ต่ำกว่า 0.5 อ่อน · ราว 1 ดี · เกิน 2 ให้สงสัยไว้ก่อน</span></span></li>
+  <li><span>③</span><span><b>ขาดทุนกับกำไรไม่สมมาตร</b> <span class="muted">ลง 50% ต้องขึ้น 100% ถึงเท่าทุน จึงดูทั้ง MDD และระยะที่ต้องฟื้น</span></span></li>
+  <li><span>④</span><span><b>ได้เปรียบเหนือฐานเทียบ</b> <span class="muted">ถ้าระบบไม่ชนะการซื้อวันไหนก็ได้ด้วย SL/TP เดียวกัน แปลว่ากำไรในอดีตมาจากหุ้นขึ้นเอง ไม่ใช่จากสัญญาณ</span></span></li>
+  <li><span>⑤</span><span><b>ขนาดไม้สำคัญกว่าจุดเข้า</b> <span class="muted">SL กำหนดจากความผันผวน (ATR) อยู่แล้ว สิ่งที่ quant เพิ่มคือลดขนาดเมื่อความเสี่ยงสูงกว่าปกติ</span></span></li></ul>
+  <p class="foot" style="margin:10px 0 0">ตัวเลขทั้งหมดมาจากราคาในอดีต ไม่ใช่คำแนะนำการลงทุน</p></section>`}
+
+// ฟอร์มค้นหา + ช่อง % ความเสี่ยง (เงินพอร์ตใช้ data-cap ร่วมกับหน้าสัญญาณ)
+document.addEventListener("submit",e=>{if(e.target.id!=="qFind")return;e.preventDefault();const q=String(new FormData(e.target).get("s")||"").trim().toUpperCase();if(!q)return;
+  const st=stockBySym(q)||allStocks().find(x=>dsym(x.s).toUpperCase()===q);if(st)location.hash="#q-"+st.s;else toast("ไม่พบหุ้น "+q)});
+document.addEventListener("click",e=>{const t=e.target.closest?.("[data-qsort],[data-qflt],[data-qmore]");if(!t)return;if(t.dataset.qsort){S.qsort=t.dataset.qsort;S.qlim=30}else if(t.dataset.qflt){S.qflt=t.dataset.qflt;S.qlim=30}else S.qlim=(S.qlim||30)+50;render()});
+document.addEventListener("change",e=>{if(e.target.id==="qRisk"){lsSet("risk",Math.min(5,Math.max(.1,+e.target.value||1)));render()}});
+if(typeof I18N_EN!=="undefined")Object.assign(I18N_EN,{"อ่านหุ้นด้วยตัวเลข":"Read stocks by the numbers","สถิติราคา":"Price statistics","Quant ตรวจแผนซื้อขาย":"Quant check of the trade plan","ผ่าน · ขนาดเต็ม":"Pass · full size","ไม่ผ่าน · ข้าม":"Fail · skip","ระวัง · ขนาด":"Caution · size","ระบบได้เปรียบกับหุ้นตัวนี้":"System has an edge on this stock","SL พ้นการแกว่งปกติ":"SL clears normal noise","ความผันผวนตอนนี้ปกติ":"Volatility is normal now","ไม่มีประกาศงบในช่วงถือ":"No earnings in the holding window","ถ้าปรับ SL / TP ผลกับหุ้นตัวนี้เปลี่ยนแค่ไหน":"How results change if SL / TP are adjusted","อ่านตัวเลขยังไง":"How to read the numbers","สัญญาณซื้อวันนี้ผ่านการตรวจแบบ quant":"Today's buy signals through a quant check","ซื้อวันไหนก็ได้ (ฐานเทียบ)":"Buy any day (baseline)","ได้เปรียบเหนือฐานเทียบ":"Edge over baseline","ขนาดตามความเสี่ยง":"Risk-based size","ผลตอบแทนต่อปี (ทบต้น)":"Annual return (compounded)","ความผันผวนต่อปี":"Annual volatility","ลงลึกสุด (MDD)":"Max drawdown","ตอนนี้ห่างจุดสูงสุด":"Below peak now"});
+/* ========== (end Quant) ========== */
 // stockdesk: หน้าเว็บ (การแสดงผล การโต้ตอบ และการโหลดข้อมูล) · การคำนวณหลักอยู่ใน core.js ใช้ร่วมกับสคริปต์บน GitHub Actions
 "use strict";
 /* ---------- ไอคอน: ชุดเดียวกันทั้งเว็บ (เส้น 1.8) วางบนแผ่นนูนสีประจำตลาด ---------- */
@@ -1628,97 +1775,3 @@ setInterval(()=>{if(!document.hidden&&!document.querySelector("details[open],inp
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&Date.now()-(S.loadedAt||0)>5*60000)loadAll()});
 setInterval(liveBadge,30000);
 if("serviceWorker" in navigator&&location.protocol.startsWith("http"))navigator.serviceWorker.register("sw.js").catch(()=>{});
-
-/* ========== Quant (#quant, #q-SYM) ========== */
-// หน้า Quant (#quant, #q-SYM): อ่านหุ้นและแผนซื้อขายด้วยตัวเลข quant
-// - ไม่แก้จุดเข้า/SL/TP ของระบบ (ผ่าน backtest + paper trading แล้ว) แต่ตรวจว่าแผนวันนี้คุ้มความเสี่ยงไหม และควรซื้อขนาดเท่าไร
-// - ตัวคำนวณอยู่ใน core.js (quantStats, quantTouch, quantGrid) ใช้ร่วมกับสคริปต์ได้
-// ตัดสินด้วย 4 ข้อ: ระบบได้เปรียบกับหุ้นตัวนี้จริงไหม · SL กว้างพอพ้นการแกว่งปกติไหม · ตอนนี้ผันผวนผิดปกติไหม · มีประกาศงบในช่วงถือไหม
-
-const QV={ok:["✓","up"],warn:["!","warn"],bad:["✕","down"],na:["–","muted"]};
-function quantCheck(R){if(!R||R.lite||R.sample||!R.B)return null;S.qc??=new Map();const hit=S.qc.get(R.st.s);if(hit&&hit.key===R.key)return hit.v;
-  const st=R.st,m=st.m,RP=rulesFor(m),B=R.B,Q=quantStats(B,m);if(!Q){S.qc.set(st.s,{key:R.key,v:null});return null}
-  const y=R.sys,P=y||R.plan?.tone==="buy"?R.plan:null,en=y?y.lp:P?.entry,sl=y?y.sl:P?.sl,tp=y?y.tp:P?.tp2,t1=y?y.tp1:(RP.tp1?P?.tp1:null),hold=RP.hold;
-  let v={Q,official:!!y};
-  if(en>0&&sl>0&&tp>en&&sl<en){const slP=1-sl/en,tpP=tp/en-1,nh=Math.min(hold,10),sH=Q.dVol*Math.sqrt(nh),T=quantTouch(B,slP,tpP,hold),bt=R.model?.trades?.length?stats(R.model.trades):null;
-    const be=slP/(slP+tpP)*100,base=T?(T.ev-2*costOf(m))*100:null,edge=bt?.n>=8&&base!=null?bt.avg-base:null,slS=sH?slP/sH:null,tpS=sH?tpP/sH:null;
-    const ed=uniOf(st.s)?.ed,edD=ed?(ed-Date.now()/1000)/86400:null,earn=edD!=null&&edD>-1&&edD<=hold*1.45;
-    const hot=Q.reg>1.3||Q.pctl>=90,regM=Q.reg>1.6?.5:hot?.75:1,slM=slS!=null&&slS<.8?.75:1,earnM=earn?.5:1;
-    const C=[
-      {k:"edge",s:edge==null?"na":edge>0?"ok":edge>-.25?"warn":"bad",h:"ระบบได้เปรียบกับหุ้นตัวนี้",
-        t:edge==null?`สัญญาณในอดีตยังน้อย (${bt?.n||0} ไม้ ต้อง ≥ 8) ยังสรุปไม่ได้ ใช้ค่าเฉลี่ยทั้งระบบแทน`:`ทดสอบ 5 ปี ${bt.n} ไม้ กำไรเฉลี่ย ${pct(bt.avg,2)}/ไม้ เทียบซื้อวันไหนก็ได้ด้วย SL/TP เดียวกัน ${pct(base,2)} (หักค่าคอมแล้ว) → ${edge>0?"ได้เปรียบ":"เสียเปรียบ"} ${pct(edge,2)}${edge<=-.25?" ข้ามไม้นี้":""}`},
-      {k:"noise",s:slS==null?"na":slS>=.8?"ok":"warn",h:"SL พ้นการแกว่งปกติ",
-        t:slS==null?"–":`SL ห่าง ${(slP*100).toFixed(1)}% = ${slS.toFixed(2)} เท่าของการแกว่งปกติใน ${nh} วันทำการ (${(sH*100).toFixed(1)}%)${slS<.8?" แคบไป โอกาสโดนจากการแกว่งธรรมดาสูง ลดขนาดไม้":""}`},
-      {k:"reg",s:Q.reg==null?"na":hot?"warn":"ok",h:"ความผันผวนตอนนี้ปกติ",
-        t:Q.reg==null?"–":`20 วันล่าสุด ${(Q.vol20*100).toFixed(0)}%/ปี เทียบ 1 ปี ${(Q.vol1*100).toFixed(0)}%/ปี (${Q.reg.toFixed(2)} เท่า) · สูงกว่า ${Q.pctl.toFixed(0)}% ของช่วงในอดีต${hot?` ช่วงพายุ ลดขนาดไม้เหลือ ×${regM}`:""}`},
-      {k:"earn",s:earn?"warn":"ok",h:"ไม่มีประกาศงบในช่วงถือ",
-        t:earn?`ประกาศงบราว ${thDate(new Date(ed*1e3).toISOString().slice(0,10))} ราคาอาจเปิดกระโดดผ่าน SL ลดขนาดไม้ครึ่งหนึ่ง`:"ไม่พบวันประกาศงบภายในช่วงถือ"}];
-    const bad=C.some(c=>c.s==="bad"),mult=bad?0:regM*slM*earnM*(C[0].s==="warn"?.75:1);
-    v={...v,en,sl,tp,t1,hold,nh,slP,tpP,sH,slS,tpS,T,bt,be,base,edge,earn,C,mult,lv:bad?0:mult>=1?2:1}}
-  S.qc.set(st.s,{key:R.key,v});return v}
-const qVerdict=v=>!v||v.lv==null?`<span class="pill p-hold">ไม่มีแผนซื้อ</span>`:v.lv===2?`<span class="pill p-buy2">ผ่าน · ขนาดเต็ม</span>`:v.lv===1?`<span class="pill p-warn">ระวัง · ขนาด ×${v.mult.toFixed(2).replace(/0$/,"")}</span>`:`<span class="pill p-sell">ไม่ผ่าน · ข้าม</span>`;
-const qp=(x,d=1)=>x==null||!isFinite(x)?"–":(x*100).toFixed(d)+"%";
-const qd=t=>t?thDate(String(t).slice(0,10)):"–";
-
-function vQuant(sym){return sym?quantStock(sym):quantHome()}
-
-// ---------- หน้ารวม: สัญญาณวันนี้ + รายการโปรด ผ่านการตรวจแบบ quant ----------
-function quantHome(){const mk=S.mkt==="US"?"US":"TH";
-  const sig=allStocks().filter(st=>st.m===mk&&liquid(st)).map(info).filter(R=>R.sys).sort((a,b)=>(b.rs?.pctl??0)-(a.rs?.pctl??0)).slice(0,15);
-  const fav=S.watch.map(stockBySym).filter(st=>st&&st.m===mk&&!sig.some(R=>R.st.s===st.s)).slice(0,15);
-  const need=[...sig.map(R=>R.st),...fav].filter(st=>!hasBars(st)).map(st=>st.s);if(need.length)loadHist(need);
-  const row=st=>{const R=info(st),v=hasBars(st)?quantCheck(R):null,Q=v?.Q;return `<tr><td><a href="#q-${esc(st.s)}" class="qsym">${logo(st.s)}<b>${esc(dsym(st.s))}</b></a></td>
-    <td class="r num">${Q?qp(Q.vol1,0):"…"}</td><td class="r num">${Q?.reg!=null?Q.reg.toFixed(2)+"×":"…"}</td><td class="r num">${Q?.sh1!=null?Q.sh1.toFixed(2):"…"}</td><td class="r num ${Q?cls(Q.dd):""}">${Q?qp(Q.dd,0):"…"}</td>
-    <td class="r num">${v?.slS!=null?v.slS.toFixed(2)+"σ":"–"}</td><td class="r num ${v?.edge!=null?cls(v.edge):""}">${v?.edge!=null?pct(v.edge,2):"–"}</td><td>${hasBars(st)?qVerdict(v):`<span class="muted">${S.histFail?.[st.s]?"ไม่มีราคาย้อนหลัง":"กำลังโหลด…"}</span>`}</td></tr>`};
-  const head=`<thead><tr><th>หุ้น</th><th class="r">ผันผวน 1 ปี</th><th class="r">20 วัน/1 ปี</th><th class="r">Sharpe 1 ปี</th><th class="r">ห่างจุดสูงสุด</th><th class="r">SL/การแกว่ง</th><th class="r">ได้เปรียบ/ไม้</th><th>Quant</th></tr></thead>`;
-  return `<div><h1>Quant</h1><p class="muted" style="margin:4px 0 0">อ่านหุ้นด้วยตัวเลข: ผลตอบแทน ความผันผวน Sharpe และ drawdown แล้วตรวจแผนซื้อขายของระบบว่าคุ้มความเสี่ยงไหม ควรซื้อขนาดเท่าไร · ไม่เปลี่ยนจุดเข้า/SL/TP ที่ผ่านการทดสอบมาแล้ว</p></div>
-  <div class="chips"><button class="chip" data-mkt="TH" aria-pressed="${mk==="TH"}">หุ้นไทย</button><button class="chip" data-mkt="US" aria-pressed="${mk==="US"}">หุ้นสหรัฐฯ</button></div>
-  <form class="card qfind" id="qFind"><label class="field">ดูหุ้นตัวไหนก็ได้<input name="s" type="search" placeholder="เช่น PTT, MRVL" autocomplete="off" required></label><button class="btn primary" type="submit">วิเคราะห์</button></form>
-  <section class="card"><div class="card-h"><h2>สัญญาณซื้อวันนี้ผ่านการตรวจแบบ quant</h2><span class="muted" style="font-size:13px">${sig.length} ตัว</span></div>
-   ${sig.length?`<div class="tscroll"><table class="qtab">${head}<tbody>${sig.map(R=>row(R.st)).join("")}</tbody></table></div>`:`<p class="muted" style="margin:0">วันนี้ยังไม่มีสัญญาณซื้อตามระบบ</p>`}</section>
-  ${fav.length?`<section class="card"><h2 style="margin-bottom:8px">รายการโปรด</h2><div class="tscroll"><table class="qtab">${head}<tbody>${fav.map(row).join("")}</tbody></table></div></section>`:""}
-  ${qGuide()}`}
-
-// ---------- หน้ารายตัว ----------
-function quantStock(sym){const st=stockBySym(sym);if(!st)return `<a class="back" href="#quant">← Quant</a><div class="card empty">ไม่พบหุ้น ${esc(sym)}</div>`;
-  const top=`<a class="back" href="#quant">← Quant</a><div class="shead">${logo(st.s,true)}<div style="min-width:0;flex:1"><div class="sym" style="font-size:22px">${esc(dsym(st.s))} <span class="mk">${st.m}</span></div><div class="nm">${esc(st.n)} · <a href="#s-${esc(st.s)}">เปิดหน้าหุ้น →</a></div></div></div>`;
-  if(!hasBars(st)){loadHist([st.s]);return top+`<section class="card empty">${S.histFail?.[st.s]?"โหลดราคาย้อนหลังของหุ้นนี้ไม่สำเร็จ":"กำลังโหลดราคาย้อนหลัง…"}</section>`}
-  const R=analyze(st),v=quantCheck(R);if(!v)return top+`<section class="card empty">ราคาย้อนหลังยังไม่พอคำนวณ (ต้องมีอย่างน้อย 60 วัน)</section>`;
-  return top+qPlanCard(R,v)+qStatCard(v.Q,st)+qGridCard(R)+qGuide()}
-
-function qPlanCard(R,v){const m=R.st.m,c=cur(m);if(v.lv==null)return `<section class="card"><div class="card-h"><h2>Quant ตรวจแผนซื้อขาย</h2>${qVerdict(v)}</div><p class="muted" style="margin:0">วันนี้ระบบยังไม่มีแผนซื้อที่ใช้ตรวจได้ ดูสถิติราคาด้านล่างแทน</p></section>`;
-  const mk=m==="US"?"US":"TH",cap=+(lsGet("cap"+mk)||(mk==="TH"?100000:10000)),rk=+(lsGet("risk")||1),lot=m==="TH"?100:1;
-  const per=v.en-v.sl,raw=per>0?Math.min(cap*rk/100/per,cap/SLOTS/v.en):0,full=Math.floor(raw/lot)*lot,adj=Math.floor(raw*v.mult/lot)*lot,T=v.T;
-  return `<section class="card"><div class="card-h"><h2>Quant ตรวจแผนซื้อขาย</h2>${qVerdict(v)}</div>
-   <p style="margin:0 0 10px">${v.official?"สัญญาณระบบวันนี้":"แผนจากคะแนนวันนี้ (ยังไม่ใช่สัญญาณระบบ)"}: ตั้งซื้อ <b class="num">${c}${fmt(v.en)}</b> · ตัดขาดทุน <b class="num down">${c}${fmt(v.sl)}</b> (${pct(-v.slP*100,1)})${v.t1?` · TP1 <b class="num up">${c}${fmt(v.t1)}</b>`:""} · ขายกำไร <b class="num up">${c}${fmt(v.tp)}</b> (${pct(v.tpP*100,1)}) · ถือไม่เกิน ${v.hold} วัน</p>
-   <div class="stat">${statBox("กำไร : ขาดทุน",`1 : ${(v.tpP/v.slP).toFixed(1)}`,`ต้องชนะ ≥ ${v.be.toFixed(0)}% ถึงคุ้มทุน`)}${statBox("ระบบชนะจริง (หุ้นนี้ 5 ปี)",v.bt?.n?v.bt.win.toFixed(0)+"%":"–",v.bt?.n?`${v.bt.n} ไม้ · เฉลี่ย ${pct(v.bt.avg,2)}`:"ยังไม่เคยเกิดสัญญาณ")}${statBox("ซื้อวันไหนก็ได้ (ฐานเทียบ)",T?`โดน TP ${qp(T.pT,0)} · โดน SL ${qp(T.pS,0)}`:"–",T?`ครบเวลา ${qp(T.pM,0)} · เฉลี่ย ${pct(v.base,2)}/ไม้`:"")}${statBox("ได้เปรียบเหนือฐานเทียบ",v.edge!=null?pct(v.edge,2):"–","ต่อไม้",v.edge!=null?cls(v.edge):"")}</div>
-   <ul class="chk qchk" style="margin-top:12px">${v.C.map(x=>`<li><span class="${QV[x.s][1]}">${QV[x.s][0]}</span><span><b>${x.h}</b> <span class="muted">· ${x.t}</span></span></li>`).join("")}</ul>
-   <div class="qsize"><label class="field">เงินพอร์ต (${c})<input data-cap="${mk}" type="number" min="0" step="${mk==="TH"?10000:1000}" value="${cap}" inputmode="decimal"></label><label class="field">ยอมเสียต่อไม้ (% ของพอร์ต)<input id="qRisk" type="number" min="0.1" max="5" step="0.1" value="${rk}" inputmode="decimal"></label>
-    <div><span class="muted">ขนาดตามความเสี่ยง</span><b class="num">${full.toLocaleString()} หุ้น</b></div><div><span class="muted">หลังปรับแบบ quant ×${v.mult.toFixed(2)}</span><b class="num ${v.mult<1?"warn":""}">${adj.toLocaleString()} หุ้น</b><span class="muted">${adj?`ใช้เงิน ${c}${Math.round(adj*v.en).toLocaleString()} · เสียสูงสุด ${c}${Math.round(adj*per).toLocaleString()}`:"ข้ามไม้นี้"}</span></div></div>
-   <p class="foot" style="margin:10px 0 0">ขนาดตามความเสี่ยง = เงินพอร์ต × % ที่ยอมเสีย ÷ ระยะถึง SL (ไม่เกิน 1/${SLOTS} ของพอร์ต) · ตัวคูณ quant ลดขนาดเมื่อผันผวนผิดปกติ SL แคบ หรือมีงบในช่วงถือ ไม่เพิ่มขนาดเกินแผนเดิม · ฐานเทียบหักค่าคอมแล้ว แต่ไม่คิดราคาเปิดกระโดดผ่าน SL</p></section>`}
-
-function qStatCard(Q,st){const sb=statBox;
-  return `<section class="card"><div class="card-h"><h2>สถิติราคา</h2><span class="muted" style="font-size:13px">${qd(Q.from)} – ${qd(Q.to)} · ${Q.yrs.toFixed(1)} ปี</span></div>
-   <div class="stat">${sb("ผลตอบแทนต่อปี (ทบต้น)",qp(Q.cagr),`เฉลี่ยตรงๆ ${qp(Q.mean)} · หายไปกับการแกว่ง ${qp(Q.drag)}`,cls(Q.cagr))}${sb("ความผันผวนต่อปี",qp(Q.vol,0),`1 ปี ${qp(Q.vol1,0)} · 20 วัน ${qp(Q.vol20,0)}`)}${sb("Sharpe",Q.sharpe!=null?Q.sharpe.toFixed(2):"–",`1 ปี ${Q.sh1!=null?Q.sh1.toFixed(2):"–"} · ไร้ความเสี่ยง ${(Q.rf*100).toFixed(0)}%`)}${sb("Calmar",Q.calmar!=null?Q.calmar.toFixed(2):"–","ผลตอบแทนต่อปี ÷ หลุมลึกสุด")}</div>
-   <div class="stat" style="margin-top:10px">${sb("ลงลึกสุด (MDD)",qp(Q.mdd,0),`${qd(Q.mddPk)} → ${qd(Q.mddTr)} · ${Q.mddRec?"ฟื้นเมื่อ "+qd(Q.mddRec):"ยังไม่ฟื้น"}`,"down")}${sb("ตอนนี้ห่างจุดสูงสุด",qp(Q.dd,0),Q.dd<0?`ต้องขึ้น ${qp(Q.need,0)} ถึงกลับไปจุดสูงสุด ${qd(Q.ddPk)}`:"อยู่ที่จุดสูงสุด",cls(Q.dd))}${sb("วันที่แย่สุด 5% (CVaR)",qp(Q.cvar),`แย่สุด ${qp(Q.worst)} · ดีสุด ${qp(Q.best)}`,"down")}${sb("ความผันผวนตอนนี้",Q.pctl!=null?`สูงกว่า ${Q.pctl.toFixed(0)}%`:"–","ของช่วง 20 วันในอดีต")}</div>
-   <p class="foot" style="margin:10px 0 0">คำนวณจากราคาปิดรายวัน (ราคาปรับปันผล/แตกพาร์ตามแหล่งข้อมูล) · Sharpe ใช้อัตราไร้ความเสี่ยงสมมติ ไทย 2% สหรัฐฯ 4% · MDD ในอดีตไม่ใช่เพดานของอนาคต</p></section>`}
-
-function qGridCard(R){const G=quantGrid(R);if(!G)return "";if(Math.max(...G.cell.flat().map(x=>x.all.n||0))<5)return `<section class="card"><h2 style="margin-bottom:6px">ถ้าปรับ SL / TP ผลกับหุ้นตัวนี้เปลี่ยนแค่ไหน</h2><p class="muted" style="margin:0">ระบบออกสัญญาณซื้อกับหุ้นตัวนี้ในอดีตน้อยกว่า 5 ไม้ ทดลองปรับไปก็สรุปอะไรไม่ได้ ค่า SL/TP ของระบบเลือกจากหุ้น ~1,600 ตัวพร้อมกัน</p></section>`;const cap=rulesFor(R.st.m).slCap;
-  const cell=(x,s,t)=>{const a=x.all,on=s===G.cur[0]&&t===G.cur[1];return `<td class="r num${on?" qcur":""}">${a.n?`<b class="${cls(a.avg)}">${pct(a.avg,2)}</b><span class="muted">ชนะ ${a.win.toFixed(0)}% · ${a.n}</span>`:`<span class="muted">–</span>`}</td>`};
-  return `<section class="card"><div class="card-h"><h2>ถ้าปรับ SL / TP ผลกับหุ้นตัวนี้เปลี่ยนแค่ไหน</h2><span class="muted" style="font-size:13px">กำไรเฉลี่ยต่อไม้ · อัตราชนะ · จำนวนไม้</span></div>
-   <div class="tscroll"><table class="qgrid"><thead><tr><th>SL \\ TP</th>${QGRID.TP.map(t=>`<th class="r">TP ${t} ATR</th>`).join("")}</tr></thead><tbody>${QGRID.SL.map((s,i)=>`<tr><th>SL ${s} ATR</th>${QGRID.TP.map((t,j)=>cell(G.cell[i][j],s,t)).join("")}</tr>`).join("")}</tbody></table></div>
-   <p class="foot" style="margin:10px 0 0">ช่องกรอบคือค่าที่ระบบใช้ (SL ${G.cur[0]} · TP ${G.cur[1]} ATR${G.tp1?` · ขายบางส่วนที่ TP1 ${G.tp1} ATR`:""})${cap?` · SL ไม่เกิน ${(cap*100).toFixed(0)}% ของราคาซื้อ แถว SL กว้างๆ จึงอาจได้ผลเท่ากัน`:""} · สัญญาณชุดเดียวกับระบบ หักค่าคอมแล้ว · <b>อย่าเลือกช่องที่ดีที่สุดของหุ้นตัวเดียวมาใช้</b> ไม้มีน้อย ช่องที่ดีสุดมักเป็นความบังเอิญ (overfitting) ใช้ดูว่าผลนิ่งไหม ถ้าช่องรอบๆ ค่าที่ใช้ให้ผลใกล้กัน แปลว่าค่านั้นไว้ใจได้ ค่าของระบบเลือกจากหุ้น ~1,600 ตัวพร้อมกัน</p></section>`}
-
-function qGuide(){return `<section class="card"><h2 style="margin-bottom:6px">อ่านตัวเลขยังไง</h2><ul class="chk">
-  <li><span>①</span><span><b>ผลตอบแทนทบต้นต่ำกว่าเฉลี่ยตรงๆ เสมอ</b> <span class="muted">ส่วนต่างคือเงินที่หายไปกับการแกว่ง (volatility drag) หุ้นยิ่งเหวี่ยง ยิ่งหายมาก</span></span></li>
-  <li><span>②</span><span><b>Sharpe</b> <span class="muted">ผลตอบแทนส่วนเกินต่อความผันผวน 1 หน่วย · ต่ำกว่า 0.5 อ่อน · ราว 1 ดี · เกิน 2 ให้สงสัยไว้ก่อน</span></span></li>
-  <li><span>③</span><span><b>ขาดทุนกับกำไรไม่สมมาตร</b> <span class="muted">ลง 50% ต้องขึ้น 100% ถึงเท่าทุน จึงดูทั้ง MDD และระยะที่ต้องฟื้น</span></span></li>
-  <li><span>④</span><span><b>ได้เปรียบเหนือฐานเทียบ</b> <span class="muted">ถ้าระบบไม่ชนะการซื้อวันไหนก็ได้ด้วย SL/TP เดียวกัน แปลว่ากำไรในอดีตมาจากหุ้นขึ้นเอง ไม่ใช่จากสัญญาณ</span></span></li>
-  <li><span>⑤</span><span><b>ขนาดไม้สำคัญกว่าจุดเข้า</b> <span class="muted">SL กำหนดจากความผันผวน (ATR) อยู่แล้ว สิ่งที่ quant เพิ่มคือลดขนาดเมื่อความเสี่ยงสูงกว่าปกติ</span></span></li></ul>
-  <p class="foot" style="margin:10px 0 0">ตัวเลขทั้งหมดมาจากราคาในอดีต ไม่ใช่คำแนะนำการลงทุน</p></section>`}
-
-// ฟอร์มค้นหา + ช่อง % ความเสี่ยง (เงินพอร์ตใช้ data-cap ร่วมกับหน้าสัญญาณ)
-document.addEventListener("submit",e=>{if(e.target.id!=="qFind")return;e.preventDefault();const q=String(new FormData(e.target).get("s")||"").trim().toUpperCase();if(!q)return;
-  const st=stockBySym(q)||allStocks().find(x=>dsym(x.s).toUpperCase()===q);if(st)location.hash="#q-"+st.s;else toast("ไม่พบหุ้น "+q)});
-document.addEventListener("change",e=>{if(e.target.id==="qRisk"){lsSet("risk",Math.min(5,Math.max(.1,+e.target.value||1)));render()}});
-if(typeof I18N_EN!=="undefined")Object.assign(I18N_EN,{"อ่านหุ้นด้วยตัวเลข":"Read stocks by the numbers","สถิติราคา":"Price statistics","Quant ตรวจแผนซื้อขาย":"Quant check of the trade plan","ผ่าน · ขนาดเต็ม":"Pass · full size","ไม่ผ่าน · ข้าม":"Fail · skip","ระวัง · ขนาด":"Caution · size","ระบบได้เปรียบกับหุ้นตัวนี้":"System has an edge on this stock","SL พ้นการแกว่งปกติ":"SL clears normal noise","ความผันผวนตอนนี้ปกติ":"Volatility is normal now","ไม่มีประกาศงบในช่วงถือ":"No earnings in the holding window","ถ้าปรับ SL / TP ผลกับหุ้นตัวนี้เปลี่ยนแค่ไหน":"How results change if SL / TP are adjusted","อ่านตัวเลขยังไง":"How to read the numbers","สัญญาณซื้อวันนี้ผ่านการตรวจแบบ quant":"Today's buy signals through a quant check","ซื้อวันไหนก็ได้ (ฐานเทียบ)":"Buy any day (baseline)","ได้เปรียบเหนือฐานเทียบ":"Edge over baseline","ขนาดตามความเสี่ยง":"Risk-based size","ผลตอบแทนต่อปี (ทบต้น)":"Annual return (compounded)","ความผันผวนต่อปี":"Annual volatility","ลงลึกสุด (MDD)":"Max drawdown","ตอนนี้ห่างจุดสูงสุด":"Below peak now"});
