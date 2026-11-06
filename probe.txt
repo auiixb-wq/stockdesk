@@ -1,0 +1,8 @@
+/home/runner/work/stockdesk/stockdesk/scripts/probe_hist.py:14: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+  print(sym, "YAHOO n", len(ts), "last", ts and dt.datetime.utcfromtimestamp(ts[-1]).date(), c[-3:] if c else None, r["meta"].get("regularMarketPrice"), r["meta"].get("instrumentType"))
+BANPU YAHOO n 125 last 2026-11-06 [None, None, None] 13.9 EQUITY
+BANPU CNBC n 64 first {'open': '15.5000', 'high': '15.9000', 'low': '15.1000', 'close': '15.3000', 'volume': 45310400, 'tradeTime': '20260804000000', 'tradeTimeinMills': 1785816000000} last {'open': '14.0000', 'high': '14.0000', 'low': '13.8000', 'close': '13.9000', 'volume': 6725600, 'tradeTime': '20261105000000', 'tradeTimeinMills': 1793854800000}
+PTT YAHOO n 125 last 2026-11-06 [40.0, 39.0, None] 39.0 EQUITY
+PTT CNBC n 483 first {'open': '33.7500', 'high': '33.7500', 'low': '33.5000', 'close': '33.5000', 'volume': 16566200, 'tradeTime': '20241106000000', 'tradeTimeinMills': 1730869200000} last {'open': '38.7500', 'high': '39.2500', 'low': '38.5000', 'close': '39.0000', 'volume': 106074200, 'tradeTime': '20261105000000', 'tradeTimeinMills': 1793854800000}
+KVUE YAHOO n 1 last 2026-10-30 [19.309999465942383] 19.31 EQUITY
+KVUE CNBC n 100 first {'open': '306.0000', 'high': '310.0000', 'low': '306.0000', 'close': '310.0000', 'volume': 174, 'tradeTime': '20251106000000', 'tradeTimeinMills': 1762405200000} last {'open': '375.0000', 'high': '377.0000', 'low': '375.0000', 'close': '376.0000', 'volume': 364, 'tradeTime': '20261030000000', 'tradeTimeinMills': 1793332800000}
