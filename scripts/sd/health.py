@@ -59,6 +59,22 @@ def report():
     off = [k for k, v in s.items() if k in q and v.get("p") and q[k].get("p") and abs(math.log(q[k]["p"] / v["p"])) > math.log(1.5)]
     add("hist", "ราคาปิดย้อนหลังตรงกับราคาล่าสุด", len(off) <= 5, f"{len(s)} หุ้นมีคะแนน · ต่างกันเกิน 50%: {len(off)}" + (f" ({', '.join(off[:8])})" if off else ""), warn=True)
 
+    hd = os.path.join(DATA, "hist")
+    if os.path.isdir(hd):
+        lasts = {}
+        for i in uni:
+            f = os.path.join(hd, i["s"] + ".json")
+            if os.path.exists(f):
+                try:
+                    lasts[i["s"]] = (i["m"], json.load(open(f))["t"][-1])
+                except Exception:
+                    pass
+        top = {}
+        for m, d in lasts.values():
+            top[m] = max(top.get(m, d), d)
+        old = [f"{k} ({d})" for k, (m, d) in lasts.items() if (time.mktime(time.strptime(top[m], "%Y-%m-%d")) - time.mktime(time.strptime(d, "%Y-%m-%d"))) / 86400 > 10]
+        add("stale", "ราคาย้อนหลังอัปเดตทุกตัว", not old, "ทุกตัวอัปเดต" if not old else f"หยุดเกิน 10 วัน {len(old)} ตัว (ไม่ออกสัญญาณ): " + ", ".join(old[:8]), warn=True)
+
     fin_dir = os.path.join(DATA, "hist", "fin")
     need = [i["s"] for i in uni if i.get("fcur") and i.get("cur") and i["fcur"] != i["cur"]]
     if os.path.isdir(fin_dir):

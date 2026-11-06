@@ -261,3 +261,44 @@ def fetch_hist(uni):
                 except Exception:
                     pass
         time.sleep(1)
+    fill_hist_th(uni, d0)
+
+
+def fill_hist_th(uni, d0):
+    """หุ้นไทยที่ Yahoo ส่งราคาว่างมาหลายวัน (เช่น BANPU ตั้งแต่ ส.ค.) เติมแท่งรายวันที่ขาดจาก CNBC
+    ต่อเฉพาะเมื่อราคาวันที่ซ้อนกันตรงกัน (ต่างไม่เกิน 3%) ไม่ตรง = ไม่เติม ดีกว่าใส่ราคาผิด"""
+    last = {}
+    for i in uni["items"]:
+        f = os.path.join(d0, i["s"] + ".json")
+        if i["m"] == "TH" and os.path.exists(f):
+            try:
+                last[i["s"]] = json.load(open(f))["t"][-1]
+            except Exception:
+                pass
+    if not last:
+        return
+    newest = max(last.values())
+    cut = (dt.date.fromisoformat(newest) - dt.timedelta(days=3)).isoformat()
+    fixed = []
+    for sym, d in last.items():
+        if d >= cut or not re.fullmatch(r"[A-Z0-9]+", plain(sym)):
+            continue
+        try:
+            url = "https://ts-api.cnbc.com/harmony/app/charts/1Y.json?symbol=" + urllib.parse.quote(plain(sym) + "-TH")
+            bars = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=15).read()).get("barData", {}).get("priceBars", [])
+            f = os.path.join(d0, sym + ".json"); j = json.load(open(f))
+            rows = [(b["tradeTime"][:4] + "-" + b["tradeTime"][4:6] + "-" + b["tradeTime"][6:8], float(b["open"]), float(b["high"]), float(b["low"]), float(b["close"]), int(b.get("volume") or 0)) for b in bars]
+            ov = [r for r in rows if r[0] == j["t"][-1]]
+            if not ov or abs(ov[0][4] / j["c"][-1] - 1) > 0.03:
+                ERRORS.append(f"hist fill {sym}: ราคาวันที่ซ้อนกันไม่ตรงหรือไม่มี ไม่เติม")
+                continue
+            add = [r for r in rows if r[0] > j["t"][-1]]
+            for r in add:
+                for k, v in zip("tohlcv", r):
+                    j[k].append(v if k in "tv" else num(v, 3))
+            if add:
+                json.dump(j, open(f, "w"), separators=(",", ":")); fixed.append(f"{sym}+{len(add)}")
+        except Exception as e:
+            ERRORS.append(f"hist fill {sym}: {str(e)[:60]}")
+    if fixed:
+        print("hist fill จาก CNBC:", ", ".join(fixed[:20]))
