@@ -1043,7 +1043,9 @@ let curRange=126;
 function render(){queueMicrotask(renderTicker);
   const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",r.v!=="brief"&&b.dataset.mkt===S.mkt));document.querySelector(".mswitch .mbrief")?.setAttribute("aria-pressed",r.v==="brief");document.documentElement.dataset.mkt=S.mkt;document.querySelector('meta[name="theme-color"]')?.setAttribute("content",S.mkt==="US"?"#0F1E3D":"#11261B");document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
   killCharts();
-  $("#app").innerHTML=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="brief"?vBrief():r.v==="office"?vOffice():r.v==="quant"?vQuant(r.sym):r.v==="sync"?vSync():vHome()}</div>`;
+  // สร้างหน้าไม่สำเร็จ (มักเกิดเมื่อเว็บอัปเดตระหว่างเปิดค้างไว้ ไฟล์ในเครื่องคนละรุ่นกัน) → โหลดใหม่เองหนึ่งครั้ง ไม่ให้หน้าค้างที่หน้าเดิม
+  let html;try{html=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="brief"?vBrief():r.v==="office"?vOffice():r.v==="quant"?vQuant(r.sym):r.v==="sync"?vSync():vHome()}</div>`;}catch(e){console.error(e);if(reloadOnce())return;html=`<div class="view"><section class="card empty">หน้านี้แสดงไม่สำเร็จ <button class="btn sm" onclick="location.reload()">โหลดใหม่</button></section></div>`}
+  $("#app").innerHTML=html;
   if(r.v==="office")mountOffice();else window.Office?.stop();
   if(r.v==="stock"){const st=stockBySym(r.sym);if(st&&hasBars(st)){const R=analyze(st),X=chartR(st);if($("#cMain")){if(X)drawCharts(X,$("#cRsi")?curRange:S.tf==="D"?126:S.tf==="W"?104:140);else $("#cMain").innerHTML=`<div class="empty">${(S.tf==="15m"?S.intra15:S.intra)?.[st.s]===null?"หุ้นนี้ยังไม่มีราคารายชั่วโมง":"กำลังโหลดราคารายชั่วโมง…"}</div>`}calc(R)}}
 }
@@ -1129,7 +1131,12 @@ q.addEventListener("input",suggest);
 q.addEventListener("keydown",e=>{const a=[...sg.querySelectorAll("a")];if(e.key==="Escape"){sg.hidden=true;return}if(!a.length)return;if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();sel=(sel+(e.key==="ArrowDown"?1:-1)+a.length)%a.length;a.forEach((x,i)=>x.classList.toggle("on",i===sel))}if(e.key==="Enter"){if(a[sel].dataset.gosec)S.sec=a[sel].dataset.gosec;location.hash=a[sel].getAttribute("href").slice(1);q.value="";sg.hidden=true;q.blur()}});
 sg.addEventListener("click",e=>{const a=e.target.closest("[data-gosec]");if(a)S.sec=a.dataset.gosec;q.value="";sg.hidden=true});
 document.addEventListener("click",e=>{if(!e.target.closest(".search"))sg.hidden=true});
-window.addEventListener("hashchange",()=>{S.tab="sum";render();window.scrollTo(0,0)});
+window.addEventListener("hashchange",()=>{if(S.newBuild&&reloadOnce())return;S.tab="sum";render();window.scrollTo(0,0)});
+// เว็บอัปเดตบ่อยระหว่างวัน: เช็ครุ่นของไฟล์ทุก 5 นาทีและเมื่อกลับมาที่แท็บ ถ้ามีรุ่นใหม่ เปลี่ยนหน้าครั้งถัดไปจะโหลดไฟล์ใหม่ทั้งชุด
+const BUILD=(document.querySelector('script[src*="app.js"]')?.getAttribute("src").match(/v=(\d+)/)||[])[1];
+function reloadOnce(){try{const t=+sessionStorage.getItem("sdReload")||0;if(Date.now()-t<60e3)return false;sessionStorage.setItem("sdReload",Date.now())}catch{}location.reload();return true}
+async function checkBuild(){if(!BUILD||S.newBuild)return;try{const t=await(await fetch("index.html",{cache:"no-store"})).text(),v=(t.match(/app\.js\?v=(\d+)/)||[])[1];if(v&&v!==BUILD)S.newBuild=v}catch{}}
+setInterval(checkBuild,5*60e3);document.addEventListener("visibilitychange",()=>{if(!document.hidden)checkBuild()});
 const rerender=()=>{if(route().v==="stock")render()};
 matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",rerender);
 new MutationObserver(rerender).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
