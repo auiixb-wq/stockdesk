@@ -12,7 +12,7 @@
 git clone stockdesk-all.bundle stockdesk
 cd stockdesk
 git remote set-url origin https://github.com/ชื่อบัญชีใหม่/stockdesk.git
-git push origin --all
+git push origin "refs/remotes/origin/*:refs/heads/*"
 ```
 ถ้าถามรหัสผ่าน ให้ใช้ Personal Access Token ของบัญชีใหม่ (Settings → Developer settings → Tokens) ไม่ใช่รหัสผ่านปกติ
 **อย่าส่ง token มาในแชท**
