@@ -19,7 +19,7 @@ import datetime as dt
 import concurrent.futures as cf
 
 socket.setdefaulttimeout(20)
-UA = "Mozilla/5.0 (compatible; stockdesk-research/1.0; +https://github.com/auiixb-wq/stockdesk)"
+UA = "Mozilla/5.0 (compatible; stockdesk-research/1.0; +https://github.com/" + os.environ.get("GITHUB_REPOSITORY", "stockdesk") + ")"
 NUM = r"(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)"
 _robots = {}
 

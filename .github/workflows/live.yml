@@ -1,9 +1,10 @@
 name: live-quotes
 on:
   schedule:
-    # รันต่อเนื่องทั้งวันทุกวัน: งานละ ~5 ชม. 40 นาที แล้วงานถัดไปในคิวรับช่วงต่อ (ตั้งหลายเวลาเผื่อ GitHub เลื่อนหรือข้ามรอบ)
-    - cron: "50 */5 * * *"
-    - cron: "20 3,13 * * 1-5"
+    # รอบสั้นทุก 30 นาทีเฉพาะช่วงตลาดเปิด (ไทย 10:00–16:30 · สหรัฐฯ 21:30–04:00 เวลาไทย) งานละไม่เกิน ~10 นาที
+    # ไม่รันต่อเนื่องทั้งวัน: GitHub Actions ไม่อนุญาตให้ใช้เป็นเซิร์ฟเวอร์ที่ทำงานตลอดเวลา
+    - cron: "5,35 3-9 * * 1-5"
+    - cron: "5,35 14-20 * * 1-5"
   workflow_dispatch:
 permissions:
   contents: write
@@ -14,7 +15,7 @@ concurrency:
 jobs:
   live:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Restore previous data
@@ -38,4 +39,4 @@ jobs:
           SETTRADE_APP_SECRET: ${{ secrets.SETTRADE_APP_SECRET }}
           SETTRADE_APP_CODE: ${{ secrets.SETTRADE_APP_CODE }}
           SETTRADE_BROKER_ID: ${{ secrets.SETTRADE_BROKER_ID }}
-        run: python -u scripts/live.py
+        run: MAX_RUN=600 python -u scripts/live.py

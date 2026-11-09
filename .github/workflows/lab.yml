@@ -3,7 +3,7 @@ name: strategy-lab
 # ผล → data/hist/lab.json (branch hist) · แบบที่ชนะกลยุทธ์ปัจจุบันทั้งช่วงสร้างและช่วงทดสอบ 2 สัปดาห์ติดจะถูกใช้จริง
 on:
   schedule:
-    - cron: "17 3 * * *"
+    - cron: "17 3 * * 0"   # สัปดาห์ละครั้ง (วันอาทิตย์)
   workflow_dispatch:
     inputs:
       m:
