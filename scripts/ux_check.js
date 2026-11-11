@@ -2,8 +2,8 @@
 // วัดเวลาโหลด, ข้อผิดพลาด JavaScript, หน้าล้นจอ, ตัวเลขเสีย (NaN/undefined), กดแท็บและปุ่มกรอบเวลาในหน้าหุ้น
 // ผลลัพธ์: data/ux.json → หน้า "สถานะข้อมูล"
 const { chromium } = require("playwright"), fs = require("fs"), path = require("path");
-const SITE = process.env.SITE_URL || "https://auiixb-wq.github.io/stockdesk/";
-const PAGES = ["#home", "#market", "#watch", "#news", "#factors", "#signals", "#accuracy", "#data", "#more", "#brief", "#office", "#s-PTT", "#s-AAPL", "#s-KBANK", "#s-NVDA"];
+const [OWN, REPO] = (process.env.GITHUB_REPOSITORY || "auiixb-wq/stockdesk").split("/"), SITE = process.env.SITE_URL || `https://${OWN.toLowerCase()}.github.io/${REPO}/`;
+const PAGES = ["#home", "#market", "#watch", "#news", "#factors", "#signals", "#accuracy", "#data", "#more", "#brief", "#office", "#quant", "#q-PTT", "#q-NVDA", "#s-PTT", "#s-AAPL", "#s-KBANK", "#s-NVDA"];
 const TABS = ["news", "fa", "val", "risk", "peers", "chart", "bt"], TFS = ["1H", "4H", "W", "D"];
 (async () => {
   const b = await chromium.launch(), rows = [];

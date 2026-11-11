@@ -18,6 +18,8 @@ git show origin/gh-pages:data/universe.json > /tmp/res/universe.json
 | `rot.js`, `ens.js` | หมุนหุ้นรายเดือน และรวมหลายชุดค่า | `ROOT=. RES=/tmp/res node research/ens.js TH` |
 | `wf.js` | walk-forward: เลือกค่าจาก 2 ปีก่อน ใช้ปีถัดไป | `ROOT=. RES=/tmp/res node research/wf.js TH` |
 | `us.js` | รวมระบบสหรัฐฯ | `ROOT=. RES=/tmp/res node research/us.js` |
+| `quant_bt.js` | กติกาลดขนาดไม้ของหน้า Quant: พอร์ตขนาดเท่ากัน vs ตัวคูณ quant ทีละข้อ + Monte Carlo (ต้องมี rsq.json learn.json จาก gh-pages และ earn.json จาก branch research) | `node research/quant_bt.js /tmp/res --embed` |
+| `quant_ic.js` | ตัวเลข quant (ความผันผวน Sharpe ใกล้จุดสูงสุด MDD) ทำนายผลตอบแทน 20 วันได้ไหม (rank IC) ก่อนรวมกับ rating · ผล 6 พ.ย. 69: ไม่มีตัวไหนผ่าน (t < 2) | `node research/quant_ic.js /tmp/res` |
 | `rotd.js` | ปรับพอร์ตไทยรายวันเทียบรายเดือน | `ROOT=. RES=/tmp/res node research/rotd.js` |
 
 รันจากรากของ repo (`.` และ `ROOT=.` คือโฟลเดอร์ที่มี `core.js`)

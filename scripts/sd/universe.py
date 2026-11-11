@@ -103,7 +103,7 @@ def cnbc_th_quotes(uni):
                + "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json")
         for attempt in (1, 2):  # ลองใหม่อีกครั้งถ้าชุดไหนหมดเวลา
             try:
-                d = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=12).read())
+                d = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=25).read())
                 rows = d["FormattedQuoteResult"]["FormattedQuote"]
                 return rows if isinstance(rows, list) else [rows]
             except Exception as e:
@@ -111,7 +111,7 @@ def cnbc_th_quotes(uni):
                     ERRORS.append(f"cnbc TH {k}: {str(e)[:80]}")
         return []
     from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(8) as ex:  # ขอพร้อมกัน 8 ชุด ให้ทั้งตลาดเสร็จในไม่กี่วินาที
+    with ThreadPoolExecutor(4) as ex:  # ขอพร้อมกัน 4 ชุด (8 ชุดถูก CNBC หน่วงจนหมดเวลา)
         batches = list(ex.map(one, range(0, len(syms), 40)))
     for rows in batches:
         for q in rows:
@@ -129,6 +129,48 @@ def cnbc_th_quotes(uni):
                               "o": f("open"), "h": f("high"), "l": f("low"), "src": "CNBC"}
             except Exception:
                 continue
+    return got
+
+
+_ST = {}
+
+
+def settrade_th_quotes(uni, limit=400):
+    """ราคาหุ้นไทยแบบเรียลไทม์จาก Settrade Open API (ใช้ key ใน GitHub Secrets ของเจ้าของเว็บ)
+    ไม่มี key / เป็น sandbox (ข้อมูลทดสอบ ไม่ใช่ราคาจริง) / ล้ม → คืนค่าว่าง แล้วใช้แหล่งเดิม (CNBC ล่าช้า ~15 นาที)"""
+    env = {k: os.environ.get("SETTRADE_" + k, "") for k in ("APP_ID", "APP_SECRET", "APP_CODE", "BROKER_ID")}
+    if not all(env.values()) or env["BROKER_ID"].upper() == "SANDBOX" or _ST.get("off"):
+        return {}
+    try:
+        if "mkt" not in _ST:
+            from settrade_v2 import Investor
+            inv = Investor(app_id=env["APP_ID"], app_secret=env["APP_SECRET"], app_code=env["APP_CODE"], broker_id=env["BROKER_ID"], is_auto_queue=False)
+            _ST["mkt"] = inv.MarketData()
+        mkt = _ST["mkt"]
+    except Exception as e:
+        _ST["fail"] = _ST.get("fail", 0) + 1
+        if _ST["fail"] >= 3:
+            _ST["off"] = 1  # login ไม่ผ่านซ้ำ ๆ: หยุดลองในงานนี้ ไม่ให้ถ่วงรอบราคา
+        ERRORS.append(f"settrade login: {type(e).__name__}")
+        return {}
+    th = sorted([i for i in uni["items"] if i["m"] == "TH" and re.fullmatch(r"[A-Z0-9]+", plain(i["s"]))], key=lambda i: -(i.get("mc") or 0))[:limit]
+    now, got, bad = int(time.time()), {}, [0]
+
+    def one(i):
+        try:
+            d = mkt.get_quote_symbol(plain(i["s"]))
+            f = lambda *ks: next((float(d[k]) for k in ks if d.get(k) not in (None, "", 0)), None)
+            p, prev = f("last"), f("prior", "previousClose")
+            if p and p > 0:
+                got[i["s"]] = {"p": p, "prev": prev, "chg": round((p / prev - 1) * 100, 3) if prev else None, "ts": now,
+                               "v": int(f("totalVolume", "volume") or 0) or None, "o": f("open", "open1"), "h": f("high"), "l": f("low"), "src": "SET"}
+        except Exception:
+            bad[0] += 1
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(8) as ex:
+        list(ex.map(one, th))
+    if bad[0]:
+        ERRORS.append(f"settrade quote: ล้ม {bad[0]} ตัว")
     return got
 
 
@@ -207,7 +249,10 @@ def fetch_hist(uni):
                 continue
             for y in part:
                 try:
-                    d = df[y].dropna(subset=["Open", "High", "Low", "Close"]) if len(part) > 1 else df.dropna(subset=["Open", "High", "Low", "Close"])
+                    d = (df[y] if len(part) > 1 else df).dropna(subset=["Close"]).copy()
+                    # แท่งล่าสุดบางวัน Yahoo ส่งมาแค่ราคาปิด (เปิด/สูง/ต่ำว่าง) ทำให้ทั้งวันหายไป → เติมด้วยราคาปิด
+                    for col in ("Open", "High", "Low"):
+                        d[col] = d[col].fillna(d["Close"])
                     if len(d) < 60:
                         continue
                     sym = next(i["s"] for i in uni["items"] if i["y"] == y)
@@ -219,3 +264,44 @@ def fetch_hist(uni):
                 except Exception:
                     pass
         time.sleep(1)
+    fill_hist_th(uni, d0)
+
+
+def fill_hist_th(uni, d0):
+    """หุ้นไทยที่ Yahoo ส่งราคาว่างมาหลายวัน (เช่น BANPU ตั้งแต่ ส.ค.) เติมแท่งรายวันที่ขาดจาก CNBC
+    ต่อเฉพาะเมื่อราคาวันที่ซ้อนกันตรงกัน (ต่างไม่เกิน 3%) ไม่ตรง = ไม่เติม ดีกว่าใส่ราคาผิด"""
+    last = {}
+    for i in uni["items"]:
+        f = os.path.join(d0, i["s"] + ".json")
+        if i["m"] == "TH" and os.path.exists(f):
+            try:
+                last[i["s"]] = json.load(open(f))["t"][-1]
+            except Exception:
+                pass
+    if not last:
+        return
+    newest = max(last.values())
+    cut = (dt.date.fromisoformat(newest) - dt.timedelta(days=3)).isoformat()
+    fixed = []
+    for sym, d in last.items():
+        if d >= cut or not re.fullmatch(r"[A-Z0-9]+", plain(sym)):
+            continue
+        try:
+            url = "https://ts-api.cnbc.com/harmony/app/charts/1Y.json?symbol=" + urllib.parse.quote(plain(sym) + "-TH")
+            bars = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=15).read()).get("barData", {}).get("priceBars", [])
+            f = os.path.join(d0, sym + ".json"); j = json.load(open(f))
+            rows = [(b["tradeTime"][:4] + "-" + b["tradeTime"][4:6] + "-" + b["tradeTime"][6:8], float(b["open"]), float(b["high"]), float(b["low"]), float(b["close"]), int(b.get("volume") or 0)) for b in bars]
+            ov = [r for r in rows if r[0] == j["t"][-1]]
+            if not ov or abs(ov[0][4] / j["c"][-1] - 1) > 0.03:
+                ERRORS.append(f"hist fill {sym}: ราคาวันที่ซ้อนกันไม่ตรงหรือไม่มี ไม่เติม")
+                continue
+            add = [r for r in rows if r[0] > j["t"][-1]]
+            for r in add:
+                for k, v in zip("tohlcv", r):
+                    j[k].append(v if k in "tv" else num(v, 3))
+            if add:
+                json.dump(j, open(f, "w"), separators=(",", ":")); fixed.append(f"{sym}+{len(add)}")
+        except Exception as e:
+            ERRORS.append(f"hist fill {sym}: {str(e)[:60]}")
+    if fixed:
+        print("hist fill จาก CNBC:", ", ".join(fixed[:20]))

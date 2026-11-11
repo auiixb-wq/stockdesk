@@ -90,8 +90,14 @@ function mstat(R) {
     nh: c >= hi * .98, nl: c <= lo * 1.02, atr: (I.atr[n] || 0) / c, sig: !!R.sys, up: I.sd?.[n] === 1 });
 }
 let ok = 0, fail = 0;
+// หุ้นที่ราคาย้อนหลังหยุดไปเกิน 10 วันขณะที่ตลาดยังซื้อขาย = ถูกถอน/หยุดพัก/แหล่งข้อมูลเสีย → ไม่ออกสัญญาณและไม่โชว์ราคาเก่าเป็นราคาปัจจุบัน
+const lastDay = st => { const h = S.hist?.[st.s] || S.prices?.[st.s]; return h?.t?.length ? String(h.t[h.t.length - 1]).slice(0, 10) : null };
+const mktLast = {}; for (const st of allStocks()) { const d = lastDay(st); if (d && (!mktLast[st.m] || d > mktLast[st.m])) mktLast[st.m] = d }
+const stale = st => { const d = lastDay(st), m = mktLast[st.m]; return d && m && (Date.parse(m) - Date.parse(d)) / 864e5 > 10 };
+const STALE = [];
 for (const st of allStocks()) {
   if (!hasBars(st)) continue;
+  if (stale(st)) { STALE.push(`${st.s} (${lastDay(st)})`); continue }
   try {
     const R = analyze(st);
     out[st.s] = summarize(R); ok++;
@@ -239,4 +245,5 @@ if (!thin(Object.keys(out).length, Object.keys(oldSum.s || {}).length)) fs.write
 const nOld = Object.keys(oldSum.s || {}).length, nNew = Object.keys(out).length;
 if (thin(nNew, nOld)) console.error(`summary: ได้แค่ ${nNew} หุ้น (เดิม ${nOld}) ใช้ผลเดิม`);
 else fs.writeFileSync(path.join(DATA, "summary.json"), JSON.stringify({ updated: Math.floor(Date.now() / 1000), s: out }));
+if (STALE.length) console.error(`summary: ข้าม ${STALE.length} หุ้นที่ราคาหยุดเกิน 10 วัน: ${STALE.slice(0, 20).join(', ')}`);
 console.log(`summary: ${ok} หุ้น, ล้มเหลว ${fail}, ${((Date.now() - t0) / 1000).toFixed(1)} วินาที`);

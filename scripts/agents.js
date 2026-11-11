@@ -35,7 +35,7 @@ function signals() {
   for (const [s, v] of Object.entries(SUM)) {
     const y = v.sy, u = UI[s]; if (!y || !u || !y[4]) continue;
     const key = `${s}|${y[4]}`; live.set(s, y[4]);
-    if (!pos[key]) { pos[key] = { s, m: u.m, d: y[4], lp: y[0], tp: y[1], sl: y[2], t1: y[6] ?? null, st: "wait", at: NS };
+    if (!pos[key]) { pos[key] = { s, m: u.m, d: y[4], lp: y[0], tp: y[1], sl: y[2], t1: y[6] ?? null, st: "wait", at: NS, ...(v.q && v.q[0] != null ? { ql: v.q[0], qm: v.q[1] } : {}) };
       ev(pos[key], "new", `สัญญาณใหม่ ตั้งซื้อ ${num(y[0])}${y[6] ? ` · TP1 ${num(y[6])}` : ""} · TP ${num(y[1])} · SL ${num(y[2])}`) }
   }
   for (const [key, p] of Object.entries(pos)) {
@@ -59,6 +59,11 @@ function signals() {
     else if (later && p.t1 && !p.st1 && q.h >= p.t1) { p.st1 = 1; p.sl = Math.max(p.sl, p.fill); ev(p, "tp1", `ชน TP1 ที่ ${num(p.t1)} (${sg((p.t1 / p.fill - 1) * 100)}) ขายบางส่วน เลื่อน SL มาที่ทุน`) }
     else if (later && q.h >= p.tp) { const r = (p.tp / p.fill - 1) * 100; p.st = "done"; p.how = "tp"; p.r = r; p.end = NS; ev(p, "tp", `ชน TP ที่ ${num(p.tp)} (${sg(r)})`, r) }
   }
+  // ผลตรวจ quant (หน้า Quant): จดระดับ ผ่าน/ระวัง/ไม่ผ่าน และตัวคูณตอนออกสัญญาณ แล้วสะสมผลจริงตอนปิดไม้ (นับครั้งเดียว ไม่ลบเมื่อไม้ถูกล้าง)
+  S.sig.qsince ??= new Date(NS).toISOString().slice(0, 10); const QS = S.sig.qst ??= {};
+  for (const p of Object.values(pos)) { if (p.st !== "done" || p.r == null || p.ql == null || p.qc) continue;
+    const g = ((QS[p.m] ??= {})[p.ql] ??= { n: 0, w: 0, s: 0, sm: 0 }); g.n++; g.w += p.r > 0 ? 1 : 0; g.s = +(g.s + p.r).toFixed(2); g.sm = +(g.sm + p.r * (p.qm ?? 1)).toFixed(2); p.qc = 1;
+    const co = p.ql === 2 ? "ผ่าน" : p.ql === 1 ? "ระวัง" : "ไม่ผ่าน"; act(p.m === "TH" ? "g-th" : "g-us", "quant", `จดผลจริงตามผลตรวจ quant: ${name(p.s)} (${co}) ${sg(p.r)}`) }
   // สรุป 7 วัน (ไม้ที่ปิดในสัปดาห์ + สถิติทั้งหมดของระบบ)
   const week = {};
   for (const m of ["TH", "US"]) {

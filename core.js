@@ -35,7 +35,7 @@ const STOCKS=[
  {s:"KO",n:"Coca-Cola",m:"US",sec:"consumer",p:70,v:.01}
 ];
 // ค่ากลางงบการเงินของข้อมูลตัวอย่างแต่ละ sector
-const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare","signals","sync","brief","office"];
+const NAV=["home","market","watch","news","factors","method","more","data","accuracy","compare","signals","sync","brief","office","quant"];
 const NAVHI={stock:"market",method:"more",data:"more",accuracy:"more",compare:"more",signals:"home",sync:"watch"};
 const DEF_COST={TH:.17,US:.10}; // % ต่อขา: ค่าคอมออนไลน์ไทย ~0.157% + VAT, สหรัฐฯ เผื่อสเปรดและค่าแปลงสกุลเงิน
 // ค่าเริ่มต้นเลือกจากการทดสอบราคาจริง 24 หุ้น 5 ปี (28 ต.ค. 2569): ชนะ 66% ช่วงสร้าง / 71% ช่วงทดสอบ และกำไรทั้งสองช่วง
@@ -539,7 +539,7 @@ function summarize(R){const P=R.plan,I=R.I,n=I.c.length-1,c=I.c.slice(-90),L=c.a
   const up=I.e200[n]!=null&&I.c[n]>I.e50[n]&&I.e50[n]>I.e200[n]&&(I.adx[n]||0)>20,os=(I.rsi[n]??50)<35,ns=!!(P.L.sup[0]&&(I.c[n]-P.L.sup[0].p)/I.c[n]<.03);
   return{o:R.overall,c:R.conf.lv,p:R.last,ch:+R.chg.toFixed(3),pl:[P.lo,P.hi,P.sl,P.tp1,P.tp2,P.tone,P.mode],
     sy:R.sys?[R.sys.lp,R.sys.tp,R.sys.sl,R.sys.left,R.sys.d,R.sys.hit?1:0,R.sys.tp1??null]:null,sw:R.sw,cd:R.cond?[R.cond.trig,R.cond.lp,R.cond.tp,R.cond.sl,R.cond.tp1??null]:null,rf:R.ref?[R.ref.lp,R.ref.tp,R.ref.sl,R.ref.tp1??null]:null,lv:R.lvl.map(v=>v==null?null:+v.toFixed(4)),pb:[R.pb.now,R.pb.near,R.pb.r2!=null?+R.pb.r2.toFixed(1):null,R.pb.s5!=null?+R.pb.s5.toFixed(3):null],tp:Math.round(R.techP),fs:R.fund.thin?null:R.fund.score,
-    rs:{ret:+R.rs.ret.toFixed(2),pctl:Math.round(R.rs.pctl)},f:[up,os,ns],fq:R.f.fs?[r1(R.f.fs.yoyR),r1(R.f.fs.yoyN),r1(R.f.fs.qoqR),r1(R.f.fs.qoqN),R.f.fs.last]:null,fv:(()=>{try{const v=valuation(R);return v.fair?[r2(v.fair.bear),r2(v.fair.base),r2(v.fair.bull),v.methods.length]:null}catch{return null}})(),sp,t:R.B.at(-1).t}}
+    rs:{ret:+R.rs.ret.toFixed(2),pctl:Math.round(R.rs.pctl)},f:[up,os,ns],fq:R.f.fs?[r1(R.f.fs.yoyR),r1(R.f.fs.yoyN),r1(R.f.fs.qoqR),r1(R.f.fs.qoqN),R.f.fs.last]:null,fv:(()=>{try{const v=valuation(R);return v.fair?[r2(v.fair.bear),r2(v.fair.base),r2(v.fair.bull),v.methods.length]:null}catch{return null}})(),sp,t:R.B.at(-1).t,q:quantPack(R)}}
 // ข้อมูลสำหรับรายการหุ้น: ถ้ามีราคาย้อนหลังในเครื่องจะวิเคราะห์เต็ม ถ้าไม่มีใช้ผลที่คำนวณไว้แล้วบน GitHub
 const CONF_LV=[["ข้อมูลตัวอย่าง","var(--ink-2)"],["ต่ำ","var(--down)"],["ปานกลาง","var(--warn)"],["สูง","var(--up)"]];
 // ข้อมูลสำหรับรายการหุ้น: ถ้ามีราคาย้อนหลังในเครื่องจะวิเคราะห์เต็ม ไม่งั้นใช้ผลที่คำนวณไว้แล้วบน GitHub (จำผลไว้จนกว่าข้อมูลจะเปลี่ยน)
@@ -595,3 +595,75 @@ function priceRisk(B){const c=B.map(b=>b.c),n=c.length,r=[];for(let i=Math.max(1
   let pk=-Infinity,dd=0;for(let i=Math.max(0,n-756);i<n;i++){pk=Math.max(pk,c[i]);dd=Math.max(dd,1-c[i]/pk)}
   let w20=0;for(let i=Math.max(20,n-756);i<n;i++)w20=Math.min(w20,c[i]/c[i-20]-1);
   return{vol:sd*Math.sqrt(252)*100,dd:dd*100,w20:w20*100,cur:(1-c[n-1]/Math.max(...c.slice(-252)))*100}}
+
+// ---------- Quant (หน้า #quant): สถิติราคา + ตรวจแผนซื้อขายด้วยความผันผวน ----------
+// ไม่เปลี่ยนจุดเข้า/SL/TP ของระบบ (ค่าพวกนั้นผ่าน backtest 10 ปีและ paper trading มาแล้ว) แต่บอกว่าแผนวันนี้
+// "คุ้มความเสี่ยงไหม" และควรใช้ขนาดไม้เท่าไร · อัตราผลตอบแทนไร้ความเสี่ยงที่ใช้คิด Sharpe เป็นค่าสมมติ
+const QRF={TH:.02,US:.04};
+const qSd=a=>{const k=a.length;if(k<2)return 0;const mu=a.reduce((x,y)=>x+y,0)/k;return Math.sqrt(a.reduce((x,y)=>x+(y-mu)**2,0)/(k-1))};
+function quantStats(B,m){const n=B.length;if(n<60)return null;const A=252,c=B.map(b=>b.c),r=[];for(let i=1;i<n;i++)r.push(c[i]/c[i-1]-1);
+  const avg=a=>a.reduce((x,y)=>x+y,0)/(a.length||1),yrs=(n-1)/A,cagr=(c[n-1]/c[0])**(1/yrs)-1,mean=avg(r)*A,vol=qSd(r)*Math.sqrt(A);
+  const r1=r.slice(-A),dVol=qSd(r1),vol1=dVol*Math.sqrt(A),d20=qSd(r.slice(-20)),vol20=d20*Math.sqrt(A);
+  // ความผันผวน 20 วันตอนนี้สูงกว่ากี่ % ของช่วง 20 วันในอดีต
+  const roll=[];for(let i=20;i<=r.length;i+=5)roll.push(qSd(r.slice(i-20,i)));const pctl=roll.length?roll.filter(x=>x<=d20).length/roll.length*100:null;
+  let pk=0,mdd=0,pi=0,ti=0;for(let i=0;i<n;i++){if(c[i]>c[pk])pk=i;const d=c[i]/c[pk]-1;if(d<mdd){mdd=d;pi=pk;ti=i}}
+  let rec=null;for(let i=ti;i<n;i++)if(c[i]>=c[pi]){rec=i;break}
+  let hi=0;for(let i=1;i<n;i++)if(c[i]>=c[hi])hi=i;const dd=c[n-1]/c[hi]-1;
+  const srt=[...r].sort((a,b)=>a-b),k5=Math.max(1,Math.floor(srt.length*.05)),rf=QRF[m]??.03;
+  return{n,yrs,from:B[0].t,to:B[n-1].t,cagr,mean,drag:mean-cagr,vol,vol1,vol20,dVol,reg:vol1?vol20/vol1:null,pctl,rf,
+    sharpe:vol?(mean-rf)/vol:null,sh1:vol1?(avg(r1)*A-rf)/vol1:null,ret1:n>A?c[n-1]/c[n-1-A]-1:null,
+    mdd,mddPk:B[pi].t,mddTr:B[ti].t,mddRec:rec!=null?B[rec].t:null,dd,ddPk:B[hi].t,need:dd<0?1/(1+dd)-1:0,
+    calmar:mdd?cagr/-mdd:null,cvar:avg(srt.slice(0,k5)),worst:srt[0],best:srt.at(-1)}}
+// ฐานเทียบ "ซื้อวันไหนก็ได้": ทุกวันในอดีต (≤5 ปี) ถ้าซื้อที่ราคาปิดแล้วตั้ง SL/TP ระยะ % เดียวกับแผน อะไรโดนก่อนภายในวันถือ
+// แท่งเดียวกันโดนทั้งคู่นับเป็น SL (แบบเดียวกับ simulate) · ไม่หักค่าคอม · ไม่คิดเปิดกระโดดผ่าน SL
+function quantTouch(B,slP,tpP,hold){const n=B.length;let sl=0,tp=0,tm=0,tr=0,k=0;
+  for(let i=Math.max(0,n-1260);i+hold<n;i++){const e=B[i].c,L=e*(1-slP),H=e*(1+tpP);let o=0;
+    for(let j=i+1;j<=i+hold;j++){if(B[j].l<=L){o=-1;break}if(B[j].h>=H){o=1;break}}
+    k++;if(o<0)sl++;else if(o>0)tp++;else{tm++;tr+=B[i+hold].c/e-1}}
+  return k?{k,pS:sl/k,pT:tp/k,pM:tm/k,avgM:tm?tr/tm:0,ev:(tp*tpP-sl*slP+tr)/k}:null}
+// กติกาตรวจแผนแบบ quant (ใช้ร่วมกันทั้งหน้าเว็บ summarize.js ทีม Agent และ research/quant_bt.js ที่ทดสอบย้อนหลัง)
+// ตัวคูณขนาดไม้ลดอย่างเดียว · use เลือกเปิด/ปิดทีละข้อ (ใช้ทดสอบว่าข้อไหนช่วยจริง)
+// use = ข้อที่ใช้ลดขนาดไม้จริง แยกตลาด เลือกจากผลทดสอบ research/quant_bt.js (6 พ.ย. 69, ไม้จริงของระบบ พ.ย. 65–พ.ย. 69):
+//   สหรัฐฯ: ความผันผวน + SL แคบ → Sharpe พอร์ต 0.58 → 0.76, MDD −33% → −28% · เลือกจากช่วงก่อน เม.ย. 67 อย่างเดียวก็ได้กฎนี้
+//   และช่วงหลังที่ไม่เคยเห็นยังดีกว่า (0.26 vs 0.16) · เปลี่ยนเกณฑ์ 18 แบบดีกว่าขนาดเท่ากันทุกแบบ · bootstrap ดีกว่า 100% ของ 2,000 รอบ
+//   ข้ามไม้ "ระวัง" ไปเลยไม่ช่วยชัดเจน (57%) จึงลดขนาดอย่างเดียว ไม่ทำตัวกรองซื้อเฉพาะ "ผ่าน"
+//   ลดขนาดก่อนงบทำให้แย่ลง (Sharpe 0.33) · ไทยไม่มีข้อไหนช่วย (ไม้น้อย 133 ไม้) · ข้อได้เปรียบรายหุ้นทดสอบไม่ได้ (ไม้ที่มีประวัติ ≥ 8 ไม้มีแค่ 1 ไม้)
+//   ข้อที่ไม่ใช้ยังแสดงเป็นข้อมูลประกอบ
+const QRULE={reg:1.3,pctl:90,regHi:1.6,mReg:.75,mRegHi:.5,slS:.8,mSl:.75,mEarn:.5,edgeBad:-.25,mEdgeWarn:.75,minN:8,nh:10,use:{TH:{},US:{reg:1,sl:1}}};
+function quantRule(x,use){use??=QRULE.use[x.m]||{};const Q=QRULE,hot=x.reg!=null&&(x.reg>Q.reg||(x.pctl??0)>=Q.pctl);
+  const s={edge:x.edge==null?"na":x.edge>0?"ok":x.edge>Q.edgeBad?"warn":"bad",noise:x.slS==null?"na":x.slS>=Q.slS?"ok":"warn",reg:x.reg==null?"na":hot?"warn":"ok",earn:x.earn?"warn":"ok"};
+  let m=1;if(use.reg&&hot)m*=x.reg>Q.regHi?Q.mRegHi:Q.mReg;if(use.sl&&s.noise==="warn")m*=Q.mSl;if(use.earn&&x.earn)m*=Q.mEarn;
+  if(use.edge){if(s.edge==="bad")m=0;else if(s.edge==="warn")m*=Q.mEdgeWarn}
+  return{s,hot,mult:m,lv:m===0?0:m>=1?2:1}}
+// ตรวจแผนซื้อขายวันนี้ของหุ้นหนึ่งตัว (สัญญาณระบบ หรือแผน "ตั้งซื้อเมื่อย่อ") · now = วินาที ใช้เทียบวันประกาศงบ
+function quantEval(R,now){const st=R.st,m=st.m,RP=rulesFor(m),B=R.B,Q=quantStats(B,m);if(!Q)return null;
+  const y=R.sys,P=y||R.plan?.tone==="buy"?R.plan:null,en=y?y.lp:P?.entry,sl=y?y.sl:P?.sl,tp=y?y.tp:P?.tp2,t1=y?y.tp1:(RP.tp1?P?.tp1:null),hold=RP.hold;
+  const v={Q,official:!!y,lv:null};if(!(en>0&&sl>0&&tp>en&&sl<en))return v;
+  const slP=1-sl/en,tpP=tp/en-1,nh=Math.min(hold,QRULE.nh),sH=Q.dVol*Math.sqrt(nh),T=quantTouch(B,slP,tpP,hold),bt=R.model?.trades?.length?stats(R.model.trades):null;
+  const base=T?(T.ev-2*costOf(m))*100:null,edge=bt?.n>=QRULE.minN&&base!=null?bt.avg-base:null,slS=sH?slP/sH:null;
+  const ed=uniOf(st.s)?.ed,edD=ed?(ed-(now??Date.now()/1000))/86400:null,earn=edD!=null&&edD>-1&&edD<=hold*1.45;
+  return{...v,...quantRule({m,reg:Q.reg,pctl:Q.pctl,slS,earn,edge}),use:QRULE.use[m]||{},en,sl,tp,t1,hold,nh,slP,tpP,sH,slS,T,bt,be:slP/(slP+tpP)*100,base,edge,earn,ed}}
+// แบบย่อสำหรับ summary.json (ทุกหุ้น): [ระดับ, ตัวคูณ, ผันผวน1ปี, 20วัน/1ปี, Sharpe1ปี, ห่างจุดสูงสุด, SL/การแกว่ง, ได้เปรียบ/ไม้, Sharpe5ปี, MDD5ปี]
+function quantPack(R){let v;try{v=quantEval(R)}catch{return null}if(!v)return null;const Q=v.Q,r=(x,d)=>x==null||!isFinite(x)?null:+x.toFixed(d);
+  return[v.lv,r(v.mult,3),r(Q.vol1,3),r(Q.reg,2),r(Q.sh1,2),r(Q.dd,3),r(v.slS,2),r(v.edge,2),r(Q.sharpe,2),r(Q.mdd,3)]}
+// ---------- Quant ระดับพอร์ต ----------
+const quantCorr=(a,b)=>{const n=Math.min(a.length,b.length);if(n<20)return 0;let sa=0,sb=0;for(let i=0;i<n;i++){sa+=a[i];sb+=b[i]}const ma=sa/n,mb=sb/n;let c=0,va=0,vb=0;for(let i=0;i<n;i++){const x=a[i]-ma,y=b[i]-mb;c+=x*y;va+=x*x;vb+=y*y}return va&&vb?c/Math.sqrt(va*vb):0};
+// ผลตอบแทนรายวันของหุ้นบนชุดวันที่กำหนด (ต้องมีราคาครบทุกวัน)
+function quantRets(B,dates){const m=new Map(B.map(b=>[b.t,b.c])),c=dates.map(d=>m.get(d));if(c.some(x=>!(x>0)))return null;const r=[];for(let i=1;i<c.length;i++)r.push(c[i]/c[i-1]-1);return r}
+// พอร์ตถือสัดส่วนคงที่ (w) ย้อนหลัง ≤ 1 ปีบนวันที่ทุกตัวมีราคา: ความผันผวน Sharpe MDD CVaR และ correlation ทุกคู่
+function quantPort(items,m,len=253){items=items.filter(x=>x.B?.length>40&&x.w>0).sort((a,b)=>b.w-a.w);if(items.length<2)return null;
+  let common=new Set(items[0].B.map(b=>b.t));for(const x of items.slice(1)){const t=new Set(x.B.map(b=>b.t));common=new Set([...common].filter(d=>t.has(d)))}
+  const dates=[...common].sort().slice(-len);if(dates.length<40)return null;const R=items.map(x=>quantRets(x.B,dates));if(R.some(r=>!r))return null;
+  const W=items.reduce((a,x)=>a+x.w,0),w=items.map(x=>x.w/W),n=R[0].length,r=[];for(let i=0;i<n;i++){let v=0;for(let k=0;k<R.length;k++)v+=w[k]*R[k][i];r.push(v)}
+  const A=252,mu=r.reduce((a,b)=>a+b,0)/n,vol=qSd(r)*Math.sqrt(A),wvol=R.reduce((a,x,k)=>a+w[k]*qSd(x)*Math.sqrt(A),0);
+  let eq=1,pk=1,dd=0;for(const x of r){eq*=1+x;pk=Math.max(pk,eq);dd=Math.min(dd,eq/pk-1)}
+  const srt=[...r].sort((a,b)=>a-b),k5=Math.max(1,Math.floor(n*.05));
+  return{syms:items.map(x=>x.s),w,R,r,dates,n,vol,wvol,ret:eq-1,sharpe:vol?(mu*A-(QRF[m]??.03))/vol:null,mdd:dd,cvar:srt.slice(0,k5).reduce((a,b)=>a+b,0)/k5,cor:R.map(a=>R.map(b=>quantCorr(a,b)))}}
+// Monte Carlo: สุ่มช่วง 20 วันของผลรายวันมาต่อกันเป็น 1 ปี → การกระจายของผลตอบแทนและ drawdown (สุ่มแบบกำหนด seed ผลเหมือนเดิมทุกครั้ง)
+function quantMC(r,runs=5000,len=252,blk=20){if(!r||r.length<blk*2)return null;let seed=12345;const rnd=()=>(seed=(seed*1103515245+12345)%2147483648)/2147483648,dd=[],rt=[];
+  for(let k=0;k<runs;k++){let eq=1,pk=1,d=0,n=0;while(n<len){const s=Math.floor(rnd()*(r.length-blk));for(let j=0;j<blk&&n<len;j++,n++){eq*=1+r[s+j];pk=Math.max(pk,eq);d=Math.min(d,eq/pk-1)}}dd.push(d);rt.push(eq-1)}
+  const q=(a,p)=>{const b=[...a].sort((x,y)=>x-y);return b[Math.floor(p*(b.length-1))]};return{dd5:q(dd,.05),dd50:q(dd,.5),ret5:q(rt,.05),ret50:q(rt,.5),ret95:q(rt,.95),loss:rt.filter(x=>x<0).length/runs*100}}
+// ทดลองปรับ SL/TP (เท่าของ ATR) กับสัญญาณชุดเดียวกับระบบบนหุ้นตัวนี้ · ใช้ดูว่าผลไวต่อค่าแค่ไหน ไม่ใช่ให้เลือกช่องที่ดีสุด
+const QGRID={SL:[2,3,4,5],TP:[3,4,6,8,10]};
+function quantGrid(R){const st=R.st,B=R.B,I=R.I,arr=R.model?.arr;if(!arr||B.length<260)return null;const RP=rulesFor(st.m),rsA=RP.rs!=null?rsSeries(st,B,RP.rs):null,sig=i=>sysTrig(arr,I,i,RP)&&sigOK(I,i,rsA,RP),sp=R.split||Math.floor(B.length*RULES.split);
+  return{cur:[RP.sl,RP.tp],tp1:RP.tp1||null,cell:QGRID.SL.map(s=>QGRID.TP.map(t=>{const P={...RP,sl:s,tp:t,tp1:RP.tp1&&RP.tp1<t?RP.tp1:null},a=simulate(B,I,sig,0,sp,st.m,P),b=simulate(B,I,sig,sp,B.length,st.m,P);return{all:stats(a.concat(b)),oos:stats(b)}}))}}
