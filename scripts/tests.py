@@ -118,5 +118,17 @@ check("ไม่แปลงสกุลเงินซ้ำ", FN.raw_already(q
 iss = [c for c, _ in FA.check("X", {"q": qconv, "a": {}}, u, datetime.date(2027, 1, 1))]
 check("จับงบผิดหน่วย", "pe" in iss and not [c for c, _ in FA.check("X", {"q": qraw, "a": {}, "fx": 1}, u, datetime.date(2027, 1, 1))], iss)
 
+# ราคาหุ้นไทยที่เก็บไว้หยุดก่อนราคาปิด (ATC) ต้องดึงราคาปิดจริงหลังตลาดปิด · วันหยุดตลาดไม่ดึงซ้ำ
+from sd import prices as PR  # noqa: E402
+bk = datetime.timezone(datetime.timedelta(hours=7))
+at = lambda *a: datetime.datetime(*a, tzinfo=bk)
+uq = {"items": [{"s": "UMI", "m": "TH"}, {"s": "PTT", "m": "TH"}, {"s": "NVDA", "m": "US"}]}
+pre = {"UMI": {"ts": int(at(2026, 11, 5, 16, 21).timestamp())}, "PTT": {"ts": int(at(2026, 11, 5, 16, 25).timestamp())}}
+post = {**pre, "PTT": {"ts": int(at(2026, 11, 5, 16, 38).timestamp())}}
+night = at(2026, 11, 5, 21, 30)
+check("ดึงราคาปิดหุ้นไทยที่ขาดไป", PR.missed_close("TH", uq, pre, night) and not PR.missed_close("TH", uq, post, night)
+      and not PR.missed_close("TH", uq, pre, at(2026, 11, 6, 21, 30)) and PR.last_close("TH", at(2026, 11, 9, 9, 0)).day == 6,
+      (PR.missed_close("TH", uq, pre, night), PR.missed_close("TH", uq, post, night)))
+
 print("ผ่านทั้งหมด" if not fails else "ไม่ผ่าน:\n- " + "\n- ".join(fails))
 sys.exit(1 if fails else 0)
