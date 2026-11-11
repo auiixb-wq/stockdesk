@@ -297,6 +297,18 @@ async function loadPeer(sym){S.peer??={};if(S.peer[sym]!==undefined)return;S.pee
 const PM=[["quality","คุณภาพ"],["growth","การเติบโต"],["balance","ฐานะการเงิน"],["value","ความถูก"]];
 const PK=[["roe","ROE",1],["nm","อัตรากำไรสุทธิ",1],["om","อัตรากำไรดำเนินงาน",1],["rg","รายได้โต YoY",1],["eg","กำไรโต YoY",1],["cc","เงินสด/กำไร",0],["de","หนี้/ทุน",0],["dy","ปันผล",1],["pe","P/E",0],["pb","P/B",0],["evebitda","EV/EBITDA",0]];
 // บทวิเคราะห์โบรก (scripts/brokers.py): ทีมรวมความเห็นหลายโบรกจากข่าว แล้วเทียบกับมุมของเราเอง ไม่เชื่อฉบับเดียว
+// งบที่เพิ่งประกาศ (scripts/earnings_desk.py): วิเคราะห์รายตัวจากงบจริง ราคา ข่าว และมุมมองโบรก
+function ernLoad(){if(S.ern!==undefined)return S.ern;S.ern=null;J("data/earnings.json").then(x=>{S.ern=x||false;render()});return null}
+const ERV={"งบดี":"up","งบอ่อน":"down"};
+function ernItem(x,open){const st=stockBySym(x.s);return `<details class="ern-i"${open?" open":""}><summary><a href="#s-${esc(x.s)}"><b>${esc(dsym(x.s))}</b></a> <span class="pill sm ${ERV[x.v]==="up"?"p-buy":ERV[x.v]==="down"?"p-sell":"p-hold"}">${esc(x.v)}</span> <span class="muted">${esc(x.q)}${st?" · "+esc(SECTORS[st.sec]?.th||""):""}</span><div class="ern-h">${esc(x.head)}</div></summary>
+  <ul class="mim-n">${x.lines.map(t=>{const i=t.indexOf(": ");return i>0&&i<40?`<li><b>${esc(t.slice(0,i))}:</b> ${esc(t.slice(i+2))}</li>`:`<li>${esc(t)}</li>`}).join("")}</ul>${(x.news||[]).length?`<div class="muted" style="font-size:12.5px">ข่าวงบ: ${x.news.map(n=>`<a href="${esc(safeUrl(n.u))}" target="_blank" rel="noopener">${esc(n.t)}</a>`).join(" · ")}</div>`:""}</details>`}
+function ernSection(mk){const E=ernLoad();if(!E?.items)return "";const I=E.items.filter(x=>x.m===mk);if(!I.length)return `<section class="card"><h2>งบที่เพิ่งประกาศ</h2><p class="muted">ยังไม่มีบริษัท${mk==="TH"?"ไทย":"สหรัฐฯ"}ที่งบ ${esc(E.q)} เข้าระบบ</p></section>`;
+  const c=v=>I.filter(x=>x.v===v).length,fresh=I.filter(x=>!x.boot).sort((a,b)=>b.seen.localeCompare(a.seen)||b.mc-a.mc),big=I.slice().sort((a,b)=>b.mc-a.mc);
+  const list=(fresh.length?fresh:big).slice(0,12),rest=big.filter(x=>!list.includes(x)).slice(0,40);
+  return `<section class="card"><div class="card-h"><div><h2>งบที่เพิ่งประกาศ · ${esc(E.q)}</h2><div class="sub-t">ทีมงบประกาศวิเคราะห์ทุกบริษัทที่งบไตรมาสใหม่เข้าระบบ: ผลประกอบการ · อัตรากำไร · 9 เดือน · คุณภาพกำไร · หนี้ · มูลค่าเทียบกลุ่ม · ตลาดตอบรับ · ข่าวและโบรก</div></div></div>
+   <div class="chips" style="margin:4px 0 8px"><span class="pill sm p-buy">งบดี ${c("งบดี")}</span><span class="pill sm p-hold">ทรงตัว/ผสม ${c("งบทรงตัว/ผสม")}</span><span class="pill sm p-sell">งบอ่อน ${c("งบอ่อน")}</span><span class="muted">รวม ${I.length} บริษัท</span></div>
+   ${list.map((x,i)=>ernItem(x,i<2)).join("")}${rest.length?`<details><summary class="muted">บริษัทอื่นอีก ${rest.length} ตัว (เรียงตามขนาด)</summary>${rest.map(x=>ernItem(x)).join("")}</details>`:""}</section>`}
+function ernCard(R){const E=ernLoad(),x=E?.items?.find(i=>i.s===R.st.s);return x?`<section class="card pc-mini"><b>งบล่าสุดที่ทีมวิเคราะห์ (${esc(x.q)}):</b>${ernItem(x,1)}</section>`:""}
 function brkLoad(){if(S.brk!==undefined)return S.brk;S.brk=null;J("data/brokers.json").then(x=>{S.brk=x||false;render()});return null}
 const BRR={buy:["ซื้อ","up"],hold:["ถือ","muted"],sell:["ขาย","down"]},BRA={up:"ปรับเป้าขึ้น",down:"ปรับเป้าลง",init:"เริ่มวิเคราะห์",keep:"คงเป้า"};
 function brkCard(R,full){const B=brkLoad(),C=B?.s?.[R.st.s];if(!C)return "";const c=cur(R.st.m),secO=whoN(secOwner(R.st.sec),"นักวิเคราะห์กลุ่ม");
@@ -814,6 +826,7 @@ function tSum(R){const P=R.plan,dist=v=>pct((v/R.last-1)*100,1),fromE=v=>pct((v/
   </section>
   ${decisionCard(R)}
   ${(()=>{const P=S.peer?.[R.st.s];if(P===undefined){loadPeer(R.st.s);return ""}if(!P)return "";const fv=P.fv||{};return `<section class="card pc-mini"><b>ฝ่ายพื้นฐาน:</b> ${esc(P.v||"")}${fv.base?` · มูลค่าเหมาะสมเทียบกลุ่ม <b class="num">${cur(R.st.m)}${fmt(fv.base)}</b> <span class="${fv.up>=0?"up":"down"}">(${pct(fv.up,0)})</span>`:""}${P.mem?.[0]?`<br><span class="muted">${esc(P.mem[0])}</span>`:""} <button class="btn ghost sm" data-tab="peers">ดูเทียบกลุ่ม →</button></section>`})()}
+  ${ernCard(R)}
   ${brkCard(R)}
   ${posCard(R)}
   ${sysStockCard(R)}
@@ -1602,6 +1615,7 @@ function vBrief(){const mk=S.bm==="US"?"US":S.bm==="TH"?"TH":(S.mkt==="US"?"US":
      <p class="muted br-sub">ประเมินจากปัจจัยที่วัดได้ด้านบนรวมกัน ไม่ใช่คำทำนายแน่นอน ข่าวใหม่ระหว่างคืนเปลี่ยนภาพได้ · ใช้ประกอบกับจุดซื้อ / TP / SL ของระบบ</p></section>`;
   return `<div class="br-top"><div><h1>สรุปตลาด${nm}</h1><p class="muted" style="margin:4px 0 0">${thDate(st.today)} · ${st.closed?(st.weekend?"เสาร์–อาทิตย์ ตลาดปิด":st.pre?"ก่อนตลาดเปิด":"ตลาดปิด (วันหยุด)"):"วันทำการ"} · อัปเดตอัตโนมัติจากราคาและข่าวล่าสุด</p></div>${tabs}</div>
    ${briefArticle(mk)}
+   ${ernSection(mk)}
    <details class="br-livebox"${S.briefs?.some(x=>x.mk===mk)?"":" open"}><summary class="br-live">ข้อมูลสดตอนนี้ (อัปเดตตามราคาล่าสุด)</summary>
    <section class="card br-hero"><p>${head}</p></section>
    ${st.closed?events+outlook:overview+events+sectors+outlook}</details>`}

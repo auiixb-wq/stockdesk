@@ -73,6 +73,12 @@ jobs:
           python3 scripts/brokers.py --data data $( [ -d _arch/news ] && echo --archive _arch )
           rm -rf _arch
           [ "$h0" = "$(cat data/hist/_brokers.json data/hist/_reports.json 2>/dev/null | md5sum)" ] || touch data/.hist_new
+      - name: Earnings desk (analyse every newly reported quarter)
+        continue-on-error: true
+        run: |
+          h0=$(cat data/hist/_earnseen.json 2>/dev/null | md5sum)
+          python3 scripts/earnings_desk.py --data data
+          [ "$h0" = "$(cat data/hist/_earnseen.json 2>/dev/null | md5sum)" ] || touch data/.hist_new
       - name: Market brief (manual)
         if: ${{ github.event.inputs.brief != '' && github.event.inputs.brief != null }}
         continue-on-error: true
