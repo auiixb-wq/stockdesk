@@ -263,14 +263,21 @@ def consensus(L, price, ours, score, days=120):
     L = [x for x in L if x["d"] >= cut]
     if not L:
         return None
+    # ข้อเท็จจริงเท่านั้น ไม่ผสมแหล่ง: ใช้ความเห็นล่าสุดของแต่ละโบรกที่ระบุชื่อ ฉบับเดียวต่อโบรก (ไม่เอาค่าจากคนละฉบับมารวมกัน)
+    # ถ้าโบรกนั้นมีรายงานฉบับเต็ม ใช้ตัวเลขจากรายงานฉบับเต็ม (ต้นฉบับ) แทนตัวเลขที่ข่าวเล่าต่อ
+    # ข่าวที่ไม่ระบุชื่อโบรก หรือข่าวที่รวมหลายโบรก ไม่นับในตัวเลขกลาง (แสดงในรายการเท่านั้น)
     last = {}
-    for x in L:  # ความเห็นล่าสุดของแต่ละโบรก (ไม่ระบุชื่อ: นับเป็นแหล่งเดียว ใช้ค่าล่าสุด)
-        last[x["b"]] = {**last.get(x["b"], {}), **{k: v for k, v in x.items() if v is not None}}
-    named = {b: v for b, v in last.items() if b not in (UNNAMED, "หลายโบรก")}
-    pool = named or last
+    for x in sorted(L, key=lambda r: (r.get("src") == "รายงานฉบับเต็ม", r["d"])):
+        if x["b"] in (UNNAMED, "หลายโบรก"):
+            continue
+        if last.get(x["b"], {}).get("src") == "รายงานฉบับเต็ม" and x.get("src") != "รายงานฉบับเต็ม":
+            continue
+        last[x["b"]] = x
+    named = last
+    pool = named
     tps = [v["tp"] for v in pool.values() if v.get("tp")]
-    los = [v.get("lo", v["tp"]) for v in last.values() if v.get("tp")]
-    his = [v.get("hi", v["tp"]) for v in last.values() if v.get("tp")]
+    los = list(tps)
+    his = list(tps)
     rc = {"buy": 0, "hold": 0, "sell": 0}
     for v in pool.values():
         if v.get("r") in rc:
@@ -279,14 +286,14 @@ def consensus(L, price, ours, score, days=120):
     ups = sum(1 for x in L if x["d"] >= cut30 and x.get("a") == "up")
     downs = sum(1 for x in L if x["d"] >= cut30 and x.get("a") == "down")
     med = round(stt.median(tps), 2) if tps else None
-    C = {"n": len(named), "src": len(last), "buy": rc["buy"], "hold": rc["hold"], "sell": rc["sell"], "tp": med,
+    C = {"n": len(named), "src": len({x["b"] for x in L}), "buy": rc["buy"], "hold": rc["hold"], "sell": rc["sell"], "tp": med,
          "lo": min(los) if los else None, "hi": max(his) if his else None, "up30": ups, "dn30": downs, "last": L[-1]["d"]}
     if med and price:
         C["upside"] = round((med / price - 1) * 100, 1)
     # ---- ข้อสังเกตของทีม: ไม่เชื่อฉบับเดียว เทียบภาพรวม ----
     notes, plus, minus = [], 0, 0
-    if C["n"] == 0 and "หลายโบรก" in last:
-        notes.append("มีแค่ตัวเลขรวมของหลายโบรกจากข่าว ยังไม่เห็นความเห็นรายโบรก ใช้เป็นภาพคร่าวๆ")
+    if C["n"] == 0:
+        notes.append("มีแค่ข่าวที่ไม่ระบุชื่อโบรก ทีมไม่นำตัวเลขมาใช้ จนกว่าจะเห็นบทวิเคราะห์ที่ระบุแหล่งชัด")
     elif C["n"] <= 1:
         notes.append("มีบทวิเคราะห์จากแหล่งเดียว ใช้ประกอบเท่านั้น อย่าเชื่อทั้งหมด รอดูโบรกอื่นยืนยัน")
     else:
@@ -357,6 +364,14 @@ def main():
             except Exception:
                 pass
     new = 0
+    # รายงานฉบับเต็มที่ฝ่ายวิจัยอ่านแล้ว (scripts/research_desk.py) นับเป็นความเห็นของโบรกนั้นด้วย
+    REP = load(os.path.join(D, "hist", "_reports.json"), {}) or {}
+    for sym, RL in REP.items():
+        for r in RL:
+            if r.get("ok") is False and not r.get("r"):
+                continue
+            new += merge(mem, sym, {"d": r["d"], "b": r["b"], "r": r.get("r"), "tp": r.get("tp"), "a": None,
+                                    "src": "รายงานฉบับเต็ม", "u": r["u"], "t": r["t"]})
     for it in items:
         try:
             for sym, rec in extract(it, uni, price):
@@ -382,6 +397,11 @@ def main():
         C = consensus(L, p, ours, score)
         if not C:
             continue
+        RL = REP.get(sym) or []
+        if RL:
+            C["rp"] = [{k: r.get(k) for k in ("d", "b", "u", "t", "r", "tp", "method", "mult", "ipe", "pts", "chk", "ok", "flag")} for r in RL[-3:]][::-1]
+            bad = [r for r in RL[-3:] if r.get("ok") is False]
+            C["notes"].insert(0, f"ฝ่ายวิจัยอ่านรายงานฉบับเต็ม {len(RL)} ฉบับ" + (f" · พบตัวเลขไม่ตรงงบ {len(bad)} ฉบับ (ไม่ใช้ตัวเลขนั้น)" if bad else " · ตัวเลขที่ตรวจได้ตรงกับงบ"))
         C["v"] = [{k: x.get(k) for k in ("d", "b", "r", "tp", "tp0", "lo", "hi", "a", "src", "u", "t") if x.get(k) is not None} for x in L[-8:]][::-1]
         out[sym] = C
         g = secs.setdefault(f"{st['m']}:{st.get('sec')}", {"n": 0, "buy": 0, "hold": 0, "sell": 0, "ups": [], "dns": [], "upside": []})

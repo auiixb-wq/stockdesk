@@ -2,7 +2,7 @@
 // วาดด้วย canvas ความละเอียด 640×400 แล้วขยายแบบพิกเซล · ข้อความ (ชื่อ คำพูด ตัวเลขบนจอ) วาดทับด้วยความละเอียดจริงให้คมชัด
 (() => {
 "use strict";
-const W = 640, H = 460, CY = 246;
+const W = 640, H = 580, CY = 246;
 let RUN = null;
 window.Office = { mount(o) { if (RUN) RUN.stop(); RUN = make(o); return RUN }, stop() { if (RUN) RUN.stop(); RUN = null } };
 
@@ -29,6 +29,12 @@ const ED = [508, 578]; ED.forEach((x0, i) => P["ern" + i] = { x: x0 + 25, y: 216
 const BX = ["b-quote", "b-news", "b-calc", "b-brief", "b-pub"]; BX.forEach((id, i) => P["bot" + i] = { x: 36 + i * 84, y: 446, ax: 460 });
 P.tvspot = { x: 76, y: 152, ax: 76, crowd: 1 }; P.sigv = { x: 118, y: 230, ax: 142, crowd: 1 }; P.ernv = { x: 540, y: 230, ax: 568, crowd: 1 };
 [532, 560, 590].forEach((x, i) => P["lng" + i] = { x, y: 338, ax: 500, crowd: 1 });
+// ห้องอาหารและเลานจ์ (ชั้นล่างสุด y 462–580): โต๊ะอาหาร 3 ตัว ตัวละ 6 ที่ · เข้าออกทางเดินแนวตั้ง x=460
+const DT = [{ x0: 150, y: 512 }, { x0: 262, y: 512 }, { x0: 374, y: 512 }];
+DT.forEach((t, k) => [0, 1, 2].forEach(j => { P[`eat${k * 6 + j}`] = { x: t.x0 + 10 + j * 22, y: t.y - 6, ax: 460, seat: 1, table: k };
+  P[`eat${k * 6 + 3 + j}`] = { x: t.x0 + 10 + j * 22, y: t.y + 24, ax: 460, seat: 1, front: 1, table: k } }));
+[500, 524, 548, 572].forEach((x, i) => P["sofa" + i] = { x, y: 560, ax: 460, seat: 1, front: 1 });
+P.buffet = { x: 70, y: 500, ax: 460, crowd: 1 }; P.kboard = { x: 560, y: 506, ax: 460, crowd: 1 }; P.vend = { x: 616, y: 520, ax: 460, crowd: 1 };
 
 function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode, mim }) {
   const D = A.desk, ctx = cv.getContext("2d");
@@ -73,7 +79,7 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode, mim })
       case "deliver": return [{ go: "bossv", st: "นำสรุปตลาดไปส่งบอส", m }, { fn: () => { delivered = true; onBoss?.("delivered") }, say: t, wait: 3200 }, { go: a.home, st: "กลับโต๊ะ" }];
       case "read": return [{ waitFor: () => delivered, st: "รอสรุปตลาดจากทีม", m }, { fn: () => onBoss?.("read"), say: t, wait: 3600, st: "อ่านสรุปตลาด" }];
       case "web": return [{ go: e.at || "web", st: "ไล่ตรวจเว็บ", m }, { say: t, wait: 1900 }];
-      case "sig": case "earn": return [{ go: a.home, st: e.a === "sig" ? "ติดตามสัญญาณ" : "อ่านงบ", m }, { say: t, wait: 2000 }];
+      case "sig": case "earn": case "quant": return [{ go: a.home, st: e.a === "sig" ? "ติดตามสัญญาณ" : e.a === "quant" ? "จดผลตรวจ quant" : "อ่านงบ", m }, { say: t, wait: 2000 }];
       case "sigweek": return [{ go: "bossv", st: "รายงานผลสัญญาณรายสัปดาห์", m }, { say: t, wait: 3000 }, { go: a.home }];
       case "audit": return [{ go: a.home, st: "ตรวจข้อมูลหุ้นในเว็บ", m }, { say: t, wait: 2000 }];
       case "help": return [{ go: e.to === "earn" ? "ernv" : "sigv", st: e.to === "earn" ? "ช่วยทีมงบประกาศ" : "ช่วยทีมสัญญาณ", m }, { say: t, wait: 2400 }, { go: a.home }];
@@ -89,8 +95,8 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode, mim })
   function load(auto) {
     submitted = 0; qaDone = false; delivered = false; tray = 0; replay = true; clock = 0;
     // ช่วงพัก: เปิดหน้ามาเห็นทีมพักเลย (กด "เล่นใหม่ตั้งแต่ต้น" เพื่อดูงานของฉบับนี้)
-    const rest = auto && MODE.st === "rest";
-    for (const a of agents) { const p = P[a.home]; Object.assign(a, { x: p.x, y: p.y, place: a.home, q: [], cur: null, path: [], bubble: null, st: rest && a.team !== "bot" ? MODE.why || "พัก" : "พร้อมทำงาน", mark: null });
+    const rest = auto && (MODE.st === "rest" || lunch());
+    for (const a of agents) { const p = P[a.home]; Object.assign(a, { x: p.x, y: p.y, place: a.home, q: [], cur: null, path: [], bubble: null, st: rest && a.team !== "bot" ? (lunch() ? "พักกินข้าว" : MODE.why || "พัก") : "พร้อมทำงาน", mark: null });
       if (rest) continue;
       a.q.push({ wait: a.id === "boss" ? 0 : 300 + (hash(a.id) % 3200) }); for (const e of LOG.filter(x => x.by === a.id)) a.q.push(...steps(a, e)) }
     if (rest) { replay = false; LOG.forEach(e => onLog?.(e.i, "done")); onBoss?.("read"); onDone?.(); pull(true); return }
@@ -100,6 +106,16 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode, mim })
   let MODE = L0.mode || { st: "work" };
   const ambient = a => {
     if (a.team === "bot") { a.q.push({ go: a.home, st: "รอรอบถัดไป" }, { wait: 4000 + Math.random() * 4000 }); return }
+    if (lunch()) { const at = a.place && P[a.place];
+      if (!at || at.table == null) { const free = seatsFree(); const sp = a.id === "boss" ? "sofa0" : free.length ? free[(hash(a.id) + free.length) % free.length] : "sofa" + (hash(a.id) % 4);
+        a.q.push({ go: "buffet", st: "พักกินข้าว: ตักอาหาร" }, { wait: 1200 + (hash(a.id) % 1500), say: Math.random() < .3 ? "🍛" : null }, { go: sp, st: "พักกินข้าว" }); return }
+      // นั่งที่โต๊ะแล้ว: ผลัดกันเล่าเรื่องจากงานของตัวเอง และถามคนอื่นในโต๊ะ
+      const mates = agents.filter(b => b !== a && b.place && P[b.place]?.table === at.table), mine = TOPIC[a.id];
+      if (mine && Math.random() < .45 && !agents.some(b => b !== a && b.bubble && P[b.place]?.table === at.table)) {
+        a.q.push({ say: mine, wait: 4200, st: "พักกินข้าว: เล่าให้เพื่อนฟัง" }); if (!SHARE.some(x => x.by === a.id)) SHARE.unshift({ by: a.id, t: mine }); if (SHARE.length > 6) SHARE.pop();
+        const b = mates.find(x => TOPIC[x.id] && x.id !== a.id); if (b) b.q.push({ wait: 4300 }, { say: `เสริมจากฝั่ง${b.team === "macro" ? "มหภาค" : b.team === "tech" ? "เทคนิค" : b.team === "sector" ? "กลุ่มของผม" : "ทีม"}: ${TOPIC[b.id]}`, wait: 4200 });
+      } else a.q.push({ wait: 3500 + Math.random() * 5000, say: Math.random() < .2 ? pickOne(["😋", "อร่อย", "🍜", "☕"]) : null, st: "พักกินข้าว" });
+      return }
     if (MODE.st === "rest" && a.id !== "boss" && a.id !== "mim") { const r = Math.random(), sp = r < .35 ? "lng" + ((Math.random() * 3) | 0) : r < .55 ? "coffee" : r < .7 ? "cooler" : a.home;
       a.q.push({ go: sp, st: MODE.why || "พัก" }, { say: Math.random() < .3 ? pickOne(["☕", "zz", "…", "ตลาดปิดแล้ว", "พักก่อน"]) : null, wait: 6000 + Math.random() * 8000 }); return }
     if (a.id === "boss") { a.q.push({ wait: 4000 + Math.random() * 5000, st: delivered ? "อ่านสรุปตลาด" : "ทำงาน" }); return }
@@ -160,6 +176,14 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode, mim })
   const bkk = () => { const p = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date()); const g = k => +p.find(x => x.type === k).value; return [g("hour"), g("minute")] };
   const phase = () => { const [h] = bkk(); return h >= 7 && h < 17 ? "day" : h >= 17 && h < 19 || h >= 5 && h < 7 ? "dusk" : "night" };
   let PH = phase();
+  // พักกลางวัน 12:00–13:00 (เวลากรุงเทพฯ) วันทำการ: ทุกคน (ยกเว้นบอท) ไปกินข้าวที่ห้องอาหาร คุยแลกเปลี่ยนสิ่งที่แต่ละฝ่ายรู้
+  const wd = () => new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Bangkok", weekday: "short" }).format(new Date());
+  const lunch = () => { if (window.__ofLunch) return true; const [h] = bkk(); return h === 12 && !/Sat|Sun/.test(wd()) };
+  // เรื่องที่คุยกันมาจากงานจริงของแต่ละคน (บันทึกทีมในสรุปตลาด) ไม่แต่งเพิ่ม
+  const TOPIC = {}; for (const n of [...(D.sector || []), ...(D.macro || [])]) { const l = (n.lines || []).find(x => x && x.length > 8); if (n.by && l) TOPIC[n.by] = `${n.h}: ${l}` }
+  for (const e of LOG) if (!TOPIC[e.by] && e.t && e.t.length > 10 && !/^ส่งบท|^รอ/.test(e.t)) TOPIC[e.by] = e.t;
+  const SHARE = [];  // หัวข้อที่เล่าแล้ว → ขึ้นกระดาน
+  const seatsFree = () => Object.keys(P).filter(k => k.startsWith("eat") && !agents.some(a => a.place === k || a.cur?.go === k));
 
   // ---------- ฉากคงที่ ----------
   function plant(x, y, big) { R(B, x + 2, y + 12, 10, 9, "#8A4E2E"); R(B, x + 2, y + 12, 10, 1, "#A8643C"); const g = ["#3E8E4A", "#4FA85B", "#2F7A3C", "#5BB867"];
@@ -259,6 +283,36 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode, mim })
     for (let x = 6; x < 440; x += 28) { R(B, x, 404, 22, 22, "#2A2D38"); R(B, x, 404, 22, 2, "#3A3D4C"); for (let y = 408; y < 424; y += 4) R(B, x + 2, y, 18, 2, "#1C1E28") }
     for (let x = 476; x < 630; x += 40) { R(B, x, 410, 30, 14, "#15171F"); R(B, x + 13, 424, 4, 3, "#15171F") }
     for (let i = 0; i < 5; i++) { R(B, 28 + i * 84, 452, 16, 3, "#3A3F52"); R(B, 30 + i * 84, 451, 12, 1, "#50566C") }
+    // ---- ห้องอาหารและเลานจ์ ----
+    for (let y = 462; y < H; y += 10) for (let x = 0; x < W; x += 10) R(B, x, y, 10, 10, ((x + y) / 10) % 2 ? "#C9A27A" : "#BE966E");  // พื้นไม้
+    for (let y = 462; y < H; y += 10) R(B, 0, y, W, 1, "#B08960");
+    R(B, 0, 458, 452, 4, "#59617A"); R(B, 468, 458, W - 468, 4, "#59617A");  // ผนังมีประตูที่ทางเดิน x=460
+    R(B, 452, 458, 16, 4, "#8C6A4A");
+    // บุฟเฟต์และครัว (ซ้าย)
+    R(B, 8, 470, 128, 16, "#E8E4D8"); R(B, 8, 470, 128, 2, "#FFFFFF"); R(B, 8, 486, 128, 6, "#9FA3AE");
+    const food = [["#E2B33C", "#F7E0A0"], ["#C9532E", "#F2A06A"], ["#4FA85B", "#A6D98A"], ["#8C5A3C", "#D6A57A"], ["#E8E8E8", "#FFFFFF"], ["#D94F70", "#F7A6BB"]];
+    food.forEach(([a, b], i) => { const x = 12 + i * 20; R(B, x, 473, 16, 8, "#B8BCC6"); R(B, x + 1, 474, 14, 6, a); R(B, x + 3, 475, 4, 2, b); R(B, x + 9, 476, 3, 2, b); R(B, x, 471, 16, 2, "#D8DCE4") });
+    R(B, 8, 462, 128, 6, "#6E7383"); for (let x = 14; x < 132; x += 18) R(B, x, 463, 8, 3, "#F2CF6B");  // ไฟส่องอาหาร
+    R(B, 10, 500, 22, 34, "#D9DDE6"); R(B, 12, 504, 18, 10, "#9FD0F0"); R(B, 12, 518, 18, 2, "#B9BEC9"); R(B, 26, 524, 3, 6, "#8C95A8");  // ตู้เย็นเครื่องดื่ม
+    R(B, 38, 506, 28, 12, "#7E5235"); R(B, 40, 504, 8, 4, "#EDE6D6"); R(B, 52, 503, 6, 5, "#E5534B"); R(B, 60, 504, 4, 4, "#F2C744");  // ถาดผลไม้
+    R(B, 96, 500, 34, 22, "#2A2A30"); R(B, 99, 503, 12, 8, "#111"); R(B, 115, 503, 12, 8, "#111"); R(B, 104, 513, 3, 3, "#E5534B"); R(B, 120, 513, 3, 3, "#3BC46E");  // เครื่องชงกาแฟใหญ่
+    // พรมใต้โต๊ะอาหาร
+    R(B, 140, 494, 300, 60, "#8E5A4A"); R(B, 142, 496, 296, 56, "#A3685A"); for (let x = 150; x < 436; x += 16) R(B, x, 498, 8, 1, "#B9806F");
+    DT.forEach(t => { R(B, t.x0, t.y, 66, 14, "#7B5236"); R(B, t.x0, t.y, 66, 2, "#9A6A48"); R(B, t.x0, t.y + 14, 66, 3, "#5E3D27");
+      R(B, t.x0 + 4, t.y + 17, 3, 6, "#5E3D27"); R(B, t.x0 + 59, t.y + 17, 3, 6, "#5E3D27");
+      [0, 1, 2].forEach(j => { const x = t.x0 + 10 + j * 22; R(B, x - 4, t.y + 2, 8, 4, "#F5F2EA"); R(B, x - 4, t.y + 8, 8, 4, "#F5F2EA"); R(B, x + 5, t.y + 3, 1, 3, "#9AA0AD"); R(B, x + 5, t.y + 9, 1, 3, "#9AA0AD") });
+      R(B, t.x0 + 30, t.y + 4, 6, 6, "#BFE3F2"); R(B, t.x0 + 31, t.y + 1, 2, 3, "#3BA55C"); R(B, t.x0 + 33, t.y, 2, 2, "#FF6FA8");  // แจกันดอกไม้กลางโต๊ะ
+      [0, 1, 2].forEach(j => { const x = t.x0 + 10 + j * 22; chairBase(x, t.y - 4); R(B, x - 5, t.y + 26, 10, 3, "#3B3F55") }) });
+    // เลานจ์ (ขวา): กระดานแลกเปลี่ยนความรู้ ชั้นหนังสือ โซฟา ตู้ขายของ ตู้ปลา
+    R(B, 482, 466, 112, 34, "#2E3B33"); R(B, 484, 468, 108, 30, "#3F5446"); R(B, 482, 500, 112, 3, "#7E5235");
+    R(B, 596, 466, 40, 40, "#5E3D27"); for (let y = 470; y < 504; y += 11) { R(B, 597, y + 9, 38, 2, "#3F2A1C"); for (let k = 0; k < 34; k += 4) R(B, 599 + k, y, 3, 9, ["#B33A3A", "#3A6BB3", "#D9B23A", "#3A9A6B", "#8A5AB8"][(y + k) % 5]) }
+    R(B, 604, 512, 30, 40, "#C33F38"); R(B, 606, 516, 26, 22, "#1E2028"); for (let k = 0; k < 4; k++) R(B, 609 + (k % 2) * 12, 519 + (k >> 1) * 9, 8, 6, ["#E2B33C", "#3BC46E", "#5BB8F0", "#F07AAE"][k]); R(B, 618, 542, 10, 4, "#111");
+    R(B, 486, 548, 100, 10, "#4C7DD6"); R(B, 486, 544, 100, 5, "#5C8DE6"); R(B, 482, 544, 6, 18, "#3F6CC0"); R(B, 584, 544, 6, 18, "#3F6CC0"); R(B, 486, 558, 100, 4, "#3F6CC0");
+    R(B, 512, 530, 50, 8, "#A8714A"); R(B, 512, 530, 50, 2, "#C08558"); R(B, 520, 528, 6, 3, "#EDE6D6"); R(B, 540, 527, 8, 4, "#F2CF6B");
+    R(B, 450, 520, 24, 18, "#1D4E6E"); R(B, 452, 522, 20, 14, "#3D8EC2"); R(B, 455, 528, 4, 2, "#F2A93B"); R(B, 464, 525, 3, 2, "#F2CF6B"); R(B, 450, 538, 24, 6, "#5E3D27");
+    plant(142, 470, 1); plant(440, 470, 1); plant(470, 548, 0); plant(626, 560, 0);
+    // โคมไฟเพดาน
+    for (const x of [190, 302, 414]) { R(B, x - 1, 462, 2, 8, "#3A3D4C"); R(B, x - 6, 470, 12, 4, "#F2CF6B"); R(B, x - 4, 474, 8, 1, "#FFF1B8") }
   }
   drawBg();
 
@@ -327,8 +381,14 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode, mim })
     const [h, mi] = bkk(), cx = 485, cy = 17; O.strokeStyle = "#2B2D3A"; O.lineWidth = 1;
     O.beginPath(); O.moveTo(cx, cy); O.lineTo(cx + Math.sin((h % 12 + mi / 60) / 12 * 6.283) * 4, cy - Math.cos((h % 12 + mi / 60) / 12 * 6.283) * 4); O.stroke();
     O.beginPath(); O.moveTo(cx, cy); O.lineTo(cx + Math.sin(mi / 60 * 6.283) * 6, cy - Math.cos(mi / 60 * 6.283) * 6); O.stroke();
+    // กระดานแลกเปลี่ยนความรู้: หัวข้อที่ทีมคุยกันวันนี้ (ตัวอักษรวาดคมใน overlay)
+    for (let k = 0; k < 4; k++) R(O, 488, 472 + k * 6, Math.min(100, 30 + ((SHARE.length > k ? SHARE[k].t.length : 8) * 3) % 70), 2, k < SHARE.length ? "#E8E4D6" : "#5E7566");
+    // อาหารบนโต๊ะเมื่อมีคนนั่ง
+    for (const a of agents) { const p = a.place && P[a.place]; if (!p || p.table == null || a.path.length) continue; const fx = p.x - 3, fy = p.front ? DT[p.table].y + 8 : DT[p.table].y + 2;
+      R(O, fx, fy, 6, 3, ["#E2B33C", "#C9532E", "#4FA85B", "#F2A06A"][hash(a.id) % 4]); R(O, fx + 1, fy, 2, 1, "#F7E0A0");
+      if (!reduce && ((clock * 2 + hash(a.id)) | 0) % 6 === 0) { O.fillStyle = "rgba(240,240,240,.5)"; O.fillRect(fx + 2, fy - 3 - ((clock * 6) % 3), 1, 2) } }
     [...agents].sort((p, q) => p.y - q.y).forEach(person);
-    if (MODE.st === "rest" && PH !== "night") { O.fillStyle = "rgba(8,12,34,.14)"; O.fillRect(0, 40, W, 357) }
+    if (MODE.st === "rest" && PH !== "night" && !lunch()) { O.fillStyle = "rgba(8,12,34,.14)"; O.fillRect(0, 40, W, 357) }
     if (PH === "night") { O.fillStyle = "rgba(8,12,34,.32)"; O.fillRect(0, 40, W, H - 40);
       O.globalCompositeOperation = "lighter"; for (const d of SD.slice(0, 11)) { O.fillStyle = "rgba(255,200,110,.07)"; O.fillRect(d.x0 - 4, d.top - 8, 64, 44) } O.globalCompositeOperation = "source-over" }
   }
@@ -350,8 +410,11 @@ function make({ cv, A, ix, live, onLog, onBoss, onStatus, onDone, onMode, mim })
     ctx.restore();
     ctx.font = `600 ${Math.round(Math.min(10 * d, 6.5 * sc))}px ${FONT}`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
     for (const [t, x, y, c] of [["ห้องระบบ · ระบบเดิมของเว็บทำงานตลอด 24 ชม.", 220, 436, "rgba(236,232,218,.45)"], ["ห้องประชุมมหภาค", 75, 162, "rgba(236,232,218,.55)"], ["ติดตามสัญญาณ", 75, 230, "rgba(236,232,218,.5)"], ["งบประกาศ", 570, 230, "rgba(236,232,218,.5)"], ["ห้องบอส", 600, 162, "rgba(236,232,218,.6)"], ["ชั้นนักวิเคราะห์รายกลุ่ม", 326, 228, "rgba(236,232,218,.42)"], ["ทีมเทคนิค", 84, 264, "rgba(236,232,218,.5)"],
-      ["ทีม Data", 210, 330, "rgba(236,232,218,.5)"], ["ดูแลเว็บ", 394, 330, "rgba(236,232,218,.5)"], ["แพนทรี", 590, 340, "rgba(40,40,48,.55)"], ["ถาดส่งบท", 315, 280, "rgba(236,232,218,.6)"]]) { ctx.fillStyle = c; ctx.fillText(t, x * sc, y * sc) }
+      ["ทีม Data", 210, 330, "rgba(236,232,218,.5)"], ["ดูแลเว็บ", 394, 330, "rgba(236,232,218,.5)"], ["แพนทรี", 590, 340, "rgba(40,40,48,.55)"], ["ห้องอาหาร", 290, 572, "rgba(60,36,20,.7)"], ["บุฟเฟต์", 70, 494, "rgba(60,36,20,.7)"], ["เลานจ์", 530, 574, "rgba(60,36,20,.7)"], ["ถาดส่งบท", 315, 280, "rgba(236,232,218,.6)"]]) { ctx.fillStyle = c; ctx.fillText(t, x * sc, y * sc) }
     ctx.font = `700 ${Math.round(7 * sc)}px ${FONT}`; ctx.fillStyle = "#2B2D3A"; ctx.fillText("BOSS", 597 * sc, 107 * sc);
+    { ctx.save(); ctx.beginPath(); ctx.rect(484 * sc, 468 * sc, 108 * sc, 30 * sc); ctx.clip(); ctx.textAlign = "left"; ctx.textBaseline = "top";
+      ctx.font = `700 ${Math.round(4.6 * sc)}px ${FONT}`; ctx.fillStyle = "#F2CF6B"; ctx.fillText("กระดานแลกเปลี่ยนความรู้วันนี้", 487 * sc, 469 * sc);
+      ctx.font = `500 ${Math.round(4.2 * sc)}px ${FONT}`; ctx.fillStyle = "#E8E4D6"; SHARE.slice(0, 4).forEach((x, k) => ctx.fillText("• " + x.t.slice(0, 40), 487 * sc, (476 + k * 5.4) * sc)); ctx.restore(); ctx.textAlign = "center"; ctx.textBaseline = "middle" }
     const fs = Math.round(12 * d); ctx.font = `500 ${fs}px ${FONT}`; ctx.textBaseline = "top"; ctx.textAlign = "left";
     for (const a of [...agents].filter(a => a.bubble).sort((p, q) => p.y - q.y)) {
       const L = wrap(a.bubble.t, Math.min((a.id === "boss" || a.id === "d-ed" ? 220 : 160) * d, cv.width * .46)), lh = fs * 1.35, w = Math.max(...L.map(l => ctx.measureText(l).width)) + 14 * d, h = L.length * lh + 10 * d;

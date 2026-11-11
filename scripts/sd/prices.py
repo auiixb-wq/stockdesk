@@ -4,7 +4,7 @@ import urllib.request, urllib.parse
 
 import yfinance as yf
 from .common import CFG, ERRORS, UA, load, num, save, ysym
-from .universe import cnbc_th_quotes, market_quotes
+from .universe import cnbc_th_quotes, market_quotes, settrade_th_quotes
 from .health import sanitize_quotes
 
 
@@ -88,6 +88,11 @@ def fetch_quotes(prices):
                 fresh = cnbc_th_quotes(uni)
                 QUOTE_T["cnbc"] = round(time.time() - t2, 1)
                 allq.update({k: v for k, v in fresh.items() if (allq.get(k, {}).get("ts") or 0) <= v["ts"]})
+                t3 = time.time()
+                rt = settrade_th_quotes(uni)  # เรียลไทม์ (ถ้ามี key) ทับราคาล่าช้า
+                QUOTE_T["settrade"] = round(time.time() - t3, 1)
+                QUOTE_T["settradeN"] = len(rt)
+                allq.update(rt)
             q = allq
     except Exception as e:
         ERRORS.append(f"market quotes: {str(e)[:80]}")
