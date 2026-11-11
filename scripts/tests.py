@@ -5,7 +5,7 @@ import datetime, json, os, sys, tempfile, time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import sd.common as C  # noqa: E402
 from sd import news as N  # noqa: E402
-from sd.universe import uniq_keys  # noqa: E402
+from sd.universe import keep_old_sectors, uniq_keys  # noqa: E402
 
 UNI = [
     {"s": "TEAM", "y": "TEAM.BK", "n": "Team Precision Public Company Limited", "m": "TH", "sec": "tech", "mc": 3.8e9, "sh": 6.37e8},
@@ -35,6 +35,14 @@ check("หุ้นไทยใช้ชื่อเดิม", ("TEAM", "TH") i
 check("หุ้นในรายการหลักใช้ชื่อเดิม (META สหรัฐฯ)", ("META", "US") in keys and ("META.BK", "TH") in keys, sorted(keys))
 check("ทำซ้ำได้ผลเดิม", uniq_keys(items) == clash and len({i["s"] for i in items}) == len(items))
 check("ชื่อสำหรับ Yahoo", C.ysym({"s": "META.BK", "m": "TH"}) == "META.BK" and C.ysym({"s": "BRK.B", "m": "US"}) == "BRK-B")
+
+# กลุ่มการเงินไทยดึงไม่สำเร็จ: หุ้นไทยทั้งกลุ่มหาย หุ้นสหรัฐฯ ชื่อเดียวกัน (BAM) ได้ชื่อเดิมไปแล้วชนกับราคาหุ้นไทยเก่า
+old = [{"s": "BAM", "y": "BAM.BK", "m": "TH", "sec": "bank"}, {"s": "BAM.US", "y": "BAM", "m": "US", "sec": "bank"}]
+new = [{"s": "BAM", "y": "BAM", "m": "US", "sec": "bank"}]
+seen0 = {"BAM"}
+n_back = keep_old_sectors(new, old, {("TH", "bank")}, seen0)
+uniq_keys(new)
+check("กลุ่มที่ดึงไม่สำเร็จใช้รายชื่อเดิม", n_back == 1 and {(i["s"], i["m"]) for i in new} == {("BAM", "TH"), ("BAM.US", "US")}, new)
 
 # ผูกข่าวกับหุ้น: ไม่นับตัวย่อทั่วไป แยกตลาด และรู้จักชื่อไทย/ชื่อบริษัท
 T = N.Tagger(items)
