@@ -15,7 +15,8 @@ const TABS = ["news", "fa", "val", "risk", "peers", "chart", "bt"], TFS = ["1H",
     await p.waitForFunction(() => (document.querySelector("#app")?.innerText.length || 0) > 800 && typeof S !== "undefined" && S.live, null, { timeout: 60000 }).catch(() => {});
     const first = Date.now() - t0;
     const look = async (r, ms) => { const o = await p.evaluate(() => ({ ow: document.documentElement.scrollWidth - innerWidth, len: document.querySelector("#app")?.innerText.length || 0,
-      bad: (document.querySelector("#app")?.innerText.match(/\bNaN\b|\bundefined\b|Infinity/g) || []).length, canv: document.querySelectorAll("#cMain canvas").length }));
+      bad: (document.querySelector("#app")?.innerText.match(/\bNaN\b|\bundefined\b|Infinity/g) || []).length, canv: document.querySelectorAll("#cMain canvas").length,
+      lock: !!document.querySelector(".of-lock") }));  // ออฟฟิศล็อกด้วยรหัส: หน้าใส่รหัสสั้นโดยตั้งใจ ไม่ใช่หน้าแสดงไม่ครบ
       rows.push({ w, r, ms, ...o, err: errs.splice(0).slice(0, 3) }) };
     await look("#home (เปิดครั้งแรก)", first);
     for (const r of PAGES) {
@@ -29,7 +30,7 @@ const TABS = ["news", "fa", "val", "risk", "peers", "chart", "bt"], TFS = ["1H",
     await p.close();
   }
   await b.close();
-  const issues = rows.filter(x => x.err.length || x.ow > 2 || x.bad || x.len < 100 || (/^#s-/.test(x.r) && !/แท็บ/.test(x.r) && !x.canv));
+  const issues = rows.filter(x => x.err.length || x.ow > 2 || x.bad || (x.len < 100 && !x.lock) || (/^#s-/.test(x.r) && !/แท็บ/.test(x.r) && !x.canv));
   const out = { updated: Math.floor(Date.now() / 1000), pages: rows.length, firstLoad: { mobile: rows.find(x => x.w === 390)?.ms, desktop: rows.find(x => x.w === 1280)?.ms }, issues: issues.slice(0, 20) };
   fs.writeFileSync(path.join(__dirname, "..", "data", "ux.json"), JSON.stringify(out));
   console.log("ux:", out.pages, "หน้า · ปัญหา", issues.length, "· โหลดครั้งแรก", out.firstLoad);
