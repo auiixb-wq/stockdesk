@@ -103,7 +103,7 @@ def cnbc_th_quotes(uni):
                + "&requestMethod=itv&noform=1&partnerId=2&fund=1&exthrs=1&output=json")
         for attempt in (1, 2):  # ลองใหม่อีกครั้งถ้าชุดไหนหมดเวลา
             try:
-                d = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=12).read())
+                d = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=25).read())
                 rows = d["FormattedQuoteResult"]["FormattedQuote"]
                 return rows if isinstance(rows, list) else [rows]
             except Exception as e:
@@ -111,7 +111,7 @@ def cnbc_th_quotes(uni):
                     ERRORS.append(f"cnbc TH {k}: {str(e)[:80]}")
         return []
     from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(8) as ex:  # ขอพร้อมกัน 8 ชุด ให้ทั้งตลาดเสร็จในไม่กี่วินาที
+    with ThreadPoolExecutor(4) as ex:  # ขอพร้อมกัน 4 ชุด (8 ชุดถูก CNBC หน่วงจนหมดเวลา)
         batches = list(ex.map(one, range(0, len(syms), 40)))
     for rows in batches:
         for q in rows:
@@ -249,7 +249,10 @@ def fetch_hist(uni):
                 continue
             for y in part:
                 try:
-                    d = df[y].dropna(subset=["Open", "High", "Low", "Close"]) if len(part) > 1 else df.dropna(subset=["Open", "High", "Low", "Close"])
+                    d = (df[y] if len(part) > 1 else df).dropna(subset=["Close"]).copy()
+                    # แท่งล่าสุดบางวัน Yahoo ส่งมาแค่ราคาปิด (เปิด/สูง/ต่ำว่าง) ทำให้ทั้งวันหายไป → เติมด้วยราคาปิด
+                    for col in ("Open", "High", "Low"):
+                        d[col] = d[col].fillna(d["Close"])
                     if len(d) < 60:
                         continue
                     sym = next(i["s"] for i in uni["items"] if i["y"] == y)

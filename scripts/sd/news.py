@@ -124,8 +124,6 @@ FEEDS = [
     ("MarketWatch", "US", "https://feeds.content.dowjones.io/public/rss/mw_marketpulse"),
     ("Wall Street Journal", "US", "https://feeds.content.dowjones.io/public/rss/RSSMarketsMain"),
     ("Financial Times", "US", "https://www.ft.com/markets?format=rss"),
-    ("Nasdaq", "US", "https://www.nasdaq.com/feed/rssoutbound?category=Markets"),
-    ("Nasdaq", "US", "https://www.nasdaq.com/feed/rssoutbound?category=Earnings"),
     ("Seeking Alpha", "US", "https://seekingalpha.com/market_currents.xml"),
     ("Investing.com", "US", "https://www.investing.com/rss/news_25.rss"),
     ("Business Wire", "US", "https://feed.businesswire.com/rss/home/?rss=G1QFDERJXkJeEFtRWA=="),
@@ -375,8 +373,16 @@ def translate_th(texts):
     batch, size = [], 0
     def run(b):
         q = "\n".join(t.replace("\n", " ") for t in b)
-        url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=th&dt=t&q=" + urllib.parse.quote(q)
-        d = json.loads(_get(url, 20))
+        last = None
+        for k, base in enumerate(("https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=th&dt=t&q=",
+                                  "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=th&dt=t&q=",
+                                  "https://clients5.google.com/translate_a/single?client=dict-chrome-ex&sl=en&tl=th&dt=t&q=")):
+            try:
+                d = json.loads(_get(base + urllib.parse.quote(q), 20)); break
+            except Exception as e:  # ถูกจำกัดอัตรา (429): รอแล้วลองใหม่ แล้วลองอีกทางหนึ่ง
+                last = e; time.sleep(6 * (k + 1))
+        else:
+            raise last
         res = "".join(seg[0] for seg in d[0] if seg and seg[0]).split("\n")
         if len(res) == len(b):
             out.update({s: r.strip() for s, r in zip(b, res)})
