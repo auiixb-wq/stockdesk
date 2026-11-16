@@ -25,10 +25,10 @@ const H10 = fs.existsSync(path.join(DATA, "h10")), FROM = yrs(H10 ? 10 : 4), SPL
 S.lab = LAB;  // กลยุทธ์ปัจจุบัน = ค่าตั้งต้น + ที่ห้องทดลองรับรองไว้แล้ว
 let seed = +today.replace(/-/g, "") % 2147483647; const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647, pick = a => a[Math.floor(rnd() * a.length)];
 
-// พื้นที่ค้นหา (ฝ่ายเทคนิคคิดจากกราฟ): ตัวกรองแนวโน้ม/ความแข็ง · จุดเข้าแบบคะแนน ทะลุกรอบ หรือย่อแตะ EMA20 · ทางออกขาย 2 ขั้น
+// พื้นที่ค้นหา (ฝ่ายเทคนิคคิดจากกราฟ): ทิศทางตลาด (mkt 1 = ไม่ใช่ขาลง, 2 = ขาขึ้นเท่านั้น) · กลุ่มต้องขึ้น (sec) · เพดานจุดตัดขาดทุน (slCap) · ตัวกรองแนวโน้ม/ความแข็ง · จุดเข้าแบบคะแนน ทะลุกรอบ หรือย่อแตะ EMA20 · ทางออกขาย 2 ขั้น
 const SPACE = {
-  TH: { mcMin: [5e9, 5e9, 3e9, 2e9, 1e9], tv: [null, null, 5, 10, 20], trig: [null, null, "brk", "pb"], vol: [1.5, 2.2, 3], adx: [20, 25, 30], rs: [60, 70, 80], e200: [true, false], st: [true, false], lim: [0, .5, 1, 1.25, 1.5], ld: [1, 2], sl: [2, 3, 4], tp1: [1.5, 2, 3], tp1f: [.3, .5], tp: [4, 6, 8], hold: [5, 10, 20], dip: [10, 20] },
-  US: { trig: [null, null, "brk", "pb"], vol: [2, 2.5, 3.5], adx: [15, 20, 25], rs: [80, 85, 90], e200: [false, true], st: [true, false], lim: [0, 1, 1.5, 2], ld: [1, 3], sl: [3, 4], tp1: [2, 3, 4], tp1f: [.3, .5], tp: [6, 8, 10], hold: [20, 40], dip: [10, 20], slCap: [.1, .12, .15] },
+  TH: { mcMin: [5e9, 5e9, 3e9, 2e9, 1e9], tv: [null, null, 5, 10, 20], trig: [null, null, "brk", "pb"], vol: [1.5, 2.2, 3], adx: [20, 25, 30], rs: [60, 70, 80], e200: [true, false], st: [true, false], lim: [0, .5, 1, 1.25, 1.5], ld: [1, 2], sl: [2, 3, 4], tp1: [1.5, 2, 3], tp1f: [.3, .5], tp: [4, 6, 8], hold: [5, 10, 20], dip: [10, 20], mkt: [0, 0, 1, 2], sec: [false, false, true], slCap: [.1, .08] },
+  US: { trig: [null, null, "brk", "pb"], vol: [2, 2.5, 3.5], adx: [15, 20, 25], rs: [80, 85, 90], e200: [false, true], st: [true, false], lim: [0, 1, 1.5, 2], ld: [1, 3], sl: [3, 4], tp1: [2, 3, 4], tp1f: [.3, .5], tp: [6, 8, 10], hold: [20, 40], dip: [10, 20], slCap: [.08, .1, .12, .15], mkt: [0, 0, 1, 2], sec: [false, false, true] },
 };
 function candidates(m, base, champ, sp = SPACE[m]) {
   const out = [], key = r => JSON.stringify(Object.keys(sp).map(k => r[k] ?? null)), seen = new Set([key(base)]);

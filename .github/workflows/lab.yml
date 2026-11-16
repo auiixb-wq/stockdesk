@@ -32,10 +32,12 @@ jobs:
       - name: Data
         run: |
           mkdir -p data/hist
-          git fetch origin gh-pages --depth=1 && git show origin/gh-pages:data/universe.json > data/universe.json && (git show origin/gh-pages:data/calib.json > data/calib.json || true)
+          git fetch origin gh-pages --depth=1 && git show origin/gh-pages:data/universe.json > data/universe.json && (git show origin/gh-pages:data/calib.json > data/calib.json || true)  # calib.json มีผลตรวจตัวเอง (guard) ด้วย
           git fetch origin hist --depth=1 && git --work-tree=data/hist checkout origin/hist -- . && git reset -q
       - name: Daily prices 10 years (for the daily backtest)
         run: python3 research/hist10_fetch.py data 2>&1 | tail -2
+      - name: SET / S&P 500 index history (market direction + compare with holding the index)
+        run: python3 research/idx_fetch.py data 2>&1 | tail -2 || true
       - name: Hourly prices for 4H / 1H (~2 years, the most free sources provide)
         run: OUTDIR=h1 python3 research/intra_fetch.py data 2>&1 | tail -3
       - name: Backtest candidates (daily 10 years · 4H/1H 2 years) + paper-trading book
