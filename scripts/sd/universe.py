@@ -285,13 +285,17 @@ def index_hist(d0, period="10y"):
             except Exception as e:
                 why.append(f"{y}: {str(e)[:50]}")
         if m not in out:  # สำรอง: กราฟดัชนีจาก CNBC (ช่วงยาวสุดที่ได้)
-            for rg in ("10Y", "5Y"):
+            for rg in ("5Y", "10Y", "3Y", "1Y"):  # ต้องเป็นรายวัน (ช่วงยาวบางช่วง CNBC ให้รายสัปดาห์ ใช้คิดเส้นเฉลี่ย 50/200 วันไม่ได้)
                 try:
                     url = f"https://ts-api.cnbc.com/harmony/app/charts/{rg}.json?symbol=" + urllib.parse.quote(cn)
                     bars = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=20).read()).get("barData", {}).get("priceBars", [])
                     rows = sorted({b["tradeTime"][:8]: float(b["close"]) for b in bars if b.get("close")}.items())
                     if len(rows) < 250:
                         raise ValueError(f"{len(rows)} วัน")
+                    ds = [dt.date(int(k[:4]), int(k[4:6]), int(k[6:8])) for k, _ in rows]
+                    gaps = sorted((b - a).days for a, b in zip(ds, ds[1:]))
+                    if gaps[len(gaps) // 2] > 3:
+                        raise ValueError(f"รายสัปดาห์ ({gaps[len(gaps) // 2]} วัน)")
                     out[m] = {"t": [k[:4] + "-" + k[4:6] + "-" + k[6:8] for k, _ in rows], "c": [round(v, 2) for _, v in rows], "src": "CNBC " + cn + " " + rg}
                     break
                 except Exception as e:

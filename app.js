@@ -510,7 +510,7 @@ function marketCard(mk){const H=S.learn?.market?.[mk];if(!H?.length)return "";co
    </div>
    <div class="mc-sec"><div><h3>กลุ่มแข็ง (20 วัน)</h3>${r.top.map(sbar).join("")}</div><div><h3>กลุ่มอ่อน (20 วัน)</h3>${r.bot.map(sbar).join("")}</div><div><h3>สัดส่วนเหนือเส้น 200 วัน (60 วัน)</h3>${spark}</div></div></section>`}
 // ทิศทางตลาดวันนี้ (rsq.json → rg): ดัชนีจริงเทียบเส้นเฉลี่ย 50/200 วัน + กลุ่มที่ขึ้น/ลงใน 20 วัน · บอกด้วยว่าตัวกรองนี้ใช้กับสัญญาณซื้อหรือไม่
-function regimeNote(m){const Q=S.rsq?.[m]?.rg;if(!Q?.mk?.length)return "";const k=Q.mk.length-1,v=Q.mk[k],N=Q.now||{},ix=m==="TH"?"SET":"S&P 500",P=rulesFor(m);
+function regimeNote(m){const Q=S.rsq?.[m]?.rg;if(!Q?.mk?.length)return "";const k=Q.mk.length-1,v=Q.mk[k],N=Q.now||{},ix=Q.src==="ew"?"เฉลี่ยหุ้นใหญ่ในระบบ (ใช้แทนเพราะยังไม่มีดัชนีรายวัน)":m==="TH"?"SET":"S&P 500",P=rulesFor(m);
   const lab=v===2?["ขาขึ้น","up"]:v===0?["ขาลง","down"]:["ทรงตัว","warn"],nm=x=>SECTORS[x]?.th||x;
   const up=Object.entries(Q.sec||{}).filter(([,a])=>a[k]===1).map(([x])=>nm(x)),dn=Object.entries(Q.sec||{}).filter(([,a])=>a[k]===0).map(([x])=>nm(x));
   const why=N.c&&N.s50&&N.s200?`ดัชนี ${ix} ปิด ${fmt(N.c)} ${N.c>N.s50?"อยู่เหนือ":"อยู่ต่ำกว่า"}เส้นเฉลี่ย 50 วัน (${fmt(N.s50)}) และ${N.c>N.s200?"อยู่เหนือ":"อยู่ต่ำกว่า"}เส้นเฉลี่ย 200 วัน (${fmt(N.s200)})`:"";

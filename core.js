@@ -68,7 +68,13 @@ const RULES={thr:40,split:.7,warm:210,wk:true,rs:70,adx:20,preset:"win"};
 //           ชนะ 65/63% (เดิม 62/58%) · กำไร +1.63/+1.76%/ไม้ (เดิม +1.40/+1.63%) · ชนะเฉลี่ย +5.1% แพ้เฉลี่ย −4.4%
 //   สหรัฐฯ: + แข็งกว่าตลาด 90% + Supertrend · SL 4 ATR (≤15%) · TP1 3 ATR ขาย 30% · TP2 8 ATR · ถือ 40 วัน
 //           ชนะ 61/62% (เดิม 54/51%) · กำไร +3.41/+4.57%/ไม้ (เดิม +3.58/+4.12%) · ชนะเฉลี่ย +14.2% แพ้เฉลี่ย −12.6%
-const MKT_RULES={win:{TH:{lim:1.25,ld:1,vol:2.2,tp1:2,tp1f:.5,tp:6,sl:3,slCap:.10,hold:10,adx:25,rs:70,dip:20,st:true,e200:true},US:{lim:1.5,ld:3,tp1:3,tp1f:.3,tp:8,sl:4,slCap:.15,hold:40,adx:20,rs:90,vol:2.5,dip:20,st:true}},
+// รอบ 15 (16 พ.ย. 69 · ผลจริงสหรัฐฯ โดนตัดขาดทุน 7 ไม้ติด เฉลี่ย −15% · research/risk.js ราคา 10 ปี 1,333 หุ้น เทียบ S&P 500 จริง):
+//   สหรัฐฯ: เพดานตัดขาดทุน 15% → 8% + ไม่ซื้อตอนตลาดขาลง (S&P 500 ต่ำกว่าเส้น 50 และ 200 วัน) + ไม่ซื้อหุ้นในกลุ่มที่ลงใน 20 วัน
+//     ช่วงทดสอบ 3 ปี: 1,201 ไม้ ชนะ 61.7% +3.78%/ไม้ แพ้เฉลี่ย −13.2% → 947 ไม้ ชนะ 49.4% +3.05%/ไม้ แพ้เฉลี่ย −8.4%
+//     ทั้งพอร์ต 10 ไม้ 10 ปี: +14.2%/ปี ร่วงหนักสุด −42.7% → +16.8%/ปี ร่วงหนักสุด −25.5% (S&P 500 +13.3%/ปี −33.9%)
+//     3 ปีล่าสุด: +25.6%/ปี −31.7% → +23.2%/ปี −22.9% (S&P 500 +18.9%/ปี −18.9%) · ชนะดัชนีทั้งสองช่วง และเจ็บน้อยกว่าเดิมมาก
+//   ไม่ใช้ "2 ATR ไม่เกิน 8%" เพราะทั้งพอร์ตได้แค่ +8.9%/ปี แพ้ดัชนี (ตัดขาดทุนเร็วเกินไป โดนสะบัดหลุดบ่อย)
+const MKT_RULES={win:{TH:{lim:1.25,ld:1,vol:2.2,tp1:2,tp1f:.5,tp:6,sl:3,slCap:.10,hold:10,adx:25,rs:70,dip:20,st:true,e200:true},US:{lim:1.5,ld:3,tp1:3,tp1f:.3,tp:8,sl:4,slCap:.08,hold:40,adx:20,rs:90,vol:2.5,dip:20,st:true,mkt:1,sec:true}},
                  edge:{TH:{lim:1,ld:1,tp:6,sl:3,slCap:.10,hold:10,adx:25,rs:70,dip:20,st:true},US:{lim:1.5,ld:3,tp:8,sl:4,slCap:.15,hold:40,adx:20,rs:80,vol:2.5,dip:20}}};
 // ผลทดสอบ: สัปดาห์ (5 ปี) ไทย TP1/SL3 ชนะ 71/75% · สหรัฐฯ TP0.8/SL3 ชนะ 80/82% แต่แพ้เฉลี่ย −20 ถึง −27%
 //          4 ชม. (ราคารายชั่วโมง 730 วัน) กติกาเดียวกับรายวัน: ไทยชนะ 80/77% (+0.62/+0.29%) · สหรัฐฯ 83/80% (+0.70/+0.52%)
@@ -95,7 +101,7 @@ const TF_LABEL={"15m":"15 นาที","1H":"1 ชม.","4H":"4 ชม.",D:"ว
 const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(RULES.preset!=="edge"&&S.tuned?.[m]?.rules||{}),...(tf==="D"&&RULES.preset!=="edge"&&S.lab?.adopt?.[m]?.rules||{}),...(tf!=="D"&&TF_RULES[tf]?.[m]||{}),...(tf!=="D"&&S.lab?.adopt?.[m+"@"+tf]?.rules||{})});
 // สวิตช์พักสัญญาณซื้อ (ตั้งเอง): on:true = ไม่ออกสัญญาณซื้อใหม่ของตลาดนั้น · ไม้ที่ซื้อไปแล้วยังติดตามต่อจนปิด · เปิดคืน = on:false
 // ระบบตรวจตัวเอง (calib.json → guard) พักเองได้ด้วยเมื่อผลจริงแย่กว่าผลทดสอบมาก และกลับมาเองเมื่อกติกาเปลี่ยน (SYS_VER หรือห้องทดลองรับรองแบบใหม่)
-const PAUSE={TH:{on:false},US:{on:true,since:"2026-11-16",why:"ผลจริงตั้งแต่ 28 ต.ค. 69 ปิดแล้ว 7 ไม้ โดนจุดตัดขาดทุนครบทั้ง 7 ไม้ ขาดทุนเฉลี่ย −15.2% ต่อไม้ (TEAM −18.5%, DT −20.7%, ZS −15.2%) เพราะจุดตัดขาดทุนห่างเกินไป (ยอมขาดทุนได้ถึง 15%) กำลังปรับจุดตัดขาดทุนใหม่"}};
+const PAUSE={TH:{on:false},US:{on:false,since:"2026-11-16",why:"ผลจริงตั้งแต่ 28 ต.ค. 69 ปิดแล้ว 7 ไม้ โดนจุดตัดขาดทุนครบทั้ง 7 ไม้ ขาดทุนเฉลี่ย −15.2% ต่อไม้ (TEAM −18.5%, DT −20.7%, ZS −15.2%) เพราะจุดตัดขาดทุนห่างเกินไป (ยอมขาดทุนได้ถึง 15%) กำลังปรับจุดตัดขาดทุนใหม่"}};
 // วันที่เปลี่ยนกติกาสัญญาณครั้งล่าสุดของแต่ละตลาด: ผลจริงนับใหม่ตั้งแต่วันนี้ (ใช้ตัดสินการพักอัตโนมัติ)
 const SYS_VER={TH:"2026-11-16",US:"2026-11-16"};
 const sysVer=m=>[SYS_VER[m],S.lab?.adopt?.[m]?.since||""].join("|");
@@ -272,11 +278,14 @@ function simulate(B,I,sig,from,to,m,P=RULES){
   return out;
 }
 // สร้างทิศทางตลาด: idx = {t,c} ของดัชนีจริง · list = [{sec,B}] หุ้นที่มีสภาพคล่อง → {d, mk, sec:{กลุ่ม:[1/0]}}
-function buildRegime(idx,list){if(!idx?.t?.length)return null;const c=idx.c,s50=sma(c,50),s200=sma(c,200),d=idx.t.map(String);
+// ดัชนีเฉลี่ยถ่วงเท่ากันของหุ้นที่มีสภาพคล่อง (ใช้เมื่อไม่มีดัชนีจริงรายวัน)
+function ewIndex(list){const by={};for(const {B} of list)for(let i=1;i<B.length;i++){const r=B[i].c/B[i-1].c-1;if(!isFinite(r)||Math.abs(r)>.5)continue;const o=by[B[i].t]??=[0,0];o[0]+=r;o[1]++}
+  const t=Object.keys(by).filter(k=>by[k][1]>=20).sort();let v=100;return{t,c:t.map(k=>+(v*=1+by[k][0]/by[k][1]).toFixed(3)),src:"ew"}}
+function buildRegime(idx,list){if(!idx?.t?.length||idx.t.length<250)idx=ewIndex(list);if(!idx?.t?.length)return null;const c=idx.c,s50=sma(c,50),s200=sma(c,200),d=idx.t.map(String);
   const mk=c.map((x,i)=>s200[i]==null||s50[i]==null?null:(x>s50[i]?1:0)+(x>s200[i]?1:0)),k=new Map(d.map((t,i)=>[t,i])),acc={};
   for(const {sec,B} of list){if(!sec)continue;const a=acc[sec]??=d.map(()=>[0,0]);for(let i=1;i<B.length;i++){const j=k.get(String(B[i].t));if(j==null)continue;const r=B[i].c/B[i-1].c-1;if(!isFinite(r)||Math.abs(r)>.5)continue;a[j][0]+=r;a[j][1]++}}
   const sec={};for(const [s,a] of Object.entries(acc)){let v=1;const ix=a.map(([r,n])=>n>=3?(v*=1+r/n):null);sec[s]=ix.map((x,i)=>i<20||x==null||ix[i-20]==null?null:x>=ix[i-20]?1:0)}
-  const n=c.length-1;return{d,mk,sec,now:{d:d[n],c:c[n],s50:s50[n]&&+s50[n].toFixed(2),s200:s200[n]&&+s200[n].toFixed(2)}}}
+  const n=c.length-1;return{d,mk,sec,src:idx.src||"",now:{d:d[n],c:c[n],s50:s50[n]&&+s50[n].toFixed(2),s200:s200[n]&&+s200[n].toFixed(2)}}}
 function stats(tr){const n=tr.length;if(!n)return{n:0};
   const w=tr.filter(t=>t.ret>0).length,p=w/n,z=1.96,den=1+z*z/n,cc=(p+z*z/(2*n))/den,hw=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/den;
   let gp=0,gl=0,eq=1,pk=1,dd=0,sr=0,hold=0;for(const t of tr){t.ret>0?gp+=t.ret:gl-=t.ret;eq*=1+t.ret;pk=Math.max(pk,eq);dd=Math.max(dd,1-eq/pk);sr+=t.R;hold+=t.x-t.i+1}
