@@ -10,7 +10,7 @@ function portSim(trades, idx, from, to, N = 10, cash0 = 100000) {
   const days = [...cal].sort().filter(d => it.length && d >= it[0]);
   if (days.length < 20) return null;
   const ixAt = (() => { let k = 0; return d => { while (k + 1 < it.length && it[k + 1] <= d) k++; return ic[k] } })();
-  let cash = cash0, open = [], k = 0, peak = cash0, dd = 0, taken = 0, skipped = 0;
+  let cash = cash0, open = [], k = 0, peak = cash0, dd = 0, taken = 0, skipped = 0, inv = 0;
   const px = (t, d) => { while (t.j + 1 <= t.x && String(t.B[t.j + 1].t).slice(0, 10) <= d) t.j++; return t.B[t.j].c };
   for (const d of days) {
     // ขายตัวที่ครบกำหนดก่อน (ได้เงินคืน) แล้วค่อยซื้อตัวใหม่วันเดียวกัน
@@ -23,12 +23,12 @@ function portSim(trades, idx, from, to, N = 10, cash0 = 100000) {
       cash -= amt; open.push({ ...t, amt, j: t.i }); taken++;
     }
     const eq = cash + open.reduce((s, o) => s + o.amt * px(o, d) / o.en, 0);
-    peak = Math.max(peak, eq); dd = Math.max(dd, 1 - eq / peak);
+    peak = Math.max(peak, eq); dd = Math.max(dd, 1 - eq / peak); inv += eq > 0 ? 1 - cash / eq : 0;
   }
   const end = cash + open.reduce((s, o) => s + o.amt * (1 + o.ret), 0), yrs = (Date.parse(days.at(-1)) - Date.parse(days[0])) / 3.156e10;
   const iv = days.map(ixAt); let ip = iv[0], idd = 0; for (const v of iv) { ip = Math.max(ip, v); idd = Math.max(idd, 1 - v / ip) }
   const iEnd = cash0 * iv.at(-1) / iv[0], cg = v => (Math.pow(v / cash0, 1 / Math.max(yrs, .1)) - 1) * 100;
-  return { from: days[0], to: days.at(-1), yrs: +yrs.toFixed(1), taken, skipped, end: Math.round(end), cagr: +cg(end).toFixed(1), dd: +(dd * 100).toFixed(1),
+  return { from: days[0], to: days.at(-1), yrs: +yrs.toFixed(1), taken, skipped, end: Math.round(end), cagr: +cg(end).toFixed(1), dd: +(dd * 100).toFixed(1), exp: Math.round(inv / days.length * 100),
     idx: { end: Math.round(iEnd), cagr: +cg(iEnd).toFixed(1), dd: +(idd * 100).toFixed(1) }, beat: end > iEnd };
 }
 module.exports = { portSim };

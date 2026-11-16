@@ -33,18 +33,21 @@ function run(m) {
   const test = r => { const P = { ...base, ...r }, b = [], t = [], all = [], blk = {};
     for (const x of prep) { if (m === "TH" && (x.st.mc || 0) < (P.mcMin || 5e9)) continue; const rsA = P.rs != null ? (x.rs[P.rs] ??= C.rsSeries(x.st, x.B, P.rs)) : null; const sig = i => C.sysTrig(x.A, x.I, i, P) && C.sigOK(x.I, i, rsA, P);
       for (const tr of C.simulate(x.B, x.I, sig, 0, x.B.length, m, P)) { const dd = String(x.B[tr.i].t).slice(0, 10); if (dd < FROM) continue; (dd < SPLIT ? b : t).push(tr.ret * 100); all.push({ ...tr, B: x.B }); (blk[dd.slice(0, 4)] ??= []).push(tr.ret * 100) } }
-    const pf = portSim(all, IDX[m], FROM, today), pt = portSim(all, IDX[m], SPLIT, today);
-    return { build: sm(b), test: sm(t), years: Object.fromEntries(Object.entries(blk).sort().map(([y, a]) => [y, [a.length, +(a.reduce((p, r) => p + r, 0) / a.length).toFixed(2)]])), pf, pt } };
+    const pf = portSim(all, IDX[m], FROM, today), pt = portSim(all, IDX[m], SPLIT, today), p2 = portSim(all, IDX[m], "2024-11-18", today);
+    return { build: sm(b), test: sm(t), p2, years: Object.fromEntries(Object.entries(blk).sort().map(([y, a]) => [y, [a.length, +(a.reduce((p, r) => p + r, 0) / a.length).toFixed(2)]])), pf, pt } };
+  const TH = { lim: 1, ld: 1, vol: 2.2, tp1: 2, tp1f: .5, tp: 6, sl: 3, slCap: .08, hold: 10, adx: 25, rs: 70, dip: 20, st: true, e200: true, mkt: 1 };
   const V = m === "US" ? [
     ["ปัจจุบัน", {}],
-    ["เพดาน 8%", { slCap: .08 }], ["เพดาน 10%", { slCap: .10 }], ["เพดาน 12%", { slCap: .12 }],
-    ["2 ATR ≤8%", { sl: 2, slCap: null, slMax: .08 }],
-    ["ตลาดไม่ลง", { mkt: 1 }], ["ตลาดขึ้นเท่านั้น", { mkt: 2 }], ["กลุ่มขึ้น", { sec: true }], ["ตลาดไม่ลง+กลุ่มขึ้น", { mkt: 1, sec: true }], ["ตลาดขึ้น+กลุ่มขึ้น", { mkt: 2, sec: true }],
-    ["เพดาน 8% + ตลาดไม่ลง", { slCap: .08, mkt: 1 }], ["เพดาน 8% + ตลาดขึ้น", { slCap: .08, mkt: 2 }], ["เพดาน 8% + กลุ่มขึ้น", { slCap: .08, sec: true }],
-    ["เพดาน 8% + ตลาดไม่ลง+กลุ่มขึ้น", { slCap: .08, mkt: 1, sec: true }], ["เพดาน 8% + ตลาดขึ้น+กลุ่มขึ้น", { slCap: .08, mkt: 2, sec: true }],
-    ["เพดาน 10% + ตลาดขึ้น", { slCap: .10, mkt: 2 }], ["เพดาน 10% + ตลาดไม่ลง+กลุ่มขึ้น", { slCap: .10, mkt: 1, sec: true }],
-    ["เพดาน 12% + ตลาดขึ้น", { slCap: .12, mkt: 2 }],
-    ["เพดาน 8% + ตลาดขึ้น hold20", { slCap: .08, mkt: 2, hold: 20 }], ["เพดาน 8% + ตลาดขึ้น tp1 2", { slCap: .08, mkt: 2, tp1: 2 }],
+    ["แบบไทยทั้งชุด", TH], ["แบบไทย + กลุ่มขึ้น", { ...TH, sec: true }], ["แบบไทย + ตลาดขึ้น", { ...TH, mkt: 2 }], ["แบบไทย rs90", { ...TH, rs: 90, vol: 2.5 }],
+    ["ถือ 10 วัน", { hold: 10 }], ["ถือ 20 วัน", { hold: 20 }],
+    ["TP1 2 ATR ขาย 50%", { tp1: 2, tp1f: .5 }], ["TP 6", { tp: 6 }],
+    ["เหนือ EMA200", { e200: true }], ["ตลาดขึ้นเท่านั้น", { mkt: 2 }],
+    ["ถือ 20 + TP1 2 ขาย 50% + TP 6", { hold: 20, tp1: 2, tp1f: .5, tp: 6 }],
+    ["ถือ 20 + TP1 2 ขาย 50% + TP 6 + EMA200", { hold: 20, tp1: 2, tp1f: .5, tp: 6, e200: true }],
+    ["ถือ 10 + TP1 2 ขาย 50% + TP 6 + EMA200", { hold: 10, tp1: 2, tp1f: .5, tp: 6, e200: true }],
+    ["ถือ 20 + TP1 2 ขาย 50% + TP 6 + EMA200 + ตลาดขึ้น", { hold: 20, tp1: 2, tp1f: .5, tp: 6, e200: true, mkt: 2 }],
+    ["ถือ 20 + EMA200 + ตลาดขึ้น", { hold: 20, e200: true, mkt: 2 }],
+    ["SL 3 ATR + ถือ 20 + TP1 2 ขาย 50% + TP 6 + EMA200", { sl: 3, hold: 20, tp1: 2, tp1f: .5, tp: 6, e200: true }],
   ] : [
     ["ปัจจุบัน", {}],
     ["2 ATR ≤8%", { sl: 2, slCap: null, slMax: .08 }], ["เพดาน 8%", { slCap: .08 }],
@@ -62,7 +65,9 @@ function run(m) {
   if (Q.rg) { const k = Q.rg.mk.length - 1; console.log(`ตลาดวันนี้ mk=${Q.rg.mk[k]} · กลุ่มขึ้น ${Object.entries(Q.rg.sec).filter(([, a]) => a[k] === 1).map(([s]) => s).join(",")} · กลุ่มลง ${Object.entries(Q.rg.sec).filter(([, a]) => a[k] === 0).map(([s]) => s).join(",")}`) }
   console.log("แบบ | สร้าง n/ชนะ/เฉลี่ย/ชนะเฉลี่ย/แพ้เฉลี่ย | ทดสอบ n/ชนะ/เฉลี่ย/ชนะเฉลี่ย/แพ้เฉลี่ย/แย่สุด | ได้ซื้อ% | พอร์ต10ปี ปลาย/ต่อปี/ร่วงสุด vs ดัชนี | พอร์ต3ปี vs ดัชนี | รายปี");
   for (const [name, r] of V) {
-    const R = test(r), f = R.pf, p = R.pt, fill = r.mkt || r.sec ? sig0b : sig0;
+    const R = test(r), f = R.pf, p = R.pt, q = R.p2, fill = r.mkt || r.sec ? sig0b : sig0;
+    const P = x => x ? `${x.end}/${x.cagr}%/−${x.dd}%/ลงทุน${x.exp}% vs ${x.idx.cagr}%/−${x.idx.dd}%` : "-";
+    console.log(`  พอร์ต: 10ปี ${P(f)} · 3ปี ${P(p)} · 2ปี ${P(q)}`);
     console.log(`${name} | ${R.build.n}/${R.build.win}%/${R.build.avg}/${R.build.aw}/${R.build.al} | ${R.test.n}/${R.test.win}%/${R.test.avg}/${R.test.aw}/${R.test.al}/${R.test.worst} | ${fill ? (R.test.n / fill * 100).toFixed(0) : "-"}% | ${f ? `${f.end}/${f.cagr}%/−${f.dd}% vs ${f.idx.end}/${f.idx.cagr}%/−${f.idx.dd}%` : "-"} | ${p ? `${p.end}/${p.cagr}%/−${p.dd}% vs ${p.idx.end}/${p.idx.cagr}%/−${p.idx.dd}%` : "-"} | ${Object.entries(R.years).map(([y, [n, a]]) => `${y}:${n}/${a}`).join(" ")}`);
   }
 }
