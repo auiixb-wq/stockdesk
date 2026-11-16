@@ -211,6 +211,7 @@ function finChecks(R){const st=R.st,F=S.fin[st.s],fs=R.f?.fs,out=[],fl=flagOf(st
   if(fl?.ps)out.push({lv:"warn",cat:"ข้อมูล",t:`ตัวเลขต่อหุ้นไม่สอดคล้องกัน (${fl.ps}) จึงซ่อน P/E กำไรต่อหุ้น และมูลค่าเหมาะสม แทนการโชว์ตัวเลขที่อาจผิด`});
   if(fl?.unit)out.push({lv:"bad",cat:"ข้อมูล",t:`หน่วยเงินในงบน่าจะผิด (${fl.unit}) ระบบไม่นำงบนี้มาคิด`});
   if(fl?.ni)out.push({lv:"warn",cat:"คุณภาพกำไร",t:"กำไรสุทธิไตรมาสล่าสุดสูงกว่ารายได้หลายเท่า มักมาจากรายการพิเศษ (เช่นตีมูลค่าสินทรัพย์ หรือกำไรจากการขาย) ไม่ใช่ธุรกิจหลัก"});
+  if(F?.srcNote)out.push({lv:"warn",cat:"ข้อมูล",t:`${esc(F.srcNote)} — ตรวจกับงบต้นฉบับของบริษัทอีกครั้งก่อนตัดสินใจ`});
   if(!F||!fs)return out;const q=F.q||{d:[]},n=q.d.length;
   if(n){const age=(Date.now()-Date.parse(q.d[n-1]))/864e5;if(age>135)out.push({lv:"warn",cat:"ข้อมูล",t:`งบล่าสุดในระบบคือ ${qLab(q.d[n-1])} (สิ้นงวด ${Math.round(age)} วันก่อน) บริษัทอาจประกาศงบใหม่แล้วแต่แหล่งข้อมูลยังไม่อัปเดต`});
     for(let i=1;i<n;i++){if((Date.parse(q.d[i])-Date.parse(q.d[i-1]))/864e5>100){out.push({lv:"warn",cat:"ข้อมูล",t:`ข้อมูลรายไตรมาสขาดช่วงระหว่าง ${qLab(q.d[i-1])} ถึง ${qLab(q.d[i])}`});break}}

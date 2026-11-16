@@ -11,8 +11,8 @@ MAP = {
     "rev": ["revenue"], "gp": ["gp"], "op": ["opinc"], "ni": ["netinccmn", "netinc"], "eps": ["epsdil", "eps"], "ebitda": ["ebitda"],
     "int": ["intexp", "interestexpense"], "pre": ["pretax", "ebt"],
     "ta": ["assets", "totalassets"], "tl": ["liabilities", "totalliabilities"], "eq": ["equity", "shareholdersequity", "totalequity"],
-    "cash": ["cashneq", "cash", "cashequivalents"], "debt": ["debt", "totaldebt"], "ca": ["assetsc", "currentassets"], "cl": ["liabilitiesc", "currentliabilities"],
-    "ar": ["receivables", "accountsreceivable"], "inv": ["inventory"],
+    "cash": ["cashneq", "cash", "cashequivalents"], "debt": ["debt", "totaldebt"], "ca": ["assetsc", "currentassets"], "cl": ["currentLiabilities", "liabilitiesc"],
+    "ar": ["receivables", "accountsReceivable"], "inv": ["inventory"],
     "ocf": ["ncfo", "operatingcashflow"], "capex": ["capex"], "fcf": ["fcf", "freecashflow"],
 }
 

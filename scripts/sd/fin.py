@@ -142,6 +142,62 @@ def fix_shares(uni):
     return fixed
 
 
+def alt_fin(uni, limit=25):
+    """หุ้นไทยที่งบไตรมาสล่าสุดเก่ากว่า 135 วัน (ควรประกาศไตรมาสใหม่แล้ว) → ลองงบสำรองจาก stockanalysis.com
+    ใช้เมื่อ ได้ไตรมาสใหม่กว่าจริง · เป็นงบรายไตรมาส (ห่างกันราว 3 เดือน) · และไตรมาสที่ซ้อนกันรายได้ตรงกับงบเดิม (ห่างไม่เกิน 15%)
+    หรือ งบเดิมถูกตรวจพบว่าผิดปกติ (finaudit) · แปลงเป็นสกุลเงินที่หุ้นซื้อขายด้วยอัตราแลกเปลี่ยนจริง"""
+    from . import fin_alt
+    d0, done, why = os.path.join(DATA, "hist", "fin"), [], []
+    today = NOW.date()
+    for u in uni.get("items", []):
+        if u.get("m") != "TH" or len(done) + len(why) >= limit:
+            continue
+        f = os.path.join(d0, u["s"] + ".json")
+        try:
+            j = json.load(open(f))
+        except Exception:
+            continue
+        qd = (j.get("q") or {}).get("d") or []
+        if not qd or (today - dt.date.fromisoformat(qd[-1][:10])).days <= 135:
+            continue
+        if j.get("altTry") == today.isoformat():
+            continue
+        j["altTry"] = today.isoformat()
+        r = fin_alt.fetch(u)
+        if not r or not r.get("rev") or r["d"][-1] <= qd[-1][:10]:
+            why.append(f"{u['s']}: ไม่มีไตรมาสใหม่")
+            json.dump(j, open(f, "w"), separators=(",", ":"))
+            continue
+        gaps = [(dt.date.fromisoformat(b) - dt.date.fromisoformat(a)).days for a, b in zip(r["d"][-5:], r["d"][-4:])]
+        if any(g > 100 for g in gaps):
+            why.append(f"{u['s']}: ไม่ใช่งบรายไตรมาส")
+            json.dump(j, open(f, "w"), separators=(",", ":"))
+            continue
+        fc, pc = u.get("fcur") or "THB", u.get("cur") or "THB"
+        rate = 1 if fc == pc else fx_rate(fc, pc)
+        if not rate:
+            why.append(f"{u['s']}: ไม่รู้อัตราแลกเปลี่ยน {fc}")
+            continue
+        q = {"d": r["d"], **{k: [None if x is None else num(x * rate, 4) for x in v] for k, v in r.items() if k != "d"}}
+        old = j.get("q") or {}
+        ov = [(q["rev"][q["d"].index(d[:10])], old["rev"][k]) for k, d in enumerate(old.get("d", [])) if d[:10] in q["d"] and k < len(old.get("rev", [])) and old["rev"][k] and q["rev"][q["d"].index(d[:10])]]
+        match = [abs(a / b - 1) <= .15 for a, b in ov]
+        bad_old = any(c in ("eps", "pe", "ps", "sum", "ni") for c, _ in finaudit.check(u["s"], j, u, today))
+        if ov and not all(match) and not bad_old:
+            why.append(f"{u['s']}: รายได้ไตรมาสที่ซ้อนกันไม่ตรงกับงบเดิม")
+            json.dump(j, open(f, "w"), separators=(",", ":"))
+            continue
+        j.update({"v": 2, "q": q, "src": "stockanalysis", "srcUrl": fin_alt.url_of(u), "at": today.isoformat(), "fx": rate, "fcur": fc, "cur": pc,
+                  "srcNote": "งบรายไตรมาสจาก stockanalysis.com (Yahoo ยังไม่อัปเดต)" + ("" if not ov else " · ตรงกับงบเดิม" if all(match) else " · งบเดิมจาก Yahoo ผิดปกติ จึงใช้แหล่งนี้แทน")})
+        j.pop("suspect", None)
+        json.dump(j, open(f, "w"), separators=(",", ":"))
+        done.append(f"{u['s']} → {q['d'][-1]}")
+    if done:
+        open(os.path.join(DATA, ".hist_new"), "w").close()
+    print("alt fin:", done, why[:10])
+    return done
+
+
 def fetch_fin(uni):
     d0 = os.path.join(DATA, "hist", "fin")
     os.makedirs(d0, exist_ok=True)
@@ -198,7 +254,14 @@ def fetch_fin(uni):
                             if k != "d":
                                 tb[k] = [None if x is None else num(x / r, 4) for x in v]
                     extra = {"fx": 1, "fcur": pc, "cur": pc, "fxraw": fc}
-            with open(os.path.join(d0, i["s"] + ".json"), "w") as f:
+            fp = os.path.join(d0, i["s"] + ".json")
+            try:  # งบสำรองที่ใหม่กว่า (stockanalysis) อย่าทับด้วยงบ Yahoo ที่ยังค้าง
+                prev = json.load(open(fp))
+                if prev.get("src") == "stockanalysis" and (prev.get("q", {}).get("d") or [""])[-1] >= (q.get("d") or [""])[-1]:
+                    continue
+            except Exception:
+                pass
+            with open(fp, "w") as f:
                 json.dump({"v": 2, "at": NOW.strftime("%Y-%m-%d"), "q": q, "a": a, **extra}, f, separators=(",", ":"))
             ok += 1
             time.sleep(0.15)
