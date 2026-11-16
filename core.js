@@ -121,7 +121,15 @@ const tpOf=(lp,at,P)=>P.tpP?lp*(1+P.tpP):lp+P.tp*at;
 const e200OK=(I,i)=>I.e200[i]!=null&&I.c[i]>I.e200[i]&&I.e50[i]>I.e200[i];
 // มูลค่าซื้อขายเฉลี่ย 20 วัน (ล้านบาท/ดอลลาร์) ต้องถึงเกณฑ์ เพื่อให้ซื้อขายได้จริงที่ราคาตั้ง
 const tvOK=(I,i,m)=>{if(!I._tv){const t=I.c.map((c,k)=>(c||0)*(I.v[k]||0)),o=Array(t.length).fill(null);let s=0;for(let k=0;k<t.length;k++){s+=t[k];if(k>=20)s-=t[k-20];if(k>=19)o[k]=s/20}I._tv=o}return (I._tv[i]??0)>=m*1e6};
-const sigOK=(I,i,rsA,P)=>(!P.tv||tvOK(I,i,P.tv))&&(P.wk===false||I.wk[i]>=0)&&rsPass(rsA,i)&&(P.adx==null||(I.adx[i]??0)>P.adx)&&volOK(I,i,P)&&(!P.st||I.sd[i]===1)&&(!P.e200||e200OK(I,i))&&(P.r2max==null||(r2Of(I)[i]??99)<P.r2max);
+// ทิศทางตลาด (rsq[m].rg สร้างจาก ดัชนี SET / S&P 500 จริง): mk 2 = ขาขึ้น (เหนือเส้นเฉลี่ย 50 และ 200 วัน) · 1 = ทรงตัว · 0 = ขาลง (ต่ำกว่าทั้งสองเส้น)
+// sk 1 = กลุ่มอุตสาหกรรมของหุ้นตัวนั้นขึ้นใน 20 วัน (ค่าเฉลี่ยหุ้นในกลุ่ม) · 0 = กลุ่มลง · กรอบชั่วโมงใช้ค่าของวันทำการก่อนหน้า (ไม่แอบดูวันนี้)
+function regAttach(st,B,I,prev){const Q=S.rsq?.[st.m]?.rg;I.mk=null;I.sk=null;if(!Q?.d?.length)return;S._rgIdx??={};const idx=S._rgIdx[st.m]??=new Map(Q.d.map((d,i)=>[d,i])),last=Q.d.length-1,sec=Q.sec?.[st.sec];
+  const at=t=>{const d=String(t).slice(0,10);let k=idx.get(d);if(k==null){if(d>Q.d[last])k=last;else return null}else if(prev)k--;return k>=0?k:null};
+  I.mk=B.map(b=>{const k=at(b.t);return k==null?null:Q.mk[k]});I.sk=sec?B.map(b=>{const k=at(b.t);return k==null?null:sec[k]}):null}
+const regOK=(I,i,P)=>(!P.mkt||I.mk?.[i]==null||I.mk[i]>=P.mkt)&&(!P.sec||I.sk?.[i]==null||I.sk[i]>0);
+// ไม่ออกสัญญาณถ้าจุดตัดขาดทุน (sl × ATR จากราคาตั้งซื้อ) ห่างเกิน slMax = หุ้นแกว่งแรงเกินกว่าจะคุมความเสี่ยงได้
+const riskOK=(I,i,P)=>{if(!P.slMax)return true;const a=I.atr[i]||0,lp=I.c[i]-(P.lim||0)*a;return lp>0&&P.sl*a/lp<=P.slMax};
+const sigOK=(I,i,rsA,P)=>regOK(I,i,P)&&riskOK(I,i,P)&&(!P.tv||tvOK(I,i,P.tv))&&(P.wk===false||I.wk[i]>=0)&&rsPass(rsA,i)&&(P.adx==null||(I.adx[i]??0)>P.adx)&&volOK(I,i,P)&&(!P.st||I.sd[i]===1)&&(!P.e200||e200OK(I,i))&&(P.r2max==null||(r2Of(I)[i]??99)<P.r2max);
 
 /* ---------- state ---------- */
 const S={hist:{},fin:{},universe:[],summary:{},news:[],factors:[],meta:null,px:{},fa:{},watch:[],uid:null,db:null,dbState:"loading",mkt:"ALL",sort:"score",scr:"all",nf:"all",sec:null,cache:new Map(),bars:new Map(),charts:[],marks:true};
@@ -256,6 +264,12 @@ function simulate(B,I,sig,from,to,m,P=RULES){
   }
   return out;
 }
+// สร้างทิศทางตลาด: idx = {t,c} ของดัชนีจริง · list = [{sec,B}] หุ้นที่มีสภาพคล่อง → {d, mk, sec:{กลุ่ม:[1/0]}}
+function buildRegime(idx,list){if(!idx?.t?.length)return null;const c=idx.c,s50=sma(c,50),s200=sma(c,200),d=idx.t.map(String);
+  const mk=c.map((x,i)=>s200[i]==null||s50[i]==null?null:(x>s50[i]?1:0)+(x>s200[i]?1:0)),k=new Map(d.map((t,i)=>[t,i])),acc={};
+  for(const {sec,B} of list){if(!sec)continue;const a=acc[sec]??=d.map(()=>[0,0]);for(let i=1;i<B.length;i++){const j=k.get(String(B[i].t));if(j==null)continue;const r=B[i].c/B[i-1].c-1;if(!isFinite(r)||Math.abs(r)>.5)continue;a[j][0]+=r;a[j][1]++}}
+  const sec={};for(const [s,a] of Object.entries(acc)){let v=1;const ix=a.map(([r,n])=>n>=3?(v*=1+r/n):null);sec[s]=ix.map((x,i)=>i<20||x==null||ix[i-20]==null?null:x>=ix[i-20]?1:0)}
+  return{d,mk,sec}}
 function stats(tr){const n=tr.length;if(!n)return{n:0};
   const w=tr.filter(t=>t.ret>0).length,p=w/n,z=1.96,den=1+z*z/n,cc=(p+z*z/(2*n))/den,hw=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/den;
   let gp=0,gl=0,eq=1,pk=1,dd=0,sr=0,hold=0;for(const t of tr){t.ret>0?gp+=t.ret:gl-=t.ret;eq*=1+t.ret;pk=Math.max(pk,eq);dd=Math.max(dd,1-eq/pk);sr+=t.R;hold+=t.x-t.i+1}
@@ -289,7 +303,7 @@ function tfBars(st,tf){if(tf==="D")return barsOf(st);if(tf==="W")return resample
   const B=[...m.values()].sort((x,y)=>x.t<y.t?-1:1);return tf==="4H"?resample(B,"4H"):B}
 function analyzeTF(st,tf){if(tf==="D")return analyze(st);const B=tfBars(st,tf);if(!B||B.length<80)return null;
   const key=[st.s,tf,B.length,B.at(-1).t,B.at(-1).c,JSON.stringify(RULES),S.rsq?.TH?.d?.length||0].join("|"),ck=st.s+"@"+tf,hit=S.cache.get(ck);if(hit&&hit.key===key)return hit;
-  const I=indicators(B),n=B.length-1,split=Math.floor(B.length*RULES.split),RP=rulesFor(st.m,tf);
+  const I=indicators(B),n=B.length-1,split=Math.floor(B.length*RULES.split),RP=rulesFor(st.m,tf);regAttach(st,B,I,true);
   const V=I.c.map((_,i)=>i<1?VOTES.map(()=>null):VOTES.map(v=>{const r=v.f(I,i,false);return r?r.v:null}));
   const w=VOTES.map(v=>v.w),arr=V.map(row=>{let s=0,ws=0;row.forEach((x,k)=>{if(x!=null){s+=w[k]*x;ws+=w[k]*2}});return ws?s/ws*100:0});
   const rsA=RP.rs!=null?rsTF(st,B,RP.rs):null,sig=i=>sysTrig(arr,I,i,RP)&&sigOK(I,i,rsA,RP);
@@ -464,7 +478,7 @@ function analyze(st){
   const co=lsGet("cost")||{};
   const key=[st.s,S.px[st.s]?.at||"s",S.prices?.[st.s]?.t?.length||0,S.quotes?.updated||0,JSON.stringify(RULES),S.fa[st.s]?.at||"s",S.news.length,S.factors.length,S.meta?.updatedAt||"",S.rsq?.TH?.d?.length||0,co.TH,co.US,Object.keys(S.px).length].join("|");
   const hit=S.cache.get(st.s);if(hit&&hit.key===key)return hit;
-  const B=barsOf(st),I=indicators(B),n=B.length-1,split=Math.floor(B.length*RULES.split);
+  const B=barsOf(st),I=indicators(B),n=B.length-1,split=Math.floor(B.length*RULES.split);regAttach(st,B,I);
   const V=I.c.map((_,i)=>i<1?VOTES.map(()=>null):VOTES.map(v=>{const r=v.f(I,i,false);return r?r.v:null}));
   const RP0=rulesFor(st.m),per=STRATS.map(s=>({...s,is:stats(simulate(B,I,i=>s.f(I,i),0,split,st.m,RP0)),oos:stats(simulate(B,I,i=>s.f(I,i),split,B.length,st.m,RP0))}));
   const wStd=VOTES.map(v=>v.w);

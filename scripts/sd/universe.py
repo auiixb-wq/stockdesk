@@ -265,6 +265,35 @@ def fetch_hist(uni):
                     pass
         time.sleep(1)
     fill_hist_th(uni, d0)
+    index_hist(d0)
+
+
+def index_hist(d0, period="10y"):
+    """ดัชนีจริงย้อนหลัง (SET / S&P 500) → hist/_idx.json ใช้ดูทิศทางตลาดก่อนให้สัญญาณซื้อ และเทียบผลกลยุทธ์กับการซื้อดัชนีถือไว้"""
+    f = os.path.join(d0, "_idx.json")
+    old = load_json(f)
+    out = {}
+    for m, y in (("TH", "^SET.BK"), ("US", "^GSPC")):
+        try:
+            d = yf.Ticker(y).history(period=period, interval="1d", auto_adjust=False)["Close"].dropna()
+            if len(d) < 250:
+                raise ValueError(f"{len(d)} วัน")
+            out[m] = {"t": [i.strftime("%Y-%m-%d") for i in d.index], "c": [round(float(x), 2) for x in d]}
+        except Exception as e:
+            ERRORS.append(f"index {y}: {str(e)[:80]}")
+            if old.get(m):
+                out[m] = old[m]
+    if out:
+        with open(f, "w") as fh:
+            json.dump(out, fh, separators=(",", ":"))
+
+
+def load_json(f):
+    try:
+        with open(f) as fh:
+            return json.load(fh)
+    except Exception:
+        return {}
 
 
 def fill_hist_th(uni, d0):
