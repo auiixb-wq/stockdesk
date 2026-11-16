@@ -96,6 +96,24 @@ def report():
         add("finaudit", "งบการเงินสอดคล้องกับราคาและจำนวนหุ้น", len(aud) <= n_aud * .03,
             f"ตรวจ {n_aud} หุ้น · ผิดปกติ {len(aud)}" + "".join(f" · {finaudit.LABEL.get(c, c)} {len(v)} ({', '.join(v[:5])})" for c, v in sorted(by.items(), key=lambda x: -len(x[1]))), warn=True)
         save("fin_audit.json", {"updated": int(now), "n": n_aud, "issues": aud})
+        # ป้ายต่อหุ้นให้หน้าเว็บ: ตัวเลขที่ผิดแล้วแก้ไม่ได้ให้ซ่อนแทนที่จะโชว์ตัวเลขผิด
+        #   ps = ตัวเลขต่อหุ้นไม่สอดคล้อง (EPS × จำนวนหุ้น ≠ กำไร หรือ P/E สองแหล่งต่างกันเกิน 1.6 เท่า) → ซ่อน P/E และมูลค่าเหมาะสม
+        #   unit = หน่วยเงินผิด → ไม่ใช้งบนี้ · stale = วันที่งบล่าสุด (เก่าเกิน 200 วัน) · ni = กำไรเกินรายได้หลายเท่า (มักมาจากรายการพิเศษ)
+        flags = {}
+        for k2, ps in aud.items():
+            for c, t in ps:
+                g = flags.setdefault(k2, {})
+                if c == "eps":
+                    g["ps"] = t
+                elif c in finaudit.UNIT_BAD:
+                    g["unit"] = t
+                elif c == "stale":
+                    g["stale"] = t.split()[1] if len(t.split()) > 1 else t
+                elif c == "ni":
+                    g["ni"] = t
+        for sym, our, yh in (load("quality.json", {}).get("data", {}).get("peAll") or []):
+            flags.setdefault(sym, {}).setdefault("ps", f"P/E ที่คำนวณจากงบ ({our}) ต่างจาก P/E ของ Yahoo ({yh}) เกิน 1.6 เท่า")
+        save("fin_flags.json", {"updated": int(now), "f": flags})
         nfin = len([f for f in os.listdir(fin_dir) if f.endswith(".json")])
         add("fin", "งบการเงิน", nfin >= len(uni) * .5, f"มีงบ {nfin} จาก {len(uni)} หุ้น", warn=True)
 

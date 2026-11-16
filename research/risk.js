@@ -37,35 +37,27 @@ function run(m) {
     return { build: sm(b), test: sm(t), years: Object.fromEntries(Object.entries(blk).sort().map(([y, a]) => [y, [a.length, +(a.reduce((p, r) => p + r, 0) / a.length).toFixed(2)]])), pf, pt } };
   const V = m === "US" ? [
     ["ปัจจุบัน", {}],
-    ["เพดาน 8%", { slCap: .08 }],
+    ["เพดาน 8%", { slCap: .08 }], ["เพดาน 10%", { slCap: .10 }], ["เพดาน 12%", { slCap: .12 }],
     ["2 ATR ≤8%", { sl: 2, slCap: null, slMax: .08 }],
-    ["2.5 ATR ≤8%", { sl: 2.5, slCap: null, slMax: .08 }],
-    ["3 ATR ≤8%", { sl: 3, slCap: null, slMax: .08 }],
-    ["2 ATR ≤10%", { sl: 2, slCap: null, slMax: .10 }],
-    ["ตลาดไม่ลง", { mkt: 1 }], ["ตลาดขึ้นเท่านั้น", { mkt: 2 }], ["กลุ่มขึ้น", { sec: true }], ["ตลาดไม่ลง+กลุ่มขึ้น", { mkt: 1, sec: true }],
-    ["2 ATR ≤8% + ตลาดไม่ลง", { sl: 2, slCap: null, slMax: .08, mkt: 1 }],
-    ["2 ATR ≤8% + กลุ่มขึ้น", { sl: 2, slCap: null, slMax: .08, sec: true }],
-    ["2 ATR ≤8% + ตลาดไม่ลง+กลุ่มขึ้น", { sl: 2, slCap: null, slMax: .08, mkt: 1, sec: true }],
-    ["2.5 ATR ≤8% + ตลาดไม่ลง+กลุ่มขึ้น", { sl: 2.5, slCap: null, slMax: .08, mkt: 1, sec: true }],
-    ["2 ATR ≤8% + ตลาดขึ้น+กลุ่มขึ้น", { sl: 2, slCap: null, slMax: .08, mkt: 2, sec: true }],
-    ["2 ATR ≤8% + ตลาดไม่ลง+กลุ่มขึ้น tp6", { sl: 2, slCap: null, slMax: .08, mkt: 1, sec: true, tp: 6 }],
-    ["2 ATR ≤8% + ตลาดไม่ลง+กลุ่มขึ้น hold20", { sl: 2, slCap: null, slMax: .08, mkt: 1, sec: true, hold: 20 }],
+    ["ตลาดไม่ลง", { mkt: 1 }], ["ตลาดขึ้นเท่านั้น", { mkt: 2 }], ["กลุ่มขึ้น", { sec: true }], ["ตลาดไม่ลง+กลุ่มขึ้น", { mkt: 1, sec: true }], ["ตลาดขึ้น+กลุ่มขึ้น", { mkt: 2, sec: true }],
+    ["เพดาน 8% + ตลาดไม่ลง", { slCap: .08, mkt: 1 }], ["เพดาน 8% + ตลาดขึ้น", { slCap: .08, mkt: 2 }], ["เพดาน 8% + กลุ่มขึ้น", { slCap: .08, sec: true }],
+    ["เพดาน 8% + ตลาดไม่ลง+กลุ่มขึ้น", { slCap: .08, mkt: 1, sec: true }], ["เพดาน 8% + ตลาดขึ้น+กลุ่มขึ้น", { slCap: .08, mkt: 2, sec: true }],
+    ["เพดาน 10% + ตลาดขึ้น", { slCap: .10, mkt: 2 }], ["เพดาน 10% + ตลาดไม่ลง+กลุ่มขึ้น", { slCap: .10, mkt: 1, sec: true }],
+    ["เพดาน 12% + ตลาดขึ้น", { slCap: .12, mkt: 2 }],
+    ["เพดาน 8% + ตลาดขึ้น hold20", { slCap: .08, mkt: 2, hold: 20 }], ["เพดาน 8% + ตลาดขึ้น tp1 2", { slCap: .08, mkt: 2, tp1: 2 }],
   ] : [
     ["ปัจจุบัน", {}],
-    ["2 ATR ≤8%", { sl: 2, slCap: null, slMax: .08 }],
-    ["2.5 ATR ≤8%", { sl: 2.5, slCap: null, slMax: .08 }],
-    ["3 ATR ≤8%", { sl: 3, slCap: null, slMax: .08 }],
-    ["ตลาดไม่ลง", { mkt: 1 }], ["ตลาดขึ้นเท่านั้น", { mkt: 2 }], ["กลุ่มขึ้น", { sec: true }], ["ตลาดไม่ลง+กลุ่มขึ้น", { mkt: 1, sec: true }],
-    ...[1, .75, .5, .25, 0].map(l => [`ตั้งซื้อ −${l} ATR`, { lim: l }]),
-    ...[1, .75, .5].map(l => [`ตั้งซื้อ −${l} ATR ค้าง 2 วัน`, { lim: l, ld: 2 }]),
-    ["3 ATR ≤8% + ตลาดไม่ลง+กลุ่มขึ้น", { sl: 3, slCap: null, slMax: .08, mkt: 1, sec: true }],
-    ["2 ATR ≤8% + ตลาดไม่ลง+กลุ่มขึ้น", { sl: 2, slCap: null, slMax: .08, mkt: 1, sec: true }],
-    ["ตลาดไม่ลง+กลุ่มขึ้น −0.75 ATR", { mkt: 1, sec: true, lim: .75 }],
-    ["ตลาดไม่ลง+กลุ่มขึ้น −0.5 ATR", { mkt: 1, sec: true, lim: .5 }],
-    ["ตลาดไม่ลง+กลุ่มขึ้น −0.75 ATR ค้าง 2", { mkt: 1, sec: true, lim: .75, ld: 2 }],
-    ["3 ATR ≤8% + ตลาดไม่ลง+กลุ่มขึ้น −0.75 ATR", { sl: 3, slCap: null, slMax: .08, mkt: 1, sec: true, lim: .75 }],
+    ["2 ATR ≤8%", { sl: 2, slCap: null, slMax: .08 }], ["เพดาน 8%", { slCap: .08 }],
+    ["ตลาดไม่ลง", { mkt: 1 }], ["ตลาดขึ้นเท่านั้น", { mkt: 2 }], ["กลุ่มขึ้น", { sec: true }], ["ตลาดไม่ลง+กลุ่มขึ้น", { mkt: 1, sec: true }], ["ตลาดขึ้น+กลุ่มขึ้น", { mkt: 2, sec: true }],
+    ...[1, .75, .5].map(l => [`ตั้งซื้อ −${l} ATR`, { lim: l }]),
+    ["ตั้งซื้อ −1 ATR ค้าง 2 วัน", { lim: 1, ld: 2 }],
+    ["ตั้งซื้อ −1 ATR + ตลาดไม่ลง", { lim: 1, mkt: 1 }], ["ตั้งซื้อ −1 ATR + ตลาดขึ้น", { lim: 1, mkt: 2 }], ["ตั้งซื้อ −1 ATR + กลุ่มขึ้น", { lim: 1, sec: true }],
+    ["ตั้งซื้อ −1 ATR + ตลาดไม่ลง+กลุ่มขึ้น", { lim: 1, mkt: 1, sec: true }], ["ตั้งซื้อ −0.75 ATR + ตลาดไม่ลง+กลุ่มขึ้น", { lim: .75, mkt: 1, sec: true }],
+    ["ตั้งซื้อ −0.75 ATR + ตลาดขึ้น", { lim: .75, mkt: 2 }], ["ตั้งซื้อ −1 ATR ค้าง 2 + ตลาดไม่ลง", { lim: 1, ld: 2, mkt: 1 }],
+    ["เพดาน 8% + ตั้งซื้อ −1 ATR", { slCap: .08, lim: 1 }], ["เพดาน 8% + ตั้งซื้อ −1 ATR + ตลาดไม่ลง", { slCap: .08, lim: 1, mkt: 1 }],
   ];
   const sig0 = test({ lim: 0 }).test.n, sig0b = test({ lim: 0, mkt: 1, sec: true }).test.n;
+  { const t = IDX[m]?.t || [], g = t.slice(1).map((d, i) => (Date.parse(d) - Date.parse(t[i])) / 864e5).sort((a, b) => a - b); console.log(`ดัชนี ${m}: ${IDX[m]?.src || "-"} · ${t[0]} → ${t.at(-1)} · ${t.length} จุด · ห่างกันปกติ ${g[g.length >> 1] || "-"} วัน`) }
   console.log(`\n===== ${m} · หุ้น ${prep.length} ตัว · ช่วงสร้าง ${FROM}→${SPLIT} · ช่วงทดสอบ ${SPLIT}→${today} · ดัชนี ${IDX[m]?.t?.length || 0} วัน · ทิศทางตลาด ${Q.rg ? "มี" : "ไม่มี"}`);
   if (Q.rg) { const k = Q.rg.mk.length - 1; console.log(`ตลาดวันนี้ mk=${Q.rg.mk[k]} · กลุ่มขึ้น ${Object.entries(Q.rg.sec).filter(([, a]) => a[k] === 1).map(([s]) => s).join(",")} · กลุ่มลง ${Object.entries(Q.rg.sec).filter(([, a]) => a[k] === 0).map(([s]) => s).join(",")}`) }
   console.log("แบบ | สร้าง n/ชนะ/เฉลี่ย/ชนะเฉลี่ย/แพ้เฉลี่ย | ทดสอบ n/ชนะ/เฉลี่ย/ชนะเฉลี่ย/แพ้เฉลี่ย/แย่สุด | ได้ซื้อ% | พอร์ต10ปี ปลาย/ต่อปี/ร่วงสุด vs ดัชนี | พอร์ต3ปี vs ดัชนี | รายปี");

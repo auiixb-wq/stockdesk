@@ -714,3 +714,13 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 .qstrip:hover{background:rgba(127,127,127,.24)}.qstrip .qs-h{font-weight:700;letter-spacing:.02em}.qstrip .qs-go,.qstrip .muted{margin-left:0;color:inherit;opacity:.75}.qstrip .qs-go{margin-left:auto}.qstrip .warn{color:#f5b041}.qstrip .down{color:#ff8a80}
 .qtag{display:inline-block;font-size:11px;padding:1px 6px;border-radius:999px;margin-left:4px;vertical-align:middle;white-space:nowrap}.qtag.ok{background:var(--up-bg);color:var(--up)}.qtag.w{background:var(--warn-bg);color:var(--warn)}
 .ern-i{border-top:1px solid var(--line,#e5e5e5);padding:8px 0}.ern-i summary{cursor:pointer;list-style:none}.ern-i summary::-webkit-details-marker{display:none}.ern-h{font-size:13.5px;margin-top:2px}
+
+/* ทิศทางตลาด + พักสัญญาณ */
+.rg-box{font-size:13.5px;line-height:1.55;padding:8px 10px;border-radius:10px;background:var(--surface-2);margin:6px 0}
+.guard-box{font-size:13.5px;line-height:1.55;padding:9px 11px;border-radius:10px;border:1px solid var(--warn);background:var(--warn-bg);margin:6px 0}
+.of-hint{display:none;font-size:12.5px;margin:0 0 6px}
+@media (max-width:700px){.of-hint{display:block}.of-stage{overflow-x:auto;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}.of-stage canvas{width:640px;max-width:none}}
+/* แถบบนจอคอมพิวเตอร์: เมนูเยอะจนล้นจอ 1280px → ให้เมนูหดและเลื่อนได้ ไม่ดันปุ่มภาษา/โหมดสีออกนอกจอ */
+.tabs{min-width:0;overflow-x:auto;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+@media (min-width:821px) and (max-width:1320px){.tab{padding:7px 9px}.tabs{gap:2px;margin-left:4px}.search{flex-basis:190px}.top-in{gap:8px}}
+.sysm{min-width:0;max-width:100%}.sysm details,.sysm .tscroll{min-width:0;max-width:100%}

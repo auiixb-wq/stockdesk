@@ -13,10 +13,12 @@
 const fs = require("fs"), vm = require("vm"), path = require("path");
 const ROOT = path.join(__dirname, ".."), [DATA = path.join(ROOT, "data"), WHICH = "ALL", TFS = "D"] = process.argv.slice(2);
 const ctx = { console }; vm.createContext(ctx);
-vm.runInContext(fs.readFileSync(path.join(ROOT, "core.js"), "utf8") + ";globalThis.__c={S,indicators,VOTES,simulate,stats,sysTrig,sigOK,rulesFor,MKT_RULES,barsOf,rsSeries,rsTF,tfBars,liquid};", ctx);
+vm.runInContext(fs.readFileSync(path.join(ROOT, "core.js"), "utf8") + ";globalThis.__c={S,indicators,VOTES,simulate,stats,sysTrig,sigOK,rulesFor,MKT_RULES,barsOf,rsSeries,rsTF,tfBars,liquid,regAttach,buildRegime};", ctx);
 const C = ctx.__c, S = C.S; S.inNode = true;
+const { portSim } = require(path.join(__dirname, "port_sim.js"));
 const load = (f, d) => { try { return JSON.parse(fs.readFileSync(f, "utf8")) } catch { return d } };
 const LAB = load(path.join(DATA, "hist", "lab.json"), { v: 1, runs: [], adopt: {}, pending: {} }), CAL = load(path.join(DATA, "calib.json"), {});
+const IDX = load(path.join(DATA, "hist", "_idx.json"), {});  // ดัชนีจริง SET / S&P 500 (ทิศทางตลาด + เทียบผลกับการซื้อดัชนีถือไว้)
 const U = (load(path.join(DATA, "universe.json"), {}).items || []).filter(i => !/-P[A-Z]*$/.test(i.s));
 const today = new Date().toISOString().slice(0, 10), yrs = n => { const d = new Date(); d.setUTCDate(d.getUTCDate() - Math.round(n * 365.25)); return d.toISOString().slice(0, 10) };
 const H10 = fs.existsSync(path.join(DATA, "h10")), FROM = yrs(H10 ? 10 : 4), SPLIT = yrs(H10 ? 3 : 1.5), PMIN = 15;
@@ -49,12 +51,13 @@ function runMarket(m, tf = "D") {
   { const by = {}; for (const st of stocks) { if (!C.liquid(st)) continue; const B = C.barsOf(st); for (let i = 63; i < B.length; i++) (by[B[i].t] ??= []).push(B[i].c / B[i - 63].c - 1) }
     const d = Object.keys(by).filter(k => by[k].length >= 30).sort(), Q = { d };
     for (const p of [50, 60, 70, 80, 85, 90]) Q["p" + p] = d.map(k => { const a = by[k].sort((x, y) => x - y), x = (a.length - 1) * p / 100, lo = Math.floor(x); return +(a[lo] + (a[Math.min(lo + 1, a.length - 1)] - a[lo]) * (x - lo)).toFixed(4) });
-    S.rsq = { ...(S.rsq || {}), [m]: Q } }
+    Q.rg = C.buildRegime(IDX[m], stocks.filter(st => C.liquid(st)).map(st => ({ sec: st.sec, B: C.barsOf(st) })));  // ทิศทางตลาด/กลุ่ม (ตัวกรอง mkt, sec)
+    S.rsq = { ...(S.rsq || {}), [m]: Q }; S._rsqIdx = null; S._rgIdx = null }
   // เตรียมข้อมูลต่อหุ้นครั้งเดียว (อินดิเคเตอร์ + คะแนน) แล้วลองทุกกลยุทธ์บนข้อมูลชุดเดียวกัน
   const prep = [];
   if (tf !== "D") { S.intra = {}; S.intraRecent = null; for (const st of stocks) { const j = load(path.join(DATA, "h1", st.s + ".json"), null); if (j?.t) S.intra[st.s] = j } }
   // หุ้นไทย: เตรียมหุ้นตั้งแต่ 1 พันล้านบาท แล้วให้แต่ละแบบเลือกขนาดขั้นต่ำเอง (mcMin) · ค่าตั้งต้น 5 พันล้าน
-  for (const st of stocks) { if (m === "TH" ? (st.mc || 0) < 1e9 : !C.liquid(st)) continue; S.bars.clear(); S.cache.clear(); const B = tf === "D" ? C.barsOf(st) : C.tfBars(st, tf); if (!B || B.length < (tf === "D" ? 300 : 200)) continue; const I = C.indicators(B);
+  for (const st of stocks) { if (m === "TH" ? (st.mc || 0) < 1e9 : !C.liquid(st)) continue; S.bars.clear(); S.cache.clear(); const B = tf === "D" ? C.barsOf(st) : C.tfBars(st, tf); if (!B || B.length < (tf === "D" ? 300 : 200)) continue; const I = C.indicators(B); C.regAttach(st, B, I, tf !== "D");
     const w = C.VOTES.map(v => v.w), A = I.c.map((_, i) => { if (!i) return 0; let s = 0, ws = 0; C.VOTES.forEach((v, k) => { const r = v.f(I, i, false); if (r) { s += w[k] * r.v; ws += w[k] * 2 } }); return ws ? s / ws * 100 : 0 });
     prep.push({ st, B, I, A, rs: {} }) }
   const base = { ...C.rulesFor(m, tf), noTrade: false }; delete base.exit;
@@ -64,14 +67,16 @@ function runMarket(m, tf = "D") {
   const sp = tf === "D" ? SPACE[m] : { ...SPACE[m], hold: HOLD[tf], vol: m === "US" ? (tf === "4H" ? [1.2, 1.8, 2.5] : [.6, .95, 1.4]) : [null, .8, 1.2], lim: [0, .5, 1, 1.5] };
   // ช่วงละ 2 ปี (เฉพาะกรอบวัน) ไว้ดูว่ากำไรมาจากทุกสภาพตลาด ไม่ใช่ช่วงเดียว
   const blocks = []; if (tf === "D") for (let y = Date.parse(from); y < Date.parse(today) - 365 * 864e5; y += 2 * 365.25 * 864e5) blocks.push(new Date(y).toISOString().slice(0, 10));
-  const test = (r, since) => { const P = { ...base, ...r }, out = { b: [], t: [], k: blocks.map(() => []), p: [] };
+  const test = (r, since, port) => { const P = { ...base, ...r }, out = { b: [], t: [], k: blocks.map(() => []), p: [], all: [] };
     for (const x of prep) { if (m === "TH" && (x.st.mc || 0) < (P.mcMin || 5e9)) continue; const rsA = P.rs != null ? (x.rs[P.rs] ??= tf === "D" ? C.rsSeries(x.st, x.B, P.rs) : C.rsTF(x.st, x.B, P.rs)) : null; const sig = i => C.sysTrig(x.A, x.I, i, P) && C.sigOK(x.I, i, rsA, P);
-      for (const t of C.simulate(x.B, x.I, sig, 0, x.B.length, m, P)) { const d = String(x.B[t.i].t).slice(0, 10); if (since && d > since) out.p.push(t.ret * 100); if (d < from) continue; (d < split ? out.b : out.t).push(t.ret * 100);
+      for (const t of C.simulate(x.B, x.I, sig, 0, x.B.length, m, P)) { const d = String(x.B[t.i].t).slice(0, 10); if (since && d > since) out.p.push(t.ret * 100); if (d < from) continue; if (port) out.all.push({ ...t, B: x.B }); (d < split ? out.b : out.t).push(t.ret * 100);
         for (let k = blocks.length - 1; k >= 0; k--) if (d >= blocks[k]) { out.k[k].push(t.ret * 100); break } } }
     const blk = out.k.map((a, k) => ({ from: blocks[k], ...sm(a) })), used = blk.filter(b => b.n >= 10), neg = used.filter(b => b.avg <= 0).length;
     const stable = !blocks.length || (used.length >= 3 && neg <= 1 && Math.min(...used.map(b => b.avg)) > -1);
-    return { build: sm(out.b), test: sm(out.t), blk, stable, ...(since ? { paper: sm(out.p) } : {}) } };
-  const K = tf === "D" ? m : `${m}@${tf}`, cur = test({}), champ = LAB.best?.[K]?.r, list = candidates(m, base, champ, sp), res = [];
+    // ผลทั้งพอร์ต (ถือพร้อมกันไม่เกิน 10 ตัว เงินเท่ากัน) เทียบการซื้อดัชนีถือไว้ช่วงเดียวกัน: ทั้งช่วง และช่วงทดสอบ
+    const pf = port && IDX[m] ? { all: portSim(out.all, IDX[m], from, today), test: portSim(out.all, IDX[m], split, today) } : null;
+    return { build: sm(out.b), test: sm(out.t), blk, stable, ...(since ? { paper: sm(out.p) } : {}), ...(pf ? { port: pf } : {}) } };
+  const K = tf === "D" ? m : `${m}@${tf}`, cur = test({}, null, true), champ = LAB.best?.[K]?.r, list = candidates(m, base, champ, sp), res = [];
   const keys = Object.keys(sp), diff = r => Object.fromEntries(keys.filter(k => (r[k] ?? null) !== (base[k] ?? null)).map(k => [k, r[k] ?? null]));
   const lane = (R, cur) => {
     const base = R.test.n >= 40 && R.build.n >= 30 && R.build.avg >= .3 && R.test.avg >= .3 && R.test.aw >= -R.test.al && R.stable;
@@ -89,7 +94,7 @@ function runMarket(m, tf = "D") {
   const mon = (Date.parse(today) - Date.parse(split)) / 2.63e9;
   for (const r of [cur, ...res]) r.perMonth = +((r.test?.n || 0) / Math.max(1, mon)).toFixed(1);
   // สมุดทดลองเทรด: ตรวจทุกแบบที่อยู่ในสมุด (backtest ใหม่ทั้งชุด + ผลทดลองเทรดหลังวันที่เข้าสมุด)
-  const book = (BOOK[K] || []).map(e => { const R = test(e.ch, e.since), ln = lane(R, cur); return { ...e, ...R, lane: ln || e.lane, ok: !!ln } });
+  const book = (BOOK[K] || []).map(e => { const R = test(e.ch, e.since, true), ln = lane(R, cur); return { ...e, ...R, lane: ln || e.lane, ok: !!ln } });
   console.log(K, "stocks", prep.length, "candidates", list.length, "pass", res.filter(r => r.ok).length, "book", book.length, "in", ((Date.now() - t0) / 1000).toFixed(0) + "s");
   return { K, cur, res: res.slice(0, 15), n: list.length, pass: res.filter(r => r.ok).length, base: diff(base), window: { from, split, blocks }, book };
 }
@@ -107,7 +112,7 @@ for (const tf of TFS === "ALL" ? ["D", "4H", "1H"] : TFS.split(",")) for (const 
     const fails = e.ok ? 0 : (e.fails || 0) + 1, P = e.paper || { n: 0 };
     if (fails >= 2) { out.log.push(`${K}: ตัด ${e.k} ออกจากสมุด เพราะ backtest ไม่ผ่าน 2 สัปดาห์ติด`); continue }
     if (P.n >= PMIN && P.avg <= 0) { out.log.push(`${K}: ตัด ${e.k} ออก เพราะทดลองเทรด ${P.n} ไม้ขาดทุนเฉลี่ย ${P.avg}%`); dropped.add(e.k); continue }
-    book.push({ k: e.k, ch: e.ch, since: e.since, lane: e.lane, fails, build: e.build, test: e.test, blk: e.blk, stable: e.stable, paper: P, ok: e.ok });
+    book.push({ k: e.k, ch: e.ch, since: e.since, lane: e.lane, fails, build: e.build, test: e.test, blk: e.blk, stable: e.stable, paper: P, ok: e.ok, port: e.port });
   }
   // แบบใหม่ที่ผ่านเกณฑ์: เข้าสมุดเส้นทางละไม่เกิน 2 แบบ (สมุดเต็มที่ 6 แบบต่อตลาด/กรอบ)
   for (const ln of ["แม่นขึ้น", "ไม้มากขึ้น"]) for (const t of R.res.filter(r => r.lane === ln).slice(0, 2)) {
@@ -116,9 +121,12 @@ for (const tf of TFS === "ALL" ? ["D", "4H", "1H"] : TFS.split(",")) for (const 
     out.log.push(`${K}: เพิ่ม ${k} (${ln}) เข้าสมุดทดลองเทรด`);
   }
   // ใช้จริง: ยังผ่าน backtest + ทดลองเทรดพอและได้ผลจริง
-  const ready = book.filter(e => e.ok && (Date.parse(today) - Date.parse(e.since)) / 864e5 >= 6 && e.paper.n >= PMIN && e.paper.avg > 0 && e.paper.win >= e.test.win - 15)
+  // ต้องชนะการซื้อดัชนีถือไว้ด้วย (ผลทั้งพอร์ตช่วงทดสอบ 3 ปี) ไม่งั้นซื้อดัชนีเฉยๆ ดีกว่า
+  const beats = e => !e.port?.test || e.port.test.beat;
+  for (const e of book) if (e.ok && e.paper.n >= PMIN && !beats(e)) out.log.push(`${K}: ${e.k} ทดลองเทรดผ่านแต่ผลทั้งพอร์ตไม่ชนะการซื้อดัชนีถือไว้ จึงยังไม่ใช้จริง`);
+  const ready = book.filter(e => e.ok && beats(e) && (Date.parse(today) - Date.parse(e.since)) / 864e5 >= 6 && e.paper.n >= PMIN && e.paper.avg > 0 && e.paper.win >= e.test.win - 15)
     .sort((a, b) => b.paper.n * b.paper.avg - a.paper.n * a.paper.avg)[0];
-  if (ready) { out.adopt[K] = { rules: { ...ready.ch, noTrade: false }, since: today, k: ready.k, lane: ready.lane, build: ready.build, test: ready.test, blk: ready.blk, paper: ready.paper, before: R.cur };
+  if (ready) { out.adopt[K] = { rules: { ...ready.ch, noTrade: false }, since: today, k: ready.k, lane: ready.lane, build: ready.build, test: ready.test, blk: ready.blk, paper: ready.paper, port: ready.port, before: R.cur };
     out.log.push(`${K}: ใช้กลยุทธ์ ${ready.k} (${ready.lane}) หลังทดลองเทรด ${ready.paper.n} ไม้ ชนะ ${ready.paper.win}% เฉลี่ย ${ready.paper.avg}%/ไม้`);
     book.splice(book.indexOf(ready), 1) }
   out.book[K] = book; out.drop[K] = [...dropped].slice(-50);
@@ -126,6 +134,8 @@ for (const tf of TFS === "ALL" ? ["D", "4H", "1H"] : TFS.split(",")) for (const 
   if (lead) out.pending[K] = { k: lead.k, ch: lead.ch, since: lead.since, build: lead.build, test: lead.test, paper: lead.paper, lane: lead.lane };
   out.runs.unshift({ d: today, m, tf, K, n: R.n, pass: R.pass, cur: R.cur, top: R.res.slice(0, 8), window: R.window });
   if (!R.pass && !book.length) out.log.push(`${K}: ลอง ${R.n} แบบ ยังไม่มีแบบไหนผ่านเกณฑ์`);
+  // ระบบตรวจตัวเองพักสัญญาณไว้ → รอบนี้คือการทดสอบใหม่ (แบบใหม่ที่ผ่านทั้ง backtest และทดลองเทรดจะถูกใช้ แล้วสัญญาณกลับมาเอง)
+  const G = CAL.guard?.[m]; if (tf === "D" && G?.pause) out.log.push(`${K}: ระบบพักสัญญาณซื้ออยู่ (${G.why}) · ทดสอบใหม่รอบนี้ ${ready ? "ได้กติกาใหม่แล้ว สัญญาณจะกลับมา" : "ยังไม่มีแบบใหม่ที่ผ่านครบ พักต่อ"}`);
   // ใช้จริงแล้วผลจริงแย่ → ถอดออก
   const F = CAL.fwdSys?.M?.[m], A = out.adopt[K];
   if (tf === "D" && A && F?.closed >= 30 && F.sum / F.closed < 0) { out.log.push(`${K}: ถอดกลยุทธ์ ${A.k} ออก เพราะผลจริง ${F.closed} ไม้ขาดทุนเฉลี่ย`); delete out.adopt[K] }

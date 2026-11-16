@@ -7,8 +7,8 @@ const load = (f, d) => { try { return JSON.parse(fs.readFileSync(path.join(ROOT,
 const ctx = { console };
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(path.join(ROOT, "core.js"), "utf8") +
-  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars,liquid,calibNew,calibAdd,calibDone,barsOf,stockBySym,indicators,VOTES,sma,uniOf,rulesFor,costOf,valuation,analyzeTF};", ctx);
-const { S, analyze, summarize, allStocks, buildFactors, mergeNews, hasBars, liquid, calibNew, calibAdd, calibDone, barsOf, stockBySym, rulesFor, costOf, valuation, uniOf, analyzeTF } = ctx.__core;
+  "\n;globalThis.__core={S,analyze,summarize,allStocks,buildFactors,mergeNews,hasBars,liquid,calibNew,calibAdd,calibDone,barsOf,stockBySym,indicators,VOTES,sma,uniOf,rulesFor,costOf,valuation,analyzeTF,buildRegime,sysVer,PAUSE,applyFlags};", ctx);
+const { S, analyze, summarize, allStocks, buildFactors, mergeNews, hasBars, liquid, calibNew, calibAdd, calibDone, barsOf, stockBySym, rulesFor, costOf, valuation, uniOf, analyzeTF, buildRegime, sysVer, PAUSE, applyFlags } = ctx.__core;
 
 const uni = load("data/universe.json", { items: [] }), fund = load("data/fund.json", {}), macro = load("data/macro.json", {});
 const news = load("data/news.json", { items: [] }), man = load("manual.json", {}), quotes = load("data/quotes.json", null);
@@ -23,9 +23,11 @@ S.quotes = quotes;
 const learn = load("data/learn.json", { tuned: {}, lead: {}, events: [], market: {} });
 S.lab = load("data/hist/lab.json", null);  // กลยุทธ์ที่ห้องทดลองรับรองแล้ว (rulesFor ใช้กับกรอบรายวัน)
 S.tuned = learn.tuned || {};
+S.guard = load("data/calib.json", {}).guard || {};  // ผลตรวจตัวเองรอบก่อน (พักสัญญาณซื้ออัตโนมัติ)
 // งบจาก .info (ละเอียด) ก่อน ถ้าไม่มีใช้ P/E และปันผลจากตัวคัดกรอง
 S.fundLive = { ...Object.fromEntries(uni.items.filter(i => i.pe != null || i.dy != null).map(i => [i.s, { pe: i.pe, dy: i.dy }])), ...fund };
 S.macro = macro;
+S.flags = load("data/fin_flags.json", {}).f || {}; applyFlags();  // ซ่อน P/E ของหุ้นที่ตัวเลขต่อหุ้นไม่สอดคล้อง (ค่าเดิมเก็บใน pe0 ไว้ตรวจซ้ำ)
 S.factors = buildFactors(man, macro).sort((a, b) => (a.order || 0) - (b.order || 0));
 S.news = mergeNews(man.news || [], news.items || []);
 const hdir = path.join(DATA, "hist");
@@ -52,6 +54,9 @@ for (const f of fs.existsSync(fdir) ? fs.readdirSync(fdir).filter(f => f.endsWit
     for (const p of [50, 60, 70, 80, 90]) Q["p" + p] = d.map(k => { const a = by[m][k].sort((x, y) => x - y), x = (a.length - 1) * p / 100, lo = Math.floor(x); return +(a[lo] + (a[Math.min(lo + 1, a.length - 1)] - a[lo]) * (x - lo)).toFixed(4); });
     rsq[m] = Q;
   }
+  // ทิศทางตลาด (ดัชนีจริงเหนือ/ใต้เส้นเฉลี่ย 50 และ 200 วัน) + กลุ่มอุตสาหกรรมขึ้น/ลงใน 20 วัน → ตัวกรองก่อนให้สัญญาณซื้อ
+  const IDX = load("data/hist/_idx.json", {});
+  for (const m in rsq) { const rg = buildRegime(IDX[m], allStocks().filter(st => st.m === m && hasBars(st) && liquid(st)).map(st => ({ sec: st.sec, B: barsOf(st) }))); if (rg) rsq[m].rg = rg }
   S.rsq = rsq;
   fs.writeFileSync(path.join(DATA, "rsq.json"), JSON.stringify(rsq));
   S.cache.clear();
@@ -80,7 +85,7 @@ function qstat(R) {
   try { v = !!valuation(R).fair } catch {}
   QS.fund += f; QS.val += v; QS.news += n; QS.all4 += f && v && n;
   const u = uniOf(R.st.s) || {}, ni = R.f?.fs?.niT, sh = u.sh;
-  if (ni > 0 && sh > 0 && u.pe > 0 && u.pe < 100) { const our = R.last / (ni / sh); QS.peN++; if (Math.abs(Math.log(our / u.pe)) > Math.log(1.6)) QS.peBad.push([R.st.s, +our.toFixed(1), +u.pe.toFixed(1)]) }
+  const pe = u.pe0 ?? u.pe; if (ni > 0 && sh > 0 && pe > 0 && pe < 100) { const our = R.last / (ni / sh); QS.peN++; if (Math.abs(Math.log(our / pe)) > Math.log(1.6)) QS.peBad.push([R.st.s, +our.toFixed(1), +pe.toFixed(1)]) }
 }
 // ภาพรวมตลาดรายวัน: เก็บค่าจากหุ้นที่มีสภาพคล่องแต่ละตัวระหว่างวิเคราะห์
 function mstat(R) {
@@ -119,13 +124,29 @@ if (thin(C.stocks, oldCal.stocks || 0)) {
 }
 cal.fwd = forward();
 cal.fwdSys = forwardSys();
+// ระบบตรวจตัวเอง: เทียบผลจริงกับผลทดสอบย้อนหลังทุกวัน (นับเฉพาะสัญญาณตั้งแต่กติกาชุดปัจจุบันเริ่มใช้)
+// พักเองเมื่อ โดนตัดขาดทุน 3 ไม้ติด หรือ ปิดแล้ว ≥ 8 ไม้ อัตราชนะจริงต่ำกว่าช่วงทดสอบเกิน 25 จุด → กลับมาเองเมื่อกติกาเปลี่ยน (ห้องทดลองรับรองแบบใหม่ทุกวันอาทิตย์)
+{
+  const G = {}, today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+  for (const m of ["TH", "US"]) {
+    const ver = sysVer(m), since = ver.split("|").filter(Boolean).sort().at(-1), prev = S.guard?.[m] || {};
+    const tr = (cal.fwdSys?.M?.[m]?.all || []).filter(t => t[1] >= since), n = tr.length, w = tr.filter(t => t[2] > 0).length, bt = cal.baseM?.[m]?.oos?.win;
+    let run = 0; for (const t of tr) run = t[3] === "sl" ? run + 1 : 0;
+    const base = { ver, since, n, win: n ? +(w / n * 100).toFixed(1) : null, avg: n ? +(tr.reduce((a, t) => a + t[2], 0) / n).toFixed(2) : null, bt: bt == null ? null : +bt.toFixed(1), run, checked: today, manual: !!PAUSE[m]?.on };
+    if (prev.pause && prev.ver === ver) { G[m] = { ...prev, ...base, pause: true, since: prev.since, at: prev.at }; continue }
+    const why = run >= 3 ? `โดนจุดตัดขาดทุน ${run} ไม้ติดกัน` : n >= 8 && bt != null && base.win < bt - 25 ? `ผลจริง ${n} ไม้ ชนะ ${base.win}% ต่ำกว่าผลทดสอบย้อนหลัง (${base.bt}%) เกิน 25 จุด` : null;
+    G[m] = why ? { ...base, pause: true, at: today, why: `${why} (นับตั้งแต่ ${since} กำไรเฉลี่ย ${base.avg}% ต่อไม้)`, until: "ทีมเทคนิคทดสอบใหม่ทุกวันอาทิตย์ สัญญาณจะกลับมาเมื่อได้กติกาใหม่ที่ผ่านทั้งการทดสอบย้อนหลังและการทดลองเทรด" } : { ...base, pause: false };
+    if (why) console.error(`guard ${m}: พักสัญญาณซื้อ — ${G[m].why}`);
+  }
+  cal.guard = G;
+}
 fs.writeFileSync(path.join(DATA, "calib.json"), JSON.stringify(cal));
 console.log(`calib: ${C.stocks} หุ้น`);
 learnStep();
 { // data/quality.json: ผลตรวจด้านข้อมูลและการวิเคราะห์ (ด้านการใช้งานมาจาก scripts/ux_check.js)
   const pc = x => QS.n ? Math.round(x / QS.n * 100) : 0, bm = cal.baseM || {}, fw = cal.fwdSys?.M || {};
   fs.writeFileSync(path.join(DATA, "quality.json"), JSON.stringify({ updated: Math.floor(Date.now() / 1000), n: QS.n,
-    data: { peN: QS.peN, peBad: QS.peBad.length, peList: QS.peBad.sort((a, b) => Math.abs(Math.log(b[1] / b[2])) - Math.abs(Math.log(a[1] / a[2]))).slice(0, 12) },
+    data: { peN: QS.peN, peBad: QS.peBad.length, peAll: QS.peBad, peList: QS.peBad.sort((a, b) => Math.abs(Math.log(b[1] / b[2])) - Math.abs(Math.log(a[1] / a[2]))).slice(0, 12) },
     analysis: { fund: pc(QS.fund), val: pc(QS.val), news: pc(QS.news), all4: pc(QS.all4),
       sys: Object.fromEntries(["TH", "US"].map(m => [m, { is: bm[m]?.is?.win, oos: bm[m]?.oos?.win, avg: bm[m]?.oos?.avg, fwdClosed: fw[m]?.closed || 0, fwdWin: fw[m]?.closed ? fw[m].win / fw[m].closed * 100 : null }])) } }));
 }
@@ -234,7 +255,7 @@ function forwardSys() {
       r.recent.push([sym, d, +ret.toFixed(2), how]);
     }
   }
-  for (const r of Object.values(res)) r.recent = r.recent.slice(-15);
+  for (const r of Object.values(res)) { Object.defineProperty(r, "all", { value: r.recent.slice(), enumerable: false }); r.recent = r.recent.slice(-15) }
   for (const v of Object.values(per)) v[4] = +v[4].toFixed(2);
   return { first: days[0]?.slice(0, 10) || null, M: res, S: per };
 }

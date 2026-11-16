@@ -93,6 +93,13 @@ const TF_LABEL={"15m":"15 นาที","1H":"1 ชม.","4H":"4 ชม.",D:"ว
 // S.tuned = กติกาที่ระบบเรียนรู้เองจากการทดสอบรายคืน (data/learn.json) ใช้เฉพาะแบบเน้นอัตราชนะ และเฉพาะกรอบรายวัน
 // S.lab = กลยุทธ์ที่ห้องทดลองรับรองแล้ว (ผ่าน backtest 4 ปีทั้งช่วงสร้างและช่วงทดสอบ 2 สัปดาห์ติด · data/hist/lab.json) ใช้กับกรอบรายวัน
 const rulesFor=(m,tf="D")=>({...RULES,...((MKT_RULES[RULES.preset]||MKT_RULES.win)[m]||MKT_RULES.win.TH),...(RULES.preset!=="edge"&&S.tuned?.[m]?.rules||{}),...(tf==="D"&&RULES.preset!=="edge"&&S.lab?.adopt?.[m]?.rules||{}),...(tf!=="D"&&TF_RULES[tf]?.[m]||{}),...(tf!=="D"&&S.lab?.adopt?.[m+"@"+tf]?.rules||{})});
+// สวิตช์พักสัญญาณซื้อ (ตั้งเอง): on:true = ไม่ออกสัญญาณซื้อใหม่ของตลาดนั้น · ไม้ที่ซื้อไปแล้วยังติดตามต่อจนปิด · เปิดคืน = on:false
+// ระบบตรวจตัวเอง (calib.json → guard) พักเองได้ด้วยเมื่อผลจริงแย่กว่าผลทดสอบมาก และกลับมาเองเมื่อกติกาเปลี่ยน (SYS_VER หรือห้องทดลองรับรองแบบใหม่)
+const PAUSE={TH:{on:false},US:{on:true,since:"2026-11-16",why:"ผลจริงตั้งแต่ 28 ต.ค. 69 ปิดแล้ว 7 ไม้ โดนจุดตัดขาดทุนครบทั้ง 7 ไม้ ขาดทุนเฉลี่ย −15.2% ต่อไม้ (TEAM −18.5%, DT −20.7%, ZS −15.2%) เพราะจุดตัดขาดทุนห่างเกินไป (ยอมขาดทุนได้ถึง 15%) กำลังปรับจุดตัดขาดทุนใหม่"}};
+// วันที่เปลี่ยนกติกาสัญญาณครั้งล่าสุดของแต่ละตลาด: ผลจริงนับใหม่ตั้งแต่วันนี้ (ใช้ตัดสินการพักอัตโนมัติ)
+const SYS_VER={TH:"2026-11-16",US:"2026-11-16"};
+const sysVer=m=>[SYS_VER[m],S.lab?.adopt?.[m]?.since||""].join("|");
+const pauseOf=m=>PAUSE[m]?.on?{...PAUSE[m],by:"manual"}:S.guard?.[m]?.pause&&S.guard[m].ver===sysVer(m)?{...S.guard[m],by:"auto"}:null;
 const PRESETS={win:{preset:"win"},edge:{preset:"edge"}};const RULES0={...RULES};
 const volOK=(I,i,P)=>P.vol==null||(I.atr[i]||0)/I.c[i]*100>=P.vol;
 // จุดเกิดสัญญาณ: คะแนนเพิ่งข้าม thr หรือ (คะแนน ≥ thr และย่อสั้นแรง RSI(2) < dip) — รอบ 5: ได้ไม้ ~1.5–2 เท่า ชนะและกำไรต่อไม้เท่าเดิม
@@ -269,7 +276,7 @@ function buildRegime(idx,list){if(!idx?.t?.length)return null;const c=idx.c,s50=
   const mk=c.map((x,i)=>s200[i]==null||s50[i]==null?null:(x>s50[i]?1:0)+(x>s200[i]?1:0)),k=new Map(d.map((t,i)=>[t,i])),acc={};
   for(const {sec,B} of list){if(!sec)continue;const a=acc[sec]??=d.map(()=>[0,0]);for(let i=1;i<B.length;i++){const j=k.get(String(B[i].t));if(j==null)continue;const r=B[i].c/B[i-1].c-1;if(!isFinite(r)||Math.abs(r)>.5)continue;a[j][0]+=r;a[j][1]++}}
   const sec={};for(const [s,a] of Object.entries(acc)){let v=1;const ix=a.map(([r,n])=>n>=3?(v*=1+r/n):null);sec[s]=ix.map((x,i)=>i<20||x==null||ix[i-20]==null?null:x>=ix[i-20]?1:0)}
-  return{d,mk,sec}}
+  const n=c.length-1;return{d,mk,sec,now:{d:d[n],c:c[n],s50:s50[n]&&+s50[n].toFixed(2),s200:s200[n]&&+s200[n].toFixed(2)}}}
 function stats(tr){const n=tr.length;if(!n)return{n:0};
   const w=tr.filter(t=>t.ret>0).length,p=w/n,z=1.96,den=1+z*z/n,cc=(p+z*z/(2*n))/den,hw=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/den;
   let gp=0,gl=0,eq=1,pk=1,dd=0,sr=0,hold=0;for(const t of tr){t.ret>0?gp+=t.ret:gl-=t.ret;eq*=1+t.ret;pk=Math.max(pk,eq);dd=Math.max(dd,1-eq/pk);sr+=t.R;hold+=t.x-t.i+1}
@@ -309,7 +316,7 @@ function analyzeTF(st,tf){if(tf==="D")return analyze(st);const B=tfBars(st,tf);i
   const rsA=RP.rs!=null?rsTF(st,B,RP.rs):null,sig=i=>sysTrig(arr,I,i,RP)&&sigOK(I,i,rsA,RP);
   const a=simulate(B,I,sig,0,split,st.m,RP),b=simulate(B,I,sig,split,B.length,st.m,RP);
   const model={is:stats(a),oos:stats(b),trades:a.concat(b),arr,w};
-  const plan=makePlan(st,I,Math.round(arr[n]),rsPass(rsA,n),RP),P=sysPlan(st,B,I,arr,rsA,RP,tfLive(st.m,tf,B[n].t));
+  const plan=makePlan(st,I,Math.round(arr[n]),rsPass(rsA,n),RP),P=sysPlan(st,B,I,arr,rsA,RP,tfLive(st.m,tf,B[n].t));if(pauseOf(st.m)){P.sys=null;P.cond=null;if(P.sw)P.sw=[P.sw[0],P.sw[1],P.sw[2]|128]}
   const R={key,tf,st,B,I,RP,model,plan,...P,lvl:[plan?.L?.sup?.[0]?.p??null,plan?.L?.res?.[0]?.p??null],last:B[n].c,split};
   S.cache.set(ck,R);return R}
 /* ---------- analysis ---------- */
@@ -401,7 +408,7 @@ function sysVerdict(x,tone,lv,sig){if(sig)return lv>=3?["ซื้อตาม�
   if(tone==="sell"||x<35)return x<35?["หลีกเลี่ยง","p-sell2"]:["ยังไม่ควรเข้า","p-sell"];return tone==="buy"?["แนวโน้มดี · รอราคาย่อ","p-hold"]:x>=45?["รอสัญญาณ","p-hold"]:["ระวัง","p-sell"]}
 // ระบบรออะไรอยู่ (หุ้นที่ยังไม่มีสัญญาณ) → [ข้อความสั้น, รายละเอียด, ใกล้เกิดสัญญาณไหม]
 function sysWait(R){const w=R.sw;if(!w)return["รอสัญญาณ","",false];const [sc,r2,f]=w,P=rulesFor(R.st.m,R.tf||"D"),miss=[];
-  if(f&1)miss.push("แนวโน้มรายสัปดาห์ยังไม่ขึ้น");if(f&2)miss.push(`ยังไม่แข็งกว่าตลาด (ต้องอยู่กลุ่มบน ${100-P.rs}%)`);if(f&4)miss.push(`แนวโน้มยังไม่ชัด (ADX ≤ ${P.adx})`);if(f&8)miss.push(`หุ้นแกว่งน้อยกว่า ${P.vol}% ต่อ${R.tf&&R.tf!=="D"?"แท่ง":"วัน"}`);if(f&16)miss.push("ราคายังต่ำกว่าเส้น Supertrend (ขาลง)");if(f&64)miss.push("หุ้นเล็ก (มูลค่าตลาดต่ำกว่า 5 พันล้านบาท) ระบบทดสอบแล้วขาดทุน จึงไม่ให้สัญญาณกับหุ้นกลุ่มนี้");if(f&32)miss.push("ยังไม่อยู่ในขาขึ้นระยะยาว (ต้องปิดเหนือ EMA200 และ EMA50 > EMA200)");
+  if(f&1)miss.push("แนวโน้มรายสัปดาห์ยังไม่ขึ้น");if(f&2)miss.push(`ยังไม่แข็งกว่าตลาด (ต้องอยู่กลุ่มบน ${100-P.rs}%)`);if(f&4)miss.push(`แนวโน้มยังไม่ชัด (ADX ≤ ${P.adx})`);if(f&8)miss.push(`หุ้นแกว่งน้อยกว่า ${P.vol}% ต่อ${R.tf&&R.tf!=="D"?"แท่ง":"วัน"}`);if(f&16)miss.push("ราคายังต่ำกว่าเส้น Supertrend (ขาลง)");if(f&64)miss.push("หุ้นเล็ก (มูลค่าตลาดต่ำกว่า 5 พันล้านบาท) ระบบทดสอบแล้วขาดทุน จึงไม่ให้สัญญาณกับหุ้นกลุ่มนี้");if(f&32)miss.push("ยังไม่อยู่ในขาขึ้นระยะยาว (ต้องปิดเหนือ EMA200 และ EMA50 > EMA200)");if(f&128){const p=pauseOf(R.st.m);miss.push(`ระบบพักสัญญาณซื้อหุ้น${R.st.m==="TH"?"ไทย":"สหรัฐฯ"}ชั่วคราว${p?.why?": "+p.why:""}`)}
   if(miss.length)return[`ยังไม่ผ่าน: ${miss[0].replace(/ \(.*\)$/,"")}`,"ยังไม่ผ่านตัวกรอง: "+miss.join(" · "),false];
   if(sc<P.thr)return[`รอคะแนน ≥ ${P.thr} (ตอนนี้ ${sc})`,`ผ่านตัวกรองแล้ว · สัญญาณจะเกิดเมื่อคะแนนเทคนิคข้าม ${P.thr} (ตอนนี้ ${sc})`,sc>=P.thr-8];
   return[`รอราคาย่อ (RSI2 ${r2})`,`ผ่านตัวกรองและคะแนน ${sc} ≥ ${P.thr} แล้ว · สัญญาณจะเกิดเมื่อราคาย่อจน RSI(2) < ${P.dip} (ตอนนี้ ${r2})`,true]}
@@ -499,12 +506,14 @@ function analyze(st){
   let {live,end,sys,sw,cond,ref}=sysPlan(st,B,I,model.arr,rsA,RP,barLive(st.m,B[n].t));
   // หุ้นไทยมูลค่าตลาด < 5 พันล้าน: ทดสอบแล้วขาดทุน (ช่วงทดสอบ 225 ไม้ ชนะ 49% −0.42%/ไม้) จึงไม่ออกสัญญาณ
   if(st.m==="TH"&&!liquid(st)){sys=null;cond=null;ref=null;if(sw)sw=[sw[0],sw[1],sw[2]|64]}
+  // พักสัญญาณซื้อของตลาดนี้ (ตั้งเอง หรือระบบตรวจตัวเองพัก): ไม่ออกสัญญาณใหม่ แต่ยังโชว์แผนอ้างอิง
+  if(pauseOf(st.m)){sys=null;cond=null;if(sw)sw=[sw[0],sw[1],sw[2]|128]}
   const f=fundOf(st),fund=fundScore(f),ns=newsScore(st),fs=factorScore(st),rs=relStrength(st);
   const rsV=rs.pctl>=70?1:rs.pctl<=30?-1:0;
   const techP=(tech.score+100)/2,ctxP=clamp(50+ns.s*20+fs*8+rsV*10,0,100);
   // งบไม่พอ (น้อยกว่า 4 ข้อ) ไม่ให้คะแนนงบมาถ่วง ใช้เทคนิค 70% + ข่าว/ปัจจัย 30%
   const overall=Math.round(fund.thin?.7*techP+.3*ctxP:.5*techP+.3*fund.score+.2*ctxP);
-  const bh={is:(B[split-1].c/B[RULES.warm].c-1)*100,oos:(B[n].c/B[split].c-1)*100};
+  const bh={is:(B[split-1].c/B[Math.min(RULES.warm,split-1)].c-1)*100,oos:(B[n].c/B[split].c-1)*100};
   // ระบบซื้อตอนย่อ: ราคาเหนือ SMA200 และ RSI(2) < 5 → ซื้อราคาเปิดวันถัดไป ขายเมื่อปิดเหนือ SMA5 หรือครบ 10 วัน ตัดขาดทุน 3 ATR
   // ทดสอบ 5 ปี: เพิ่มเงื่อนไขแข็งกว่าตลาด 70% และขายเมื่อปิดเหนือ SMA10 → ชนะ 66–67% กำไร +0.62/+0.69% ต่อไม้ (เดิม +0.26/+0.22%)
   const r2=rsi(I.c,2),s10=sma(I.c,10),s200=sma(I.c,200),pbSig=i=>s200[i]!=null&&I.c[i]>s200[i]&&r2[i]<5&&rsPass(rs70,i),PB={...RULES,sl:3,tp:null,hold:15,exit:j=>I.c[j]>s10[j]};
@@ -580,9 +589,15 @@ const pctile=(a,p)=>{if(!a.length)return null;const b=[...a].sort((x,y)=>x-y),i=
 function peersOf(st,k=30){return allStocks().filter(x=>x.m===st.m&&x.sec===st.sec&&x.s!==st.s).map(x=>({x,u:uniOf(x.s)})).filter(o=>o.u).sort((a,b)=>(b.u.mc||0)-(a.u.mc||0)).slice(0,k)}
 const VAL_DEF={TH:{w:9.5,tg:2},US:{w:9,tg:2.5}};
 function dcfPer(fcf0,g,w,tg,years,netDebt,shares){let pv=0,f=fcf0;for(let t=1;t<=years;t++){f*=1+g;pv+=f/Math.pow(1+w,t)}const tv=f*(1+tg)/(w-tg)/Math.pow(1+w,years);return (pv+tv-netDebt)/shares}
+// ป้ายข้อมูลผิดปกติต่อหุ้น (data/fin_flags.json จาก health.py): ps = ตัวเลขต่อหุ้นไม่สอดคล้อง · unit = หน่วยเงินผิด · stale = วันที่งบล่าสุด (เก่า) · ni = กำไรเกินรายได้มาก
+const flagOf=s=>S.flags?.[s]||null;
+// ซ่อน P/E และ EPS ของหุ้นที่ตัวเลขต่อหุ้นไม่สอดคล้อง (ทั้งรายชื่อหุ้นและข้อมูลพื้นฐาน) เรียกหลังโหลดรายชื่อหุ้น + ป้าย
+function applyFlags(){if(!S.flags)return;for(const u of S.universe||[]){const f=S.flags[u.s];if(!(f?.ps||f?.unit))continue;if(u.pe!=null)u.pe0=u.pe;u.pe=null;u.eps=null;if(S.fundLive?.[u.s])S.fundLive[u.s]={...S.fundLive[u.s],pe:null}}}
 function valuation(R,o={}){
   const st=R.st,u=uniOf(st.s)||{},fs=R.f?.fs,price=R.last,bank=st.sec==="bank";
-  const shares=u.sh||(u.mc&&price?u.mc/price:null),eps=fs?.epsT??u.eps??(fs?.niT&&shares?fs.niT/shares:null),bvps=u.bv??(fs?.eq&&shares?fs.eq/shares:null);
+  // ตัวเลขต่อหุ้นไม่สอดคล้อง (fin_flags) → ไม่คำนวณมูลค่าเหมาะสมจากตัวเลขต่อหุ้น (ซ่อนแทนการโชว์ตัวเลขผิด)
+  const fl=flagOf(st.s),hid=fl?.ps||fl?.unit||null;
+  const shares=hid?null:u.sh||(u.mc&&price?u.mc/price:null),eps=hid?null:fs?.epsT??u.eps??(fs?.niT&&shares?fs.niT/shares:null),bvps=hid?null:u.bv??(fs?.eq&&shares?fs.eq/shares:null);
   const peers=peersOf(st,40),pes=peers.map(p=>p.u.pe).filter(v=>v>0&&v<80),pbs=peers.map(p=>p.u.pb).filter(v=>v>0&&v<20);
   const gDef=clamp((fs?.eg??fs?.rg??5),-20,25),g=(o.g??gDef)/100,dv=VAL_DEF[st.m]||VAL_DEF.TH;
   const methods=[];const peQ=pes.length>=5?[pctile(pes,.25),pctile(pes,.5),pctile(pes,.75)]:null;
@@ -602,7 +617,7 @@ function valuation(R,o={}){
     if(price>0){let lo=-.3,hi=.6;for(let i=0;i<50;i++){const m=(lo+hi)/2;if(dcfPer(fcf0,m,w,tg,5,netDebt,shares)>price)hi=m;else lo=m}rdcf=(lo+hi)/2}}
   const bases=methods.map(m=>m.base).filter(v=>v>0&&isFinite(v));
   const fair=bases.length?{bear:Math.min(...methods.map(m=>m.bear).filter(v=>v>0)),base:pctile(bases,.5),bull:Math.max(...methods.map(m=>m.bull).filter(v=>v>0))}:null;
-  return{methods,dcf,rdcf,sens,fair,mos:fair&&price?(fair.base/price-1)*100:null,price,eps,bvps,shares,peQ,pbQ,gDef,dv,netDebt,fcf0,pe:eps>0&&price?price/eps:null,pb:bvps>0&&price?price/bvps:null}}
+  return{methods,dcf,rdcf,sens,fair,mos:fair&&price?(fair.base/price-1)*100:null,price,eps,bvps,shares,peQ,pbQ,gDef,dv,netDebt,fcf0,pe:eps>0&&price?price/eps:null,pb:bvps>0&&price?price/bvps:null,hid}}
 // ---------- ความเสี่ยงจากราคาย้อนหลัง ----------
 function priceRisk(B){const c=B.map(b=>b.c),n=c.length,r=[];for(let i=Math.max(1,n-252);i<n;i++)r.push(Math.log(c[i]/c[i-1]));
   const m=r.reduce((a,b)=>a+b,0)/(r.length||1),sd=Math.sqrt(r.reduce((a,b)=>a+(b-m)**2,0)/(r.length||1));

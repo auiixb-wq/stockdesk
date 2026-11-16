@@ -1,5 +1,5 @@
 """งบการเงิน (แปลงเป็นสกุลเงินที่หุ้นซื้อขาย) และอัตราส่วนพื้นฐาน"""
-import math, json, time, datetime as dt, os
+import math, json, re, time, datetime as dt, os
 
 import yfinance as yf
 from . import finaudit
@@ -106,6 +106,39 @@ def repair_fx(uni):
     if fixed:
         open(os.path.join(DATA, ".hist_new"), "w").close()
         print("fin repaired/flagged:", fixed)
+    return fixed
+
+
+def fix_shares(uni):
+    """หุ้นสหรัฐฯ ที่มีหุ้นหลายประเภท (เช่น TAP-A, LEN-B, MOG-B, BIO-B): Yahoo ให้จำนวนหุ้นเฉพาะประเภทนั้น
+    แต่กำไรสุทธิและ EPS เป็นของทั้งบริษัท → จำนวนหุ้นรวมทุกประเภท = กำไรสุทธิ 4 ไตรมาส ÷ EPS 4 ไตรมาส (ตัวเลขจริงทั้งคู่ ไม่ได้เดา)
+    แก้เฉพาะเมื่อห่างเกิน 2.5 เท่า และกำไร/EPS เป็นบวกทั้งคู่ · เก็บค่าเดิมไว้ใน sh0 / mc0 · ทำซ้ำได้ (แก้แล้วอัตราส่วน ≈ 1 จะไม่แก้อีก)"""
+    d0, fixed = os.path.join(DATA, "hist", "fin"), []
+    for u in uni.get("items", []):
+        # เฉพาะหุ้นที่ชื่อบอกว่าเป็นหุ้นประเภทหนึ่งของบริษัท (ลงท้าย -A / -B / -V ...) ตัวอื่นที่ตัวเลขไม่ตรงอาจมาจาก EPS ค้างหรือรายการพิเศษ → ซ่อนแทน (fin_flags)
+        if u.get("m") != "US" or not u.get("sh") or not u.get("eps") or u["eps"] <= 0 or not re.search(r"-[A-Z]$", u.get("y") or u["s"]):
+            continue
+        f = os.path.join(d0, u["s"] + ".json")
+        if not os.path.exists(f):
+            continue
+        try:
+            j = json.load(open(f))
+        except Exception:
+            continue
+        if j.get("fx") not in (None, 1):
+            continue
+        r = _ttm_ratio(j.get("q") or {}, u)
+        if not r or r < 2.5 or r > 500:
+            continue
+        sh = round(u["sh"] * r)
+        u.setdefault("sh0", u["sh"]); u.setdefault("mc0", u.get("mc"))
+        u["sh"], u["shfix"] = sh, round(r, 2)
+        if u.get("mc"):
+            u["mc"] = round(u["mc"] * r)
+        fixed.append(f"{u['s']}×{r:.1f}")
+    if fixed:
+        save("universe.json", uni)
+        print("shares fixed (หุ้นหลายประเภท):", fixed)
     return fixed
 
 

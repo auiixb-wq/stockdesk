@@ -207,7 +207,11 @@ const confTag=R=>`<div class="conf muted"><span class="dot" style="--c:${R.conf.
 
 /* ---------- research: คุณภาพข้อมูล, earnings bridge, มูลค่า, ความเสี่ยง, คู่แข่ง, เหตุผลการลงทุน ---------- */
 const LV={ok:["up","●"],warn:["warn","●"],bad:["down","●"]};
-function finChecks(R){const st=R.st,F=S.fin[st.s],fs=R.f?.fs,out=[];if(!F||!fs)return out;const q=F.q||{d:[]},n=q.d.length;
+function finChecks(R){const st=R.st,F=S.fin[st.s],fs=R.f?.fs,out=[],fl=flagOf(st.s);
+  if(fl?.ps)out.push({lv:"warn",cat:"ข้อมูล",t:`ตัวเลขต่อหุ้นไม่สอดคล้องกัน (${fl.ps}) จึงซ่อน P/E กำไรต่อหุ้น และมูลค่าเหมาะสม แทนการโชว์ตัวเลขที่อาจผิด`});
+  if(fl?.unit)out.push({lv:"bad",cat:"ข้อมูล",t:`หน่วยเงินในงบน่าจะผิด (${fl.unit}) ระบบไม่นำงบนี้มาคิด`});
+  if(fl?.ni)out.push({lv:"warn",cat:"คุณภาพกำไร",t:"กำไรสุทธิไตรมาสล่าสุดสูงกว่ารายได้หลายเท่า มักมาจากรายการพิเศษ (เช่นตีมูลค่าสินทรัพย์ หรือกำไรจากการขาย) ไม่ใช่ธุรกิจหลัก"});
+  if(!F||!fs)return out;const q=F.q||{d:[]},n=q.d.length;
   if(n){const age=(Date.now()-Date.parse(q.d[n-1]))/864e5;if(age>135)out.push({lv:"warn",cat:"ข้อมูล",t:`งบล่าสุดในระบบคือ ${qLab(q.d[n-1])} (สิ้นงวด ${Math.round(age)} วันก่อน) บริษัทอาจประกาศงบใหม่แล้วแต่แหล่งข้อมูลยังไม่อัปเดต`});
     for(let i=1;i<n;i++){if((Date.parse(q.d[i])-Date.parse(q.d[i-1]))/864e5>100){out.push({lv:"warn",cat:"ข้อมูล",t:`ข้อมูลรายไตรมาสขาดช่วงระหว่าง ${qLab(q.d[i-1])} ถึง ${qLab(q.d[i])}`});break}}
     const miss=[["rev","รายได้"],["ni","กำไรสุทธิ"],["ocf","กระแสเงินสด"]].filter(([k])=>q[k]?.[n-1]==null).map(x=>x[1]);if(miss.length)out.push({lv:"warn",cat:"ข้อมูล",t:`ไตรมาสล่าสุดไม่มีตัวเลข: ${miss.join(", ")}`});
@@ -263,7 +267,7 @@ function rangeBar(V,c){const f=V.fair,p=V.price,lo=Math.min(f.bear,p)*.92,hi=Mat
   return `<div class="vr"><div class="vr-t"><i class="bear" style="left:${x(f.bear)}%;width:${x(f.base)-x(f.bear)}%"></i><i class="bull" style="left:${x(f.base)}%;width:${x(f.bull)-x(f.base)}%"></i><b class="vbase" style="left:${x(f.base)}%"></b><b class="vprice" style="left:${x(p)}%"><span>ราคาตลาด ${c}${fmt(p)}</span></b></div>
    <div class="vr-l"><span style="left:${x(f.bear)}%">กรณีแย่<br><b class="num">${fmt(f.bear)}</b></span><span style="left:${x(f.base)}%">กรณีฐาน<br><b class="num">${fmt(f.base)}</b></span><span style="left:${x(f.bull)}%">กรณีดี<br><b class="num">${fmt(f.bull)}</b></span></div></div>`}
 function valBody(R){const st=R.st,o=S.valo?.[st.s]||{},V=valuation(R,o),m=st.m,c=cur(m);
-  if(!V.methods.length)return `<p style="margin:0">ประเมินมูลค่าไม่ได้: ${!S.fin[st.s]?"ยังไม่มีงบการเงินของหุ้นนี้":V.eps<=0&&!(V.fcf0>0)?"ขาดทุนและกระแสเงินสดอิสระติดลบ ใช้ P/E และ DCF ไม่ได้":"ข้อมูลบริษัทในกลุ่มเดียวกันไม่พอสำหรับเทียบ"} · ระบบจะไม่สร้างตัวเลขขึ้นมาเองเมื่อไม่มีโมเดลรองรับ</p>`;
+  if(!V.methods.length)return `<p style="margin:0">ประเมินมูลค่าไม่ได้: ${V.hid?"ตัวเลขต่อหุ้นของหุ้นนี้ไม่สอดคล้องกัน ("+esc(V.hid)+") จึงไม่คำนวณมูลค่าเหมาะสม เพื่อไม่ให้ได้ตัวเลขที่ผิด":!S.fin[st.s]?"ยังไม่มีงบการเงินของหุ้นนี้":V.eps<=0&&!(V.fcf0>0)?"ขาดทุนและกระแสเงินสดอิสระติดลบ ใช้ P/E และ DCF ไม่ได้":"ข้อมูลบริษัทในกลุ่มเดียวกันไม่พอสำหรับเทียบ"} · ระบบจะไม่สร้างตัวเลขขึ้นมาเองเมื่อไม่มีโมเดลรองรับ</p>`;
   const f=V.fair;
   return `<div class="stat">${statBox("มูลค่าเหมาะสม กรณีฐาน",c+fmt(f.base),`ช่วง ${fmt(f.bear)} – ${fmt(f.bull)}`)}${statBox("ส่วนเผื่อความปลอดภัย",pct(V.mos,0),V.mos>=20?"ราคาต่ำกว่ามูลค่ามาก":V.mos>=0?"ราคาต่ำกว่ามูลค่าเล็กน้อย":"ราคาสูงกว่ามูลค่ากรณีฐาน",cls(V.mos))}${statBox("P/E ปัจจุบัน",V.pe?V.pe.toFixed(1)+"×":"–",V.peQ?`กลุ่ม ${V.peQ[1].toFixed(1)}×`:"")}${statBox("P/BV ปัจจุบัน",V.pb?V.pb.toFixed(2)+"×":"–",V.pbQ?`กลุ่ม ${V.pbQ[1].toFixed(2)}×`:"")}</div>
    ${rangeBar(V,c)}
@@ -504,19 +508,38 @@ function marketCard(mk){const H=S.learn?.market?.[mk];if(!H?.length)return "";co
     <div class="mc-br"><b>ผลตอบแทนกลาง 20 วัน</b><div class="mc-big num ${r.r20>=0?"up":"down"}">${pct(r.r20,1)}</div><span>แกว่งเฉลี่ย ${r.atr}% ต่อวัน · สัญญาณซื้อ ${r.sig} ตัว</span></div>
    </div>
    <div class="mc-sec"><div><h3>กลุ่มแข็ง (20 วัน)</h3>${r.top.map(sbar).join("")}</div><div><h3>กลุ่มอ่อน (20 วัน)</h3>${r.bot.map(sbar).join("")}</div><div><h3>สัดส่วนเหนือเส้น 200 วัน (60 วัน)</h3>${spark}</div></div></section>`}
+// ทิศทางตลาดวันนี้ (rsq.json → rg): ดัชนีจริงเทียบเส้นเฉลี่ย 50/200 วัน + กลุ่มที่ขึ้น/ลงใน 20 วัน · บอกด้วยว่าตัวกรองนี้ใช้กับสัญญาณซื้อหรือไม่
+function regimeNote(m){const Q=S.rsq?.[m]?.rg;if(!Q?.mk?.length)return "";const k=Q.mk.length-1,v=Q.mk[k],N=Q.now||{},ix=m==="TH"?"SET":"S&P 500",P=rulesFor(m);
+  const lab=v===2?["ขาขึ้น","up"]:v===0?["ขาลง","down"]:["ทรงตัว","warn"],nm=x=>SECTORS[x]?.th||x;
+  const up=Object.entries(Q.sec||{}).filter(([,a])=>a[k]===1).map(([x])=>nm(x)),dn=Object.entries(Q.sec||{}).filter(([,a])=>a[k]===0).map(([x])=>nm(x));
+  const why=N.c&&N.s50&&N.s200?`ดัชนี ${ix} ปิด ${fmt(N.c)} ${N.c>N.s50?"อยู่เหนือ":"อยู่ต่ำกว่า"}เส้นเฉลี่ย 50 วัน (${fmt(N.s50)}) และ${N.c>N.s200?"อยู่เหนือ":"อยู่ต่ำกว่า"}เส้นเฉลี่ย 200 วัน (${fmt(N.s200)})`:"";
+  const mean=v===2?"ราคาดัชนีอยู่เหนือค่าเฉลี่ยทั้งระยะกลางและระยะยาว แปลว่าแรงซื้อยังคุมตลาด":v===0?"ราคาดัชนีต่ำกว่าค่าเฉลี่ยทั้งระยะกลางและระยะยาว แปลว่าแรงขายยังคุมตลาด หุ้นส่วนใหญ่ขึ้นยาก":"ราคาดัชนีอยู่ระหว่างค่าเฉลี่ยสองเส้น ตลาดยังไม่เลือกทาง";
+  const use=P.mkt?(P.mkt===2?"ระบบให้สัญญาณซื้อเฉพาะตอนตลาดเป็นขาขึ้น":"ระบบงดสัญญาณซื้อตอนตลาดเป็นขาลง"):"ตัวกรองนี้ยังไม่ได้ใช้กับสัญญาณซื้อ (ทดสอบแล้วไม่ช่วย)";
+  return `<div class="rg-box"><b>ทิศทางตลาด${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} (${thDate(N.d||Q.d[k])}): <span class="${lab[1]}">${lab[0]}</span></b> · ${why}${why?" — ":""}${mean}
+   <div class="muted" style="font-size:12.5px;margin-top:3px">กลุ่มที่ขึ้นใน 20 วัน: ${up.join(", ")||"ไม่มี"} · กลุ่มที่ลง: ${dn.join(", ")||"ไม่มี"}<br>${use}${P.sec?" · ไม่ให้สัญญาณซื้อหุ้นในกลุ่มที่กำลังลง":""}</div></div>`}
+// สถานะพักสัญญาณซื้อ (ตั้งเอง หรือระบบตรวจตัวเองพัก) + ผลตรวจตัวเองล่าสุด
+function guardNote(m){const p=pauseOf(m),G=S.guard?.[m],nm=m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ";
+  if(p)return `<div class="guard-box"><b>⏸ พักสัญญาณซื้อ${nm}ชั่วคราว</b>${p.by==="manual"?" (ทีมงานสั่งพัก)":" (ระบบตรวจตัวเองสั่งพัก)"}${p.since||p.at?` ตั้งแต่ ${thDate(p.since||p.at)}`:""}<br>เหตุผล: ${esc(p.why||"")}<br><span class="muted">${p.by==="manual"?"สัญญาณจะกลับมาเมื่อปรับจุดตัดขาดทุนเสร็จและผ่านการทดสอบ":esc(p.until||"")} · ไม้ที่ซื้อไปแล้วยังติดตามต่อจนปิด</span></div>`;
+  if(G?.n)return `<div class="muted" style="font-size:12.5px">ระบบตรวจตัวเอง (${thDate(G.checked)}): ผลจริงตั้งแต่ ${thDate(G.since)} ปิดแล้ว ${G.n} ไม้ ชนะ ${G.win}% เฉลี่ย ${pct(G.avg,2)}/ไม้${G.bt!=null?` · ผลทดสอบย้อนหลังชนะ ${G.bt}%`:""} → ยังอยู่ในเกณฑ์ (พักเองเมื่อโดนตัดขาดทุน 3 ไม้ติด หรือชนะต่ำกว่าผลทดสอบเกิน 25 จุด)</div>`;
+  return G?`<div class="muted" style="font-size:12.5px">ระบบตรวจตัวเอง: กติกาชุดนี้ใช้ตั้งแต่ ${thDate(G.since)} ยังไม่มีไม้ที่ปิด · จะพักสัญญาณเองถ้าโดนตัดขาดทุน 3 ไม้ติด หรือชนะต่ำกว่าผลทดสอบเกิน 25 จุด</div>`:""}
+// ผลทั้งพอร์ตเทียบซื้อดัชนีถือไว้ (ห้องทดลอง → port)
+function portLine(p,m){if(!p)return "";const c=m==="TH"?"บาท":"บาท (คิดเป็นเงินบาทเท่ากัน)",ix=m==="TH"?"ดัชนี SET":"ดัชนี S&P 500",f=v=>Math.round(v).toLocaleString("en-US");
+  return `ถ้าลงทุน 100,000 บาทตั้งแต่ ${thDate(p.from)} (${p.yrs} ปี) ด้วยกลยุทธ์นี้ (ถือพร้อมกันไม่เกิน 10 ตัว เงินเท่ากันทุกตัว) ตอนนี้จะมี <b class="${p.end>=100000?"up":"down"}">${f(p.end)}</b> ${c} (${pct(p.cagr,1)}/ปี · ช่วงร่วงหนักสุด −${p.dd}%) เทียบซื้อ${ix} ถือไว้ได้ <b>${f(p.idx.end)}</b> (${pct(p.idx.cagr,1)}/ปี · ร่วงหนักสุด −${p.idx.dd}%) → <b class="${p.beat?"up":"down"}">${p.beat?"ชนะดัชนี":"แพ้ดัชนี"}</b>`}
 // สถานะการเรียนรู้ของระบบ (หน้าความแม่นยำ)
 // ห้องทดลองกลยุทธ์ของฝ่ายเทคนิค (scripts/lab.js ทุกวันอาทิตย์ · data/hist/lab.json)
-const LAB_K={trig:"จุดเข้า",vol:"แกว่งขั้นต่ำ %",adx:"ADX >",rs:"แข็งกว่าตลาด %",e200:"เหนือ EMA200",st:"เหนือ Supertrend",lim:"ตั้งซื้อต่ำกว่าปิด (ATR)",ld:"ค้างคำสั่ง (วัน)",sl:"SL (ATR)",tp1:"TP1 (ATR)",tp1f:"ขายที่ TP1",tp:"TP2 (ATR)",hold:"ถือ (วัน)",dip:"RSI(2) <"};
-const labCh=ch=>Object.entries(ch||{}).map(([k,v])=>`${LAB_K[k]||k} ${k==="trig"?(v==="brk"?"ทะลุกรอบ 20 วัน":v==="pb"?"ย่อแตะ EMA20":"คะแนนตามระบบ"):v===true?"ใช่":v===false?"ไม่ต้อง":k==="tp1f"?v*100+"%":v}`).join(" · ")||"ค่าเดิม";
+const LAB_K={trig:"จุดเข้า",vol:"แกว่งขั้นต่ำ %",adx:"ADX >",rs:"แข็งกว่าตลาด %",e200:"เหนือ EMA200",st:"เหนือ Supertrend",lim:"ตั้งซื้อต่ำกว่าปิด (ATR)",ld:"ค้างคำสั่ง (วัน)",sl:"SL (ATR)",tp1:"TP1 (ATR)",tp1f:"ขายที่ TP1",tp:"TP2 (ATR)",hold:"ถือ (วัน)",dip:"RSI(2) <",mkt:"ทิศทางตลาด",sec:"กลุ่มต้องขึ้น",slMax:"SL ไม่เกิน",slCap:"เพดาน SL",mcMin:"มูลค่าตลาดขั้นต่ำ",tv:"มูลค่าซื้อขาย/วัน (ล้าน) ≥"};
+const labCh=ch=>Object.entries(ch||{}).map(([k,v])=>`${LAB_K[k]||k} ${k==="trig"?(v==="brk"?"ทะลุกรอบ 20 วัน":v==="pb"?"ย่อแตะ EMA20":"คะแนนตามระบบ"):v===true?"ใช่":v===false?"ไม่ต้อง":k==="tp1f"||k==="slMax"||k==="slCap"?(v==null?"ไม่มี":v*100+"%"):k==="mkt"?(v===2?"ขาขึ้นเท่านั้น":v===1?"ไม่ใช่ขาลง":"ไม่ดู"):k==="mcMin"?v/1e9+" พันล้าน":v}`).join(" · ")||"ค่าเดิม";
 function labCard(){const L=S.lab;if(!L?.runs?.length)return `<section class="card"><h2>ห้องทดลองกลยุทธ์ (ฝ่ายเทคนิค)</h2><p class="muted">ยังไม่ได้รันรอบแรก · รันอัตโนมัติทุกวัน</p></section>`;
   const st=s=>s?.n!=null?`${s.n} ไม้ · ชนะ ${s.win}% · ${pct(s.avg,2)}/ไม้`:"–",yrs=L.window?.years||4;
   const blk=b=>(b||[]).length?`<div class="lab-blk">${b.map(x=>`<span class="${x.n<10?"muted":x.avg>0?"up":"down"}" title="${x.n} ไม้ ชนะ ${x.win}%">${String(x.from).slice(0,4)}–${+String(x.from).slice(0,4)+2}: ${x.n<10?`${x.n} ไม้`:pct(x.avg,1)}</span>`).join("")}</div>`:"";
   const col=K=>{const r=L.runs.find(x=>(x.K||x.m)===K);if(!r)return "";const A=L.adopt?.[K],B=(L.book?.[K]||[]),m=K.slice(0,2),tf=K.split("@")[1]||"D",mon=r.cur.perMonth;
     return `<div class="sysm"><b>${m==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} · กรอบ${TF_LABEL[tf]}</b> ${A?`<span class="pill sm p-buy">ใช้กลยุทธ์จากห้องทดลอง ตั้งแต่ ${thDate(A.since)}${A.lane?` · ${esc(A.lane)}`:""}</span>`:B.length?`<span class="pill sm p-hold">ทดลองเทรด ${B.length} แบบ</span>`:`<span class="pill sm">ยังใช้กลยุทธ์เดิม</span>`}
      <div style="font-size:13px;margin-top:4px">กลยุทธ์ที่ใช้อยู่ · backtest ${tf==="D"?yrs+" ปี":"2 ปี"}: ช่วงสร้าง ${st(r.cur.build)} · ช่วงทดสอบ (${thDate(r.window?.split||L.window?.split)} ถึงวันนี้) ${st(r.cur.test)}${mon!=null?` · <b>${mon} ไม้/เดือน</b> ทั้งตลาด`:""}</div>
+     ${r.cur.port?.all?`<div style="font-size:13px;margin-top:4px">${portLine(r.cur.port.all,m)}</div>`:""}${r.cur.port?.test?`<div class="muted" style="font-size:12.5px">ช่วงทดสอบ 3 ปีล่าสุด: ${portLine(r.cur.port.test,m)}</div>`:""}
+     ${tf==="D"?guardNote(m):""}
      ${tf==="D"&&r.cur.blk?`<div class="muted" style="font-size:12.5px">กำไรเฉลี่ยต่อไม้ แยกทีละ 2 ปี ${r.cur.stable?"· นิ่งทุกช่วง":"· ยังไม่นิ่งทุกช่วง"}</div>${blk(r.cur.blk)}`:""}
      ${A?`<div style="font-size:13px">ใช้อยู่: ${esc(labCh(A.rules))}${A.paper?.n?` · ทดลองเทรดก่อนใช้ ${st(A.paper)}`:""}</div>`:""}
-     ${B.length?`<details open><summary class="muted">สมุดทดลองเทรด (ต้องทดลองเทรดปิดแล้ว ≥ 15 ไม้ และได้กำไรจริงก่อนใช้)</summary><div class="tscroll"><table class="wide"><thead><tr><th>แบบ</th><th>เส้นทาง</th><th class="r">backtest ช่วงทดสอบ</th><th class="r">ทดลองเทรดจริง</th><th>เริ่ม</th></tr></thead><tbody>${B.map(e=>`<tr><td style="font-size:12.5px">${esc(labCh(e.ch))}${e.ok?"":` <span class="down">(สัปดาห์นี้ไม่ผ่าน)</span>`}</td><td style="font-size:12.5px">${esc(e.lane||"")}</td><td class="r num" style="font-size:12.5px">${st(e.test)}</td><td class="r num" style="font-size:12.5px">${e.paper?.n?st(e.paper):"ยังไม่มีไม้ปิด"}</td><td class="muted" style="font-size:12.5px">${thDate(e.since)}</td></tr>`).join("")}</tbody></table></div></details>`:""}
+     ${B.length?`<details open><summary class="muted">สมุดทดลองเทรด (ต้องทดลองเทรดปิดแล้ว ≥ 15 ไม้ และได้กำไรจริงก่อนใช้)</summary><div class="tscroll"><table class="wide"><thead><tr><th>แบบ</th><th>เส้นทาง</th><th class="r">backtest ช่วงทดสอบ</th><th class="r">ทดลองเทรดจริง</th><th class="r">ทั้งพอร์ต 3 ปี vs ดัชนี</th><th>เริ่ม</th></tr></thead><tbody>${B.map(e=>`<tr><td style="font-size:12.5px">${esc(labCh(e.ch))}${e.ok?"":` <span class="down">(สัปดาห์นี้ไม่ผ่าน)</span>`}</td><td style="font-size:12.5px">${esc(e.lane||"")}</td><td class="r num" style="font-size:12.5px">${st(e.test)}</td><td class="r num" style="font-size:12.5px">${e.paper?.n?st(e.paper):"ยังไม่มีไม้ปิด"}</td><td class="r num" style="font-size:12.5px">${e.port?.test?`<span class="${e.port.test.beat?"up":"down"}">${pct(e.port.test.cagr,1)} vs ${pct(e.port.test.idx.cagr,1)}/ปี</span>`:"–"}</td><td class="muted" style="font-size:12.5px">${thDate(e.since)}</td></tr>`).join("")}</tbody></table></div></details>`:""}
      <details><summary class="muted">รอบ ${thDate(r.d)}: ลอง ${r.n} แบบ ผ่าน ${r.pass} แบบ · 5 แบบที่ดีที่สุด</summary><div class="tscroll"><table class="wide"><thead><tr><th>เปลี่ยนจากที่ใช้อยู่</th><th class="r">ช่วงสร้าง</th><th class="r">ช่วงทดสอบ</th><th>ผ่าน</th></tr></thead><tbody>${r.top.slice(0,5).map(t=>`<tr><td style="font-size:12.5px">${esc(labCh(t.ch))}${t.stable===false?` <span class="muted">(ไม่นิ่งราย 2 ปี)</span>`:""}</td><td class="r num" style="font-size:12.5px">${st(t.build)}</td><td class="r num" style="font-size:12.5px">${st(t.test)}</td><td>${t.ok?`✓ ${esc(t.lane||"")}`:"–"}</td></tr>`).join("")}</tbody></table></div></details></div>`};
   return `<section class="card"><div class="card-h"><div><h2>ห้องทดลองกลยุทธ์ (ฝ่ายเทคนิค)</h2><div class="sub-t">ทุกวัน ฝ่ายเทคนิคลองกลยุทธ์ใหม่ราว 1,000 แบบต่อตลาด แยกหุ้นไทยกับสหรัฐฯ · ขั้นที่ 1 backtest ${yrs} ปีบนกรอบวัน (กรอบ 4 ชม./1 ชม. 2 ปี เพราะข้อมูลรายชั่วโมงมีแค่นั้น) ต้องกำไรทั้งช่วงสร้างและช่วงทดสอบ และนิ่งทุกช่วง 2 ปี · ขั้นที่ 2 ทดลองเทรดกับตลาดจริงหลังวันที่เลือก ต้องปิดได้ ≥ 15 ไม้และได้กำไรจริงถึงจะใช้ · มี 2 เส้นทาง: แม่นขึ้น และไม้มากขึ้นโดยความแม่นไม่ลด · ผลย้อนหลังใช้หุ้นที่ยังซื้อขายอยู่วันนี้ จึงดีกว่าความจริงเล็กน้อย ผลทดลองเทรดและผลจริงคือตัวตัดสิน</div></div></div>
    ${[...new Set(L.runs.map(x=>x.K||x.m))].sort().map(col).join("")}</section>`}
@@ -526,6 +549,7 @@ function deskHomeCard(mk){const F=S.calibData?.fwdSys?.M?.[mk]||S.calib?.fwdSys?
   const PI=S.peerIdx?.s,cheap=PI?Object.entries(PI).filter(([s,v])=>stockBySym(s)?.m===mk&&v[5]==="high"&&v[3]>=75&&v[0]>=60&&(v[4]??0)>=15).sort((x,y)=>(y[1][4]??0)-(x[1][4]??0)).slice(0,6):null;
   if(!PI&&!S._peerIdxLoading){S._peerIdxLoading=1;J("data/peer_index.json").then(x=>{if(x){S.peerIdx=x;if(route().v==="home")render()}})}
   return `<section class="card"><div class="card-h"><div><h2>จากทีมวิเคราะห์</h2><div class="sub-t">สิ่งที่ฝ่ายเทคนิคและฝ่ายพื้นฐานตรวจพบล่าสุด</div></div><a class="btn ghost sm" href="#accuracy">ดูทั้งหมด →</a></div>
+   ${regimeNote(mk)}${guardNote(mk)}
    <ul class="br-ul">
     <li><b>ระบบซื้อขาย${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}:</b> ${bt?.oos?.n?`ผลทดสอบย้อนหลัง ชนะ ${bt.oos.win.toFixed(0)}% เฉลี่ย ${pct(bt.oos.avg,2)}/ไม้`:""} · ผลจริง ${F?.closed?`ปิดแล้ว ${F.closed} ไม้ ชนะ ${w.toFixed(0)}% เฉลี่ย ${pct(a,2)}`:"ยังไม่มีไม้ที่ปิด"} ${ok==null?`(รอครบ 30 ไม้)`:ok?"→ สอดคล้องกับผลทดสอบ":"→ ต่ำกว่าผลทดสอบ ควรลดขนาดไม้"}</li>
     <li><b>ห้องทดลองกลยุทธ์:</b> ${r?`รอบ ${thDate(r.d)} ลอง ${r.n} แบบ ผ่าน ${r.pass} แบบ · ${A?`ใช้กลยุทธ์ใหม่ตั้งแต่ ${thDate(A.since)}`:L.pending?.[mk]?"มีแบบที่ดีกว่า รอยืนยันสัปดาห์หน้า":"กลยุทธ์ที่ใช้อยู่ยังดีที่สุด"}`:"รันรอบแรกวันอาทิตย์นี้"}</li>
@@ -1175,14 +1199,15 @@ async function loadHist(syms){const need=syms.filter(s=>{const st=stockBySym(s);
   if(!document.querySelector("input:focus,details[open]"))render()}
 async function loadAll(){
   // ราคาย้อนหลังของทุกหุ้น (รวมหุ้นหลัก) โหลดเมื่อเปิดดู จึงไม่ต้องโหลด prices.json ตอนเริ่ม
-  const [[fund,macro,news,man,uni0,sum,cal,rsq,lrn,sr,bf,sst,ag,lab],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json","data/learn.json","data/signals_round.json","data/brief.json","data/sector_stats.json","data/agents.json"].map(J).concat([J(HIST+"lab.json")])),getLive()]);
+  const [[fund,macro,news,man,uni0,sum,cal,rsq,lrn,sr,bf,sst,ag,fl,lab],L]=await Promise.all([Promise.all(["data/fund.json","data/macro.json","data/news.json","manual.json","data/uni.json","data/summary.json","data/calib.json","data/rsq.json","data/learn.json","data/signals_round.json","data/brief.json","data/sector_stats.json","data/agents.json","data/fin_flags.json"].map(J).concat([J(HIST+"lab.json")])),getLive()]);
   if(lrn){S.learn=lrn;S.tuned=lrn.tuned||{}}if(sr)S.sigRound=sr;if(bf)S.briefs=bf.items||[];if(sst)S.secStats=sst;if(lab)S.lab=lab;if(ag&&(ag.updated||0)>(S.agents?.updated||0))S.agents=ag;
   const uni=uni0||await J("data/universe.json"),px=null;
-  if(cal&&cal.updated!==S.calibData?.updated){S.calibData=cal;S.calib=null}
-  if(rsq){S.rsq=rsq;S._rsqIdx=null}
+  if(cal&&cal.updated!==S.calibData?.updated){S.calibData=cal;S.calib=null}if(cal?.guard)S.guard=cal.guard;
+  if(rsq){S.rsq=rsq;S._rsqIdx=null;S._rgIdx=null}
 const q=L.q,meta=L.meta;
   S.universe=uni?.items||[];S.summary=sum?.s||{};S.hist??={};S._allK=null;
   S.prices=px||{};S.quotes=q;S.fundLive=fund||{};S.macro=macro||{};S.metaLive=meta;S.live=!!(sum&&Object.keys(sum.s||{}).length);
+  if(fl?.f)S.flags=fl.f;applyFlags();
   S.factors=buildFactors(man,macro).sort((a,b)=>(a.order||0)-(b.order||0));S.manNews=man?.news||[];S.news=mergeNews(S.manNews,news?.items||[]);S.newsUpd=news?.updated;
   const ix=meta?.indices||{};S.meta={updatedAt:meta?new Date(meta.updated*1000).toISOString():null,...ix};
   S.dbState=man||news?"ready":"off";S.cache.clear();S.bars.clear();S.loadedAt=Date.now();render();liveBadge();
@@ -1533,7 +1558,7 @@ function vOffice(){if(!ofOpen())return vOfficeLock();const{L,A}=officeEd();
   const eds=`<div class="chips br-eds" role="group" aria-label="เลือกรอบทำงาน">${L.map(x=>`<button type="button" class="chip" data-oed="${esc(x.id)}" aria-pressed="${x.id===A.id}">${x.mk==="TH"?"ไทย":"สหรัฐฯ"} · ${esc(BR_KIND[x.mk]?.[x.kind]||x.kind)} · ${when(x.ts)}</button>`).join("")}</div>`;
   return `<div class="br-top"><div><h1>ออฟฟิศทีมวิจัย</h1><p class="muted" style="margin:4px 0 0">เล่นซ้ำงานจริงของทีม ${D.roster.length} คนในรอบที่เลือก ตั้งแต่ดูราคา เขียนบท ตรวจข้อมูล จนส่งสรุปถึงบอส · แตะตัวละครเพื่อดูชื่อ</p></div></div>${eds}
    <div class="of-mode" id="ofMode"></div>
-   <section class="card of-stage"><canvas id="ofCv" role="img" aria-label="ออฟฟิศพิกเซลของทีมวิจัย"></canvas>
+   <p class="of-hint muted">เลื่อนซ้าย–ขวาที่ภาพเพื่อดูครบทุกห้อง · แตะคนเพื่อดูว่ากำลังทำอะไร</p><section class="card of-stage"><canvas id="ofCv" role="img" aria-label="ออฟฟิศพิกเซลของทีมวิจัย"></canvas>
     <div class="of-bar"><button type="button" class="chip" id="ofReplay">เล่นใหม่ตั้งแต่ต้น</button><button type="button" class="chip" data-oflock="1">ล็อกออฟฟิศ</button><button type="button" class="chip" id="ofSpd" data-s="1">ความเร็ว 1×</button><span class="muted" id="ofNow">ทีมเริ่มงาน…</span></div></section>
    <div class="grid g2 of-g">
     <section class="card of-boss" id="ofBoss" data-st="waiting"><div class="eyebrow">ห้องบอส · ${esc(who("boss").name)}</div><h2 id="ofBossH">รอทีมส่งสรุปตลาด…</h2>
@@ -1635,10 +1660,11 @@ function vSignals(){const mk=S.mkt==="US"?"US":"TH",cap=+(lsGet("cap"+mk)||(mk==
     ${take&&q>0?`<div class="pl-act">${y.hit?`<span class="pill sm p-buy2">ราคาวันนี้ลงถึงจุดตั้งซื้อแล้ว</span>`:""}<button class="btn sm primary" data-bought="${esc(R.st.s)}" data-bq="${q}" data-bc="${y.lp}" data-btp="${y.tp}" data-bt1="${y.tp1||""}" data-bsl="${y.sl}">✓ ซื้อได้แล้ว บันทึกเข้าพอร์ต</button></div>`:""}</div>`};
   return `<div><h1>สัญญาณซื้อตามระบบ · พอร์ต ${SLOTS} ตัว</h1><p class="muted" style="margin:4px 0 0">ระบบเดียวกับที่ทดสอบ 5 ปี (TP ≥ 2 เท่าของ SL) · ถือพร้อมกันไม่เกิน ${SLOTS} ตัว ตัวละ 1/${SLOTS} ของเงินพอร์ต${Object.keys(QRULE.use[mk]||{}).length?` × ตัวคูณ quant (ลดขนาดเมื่อผันผวนผิดปกติหรือ SL แคบ ทดสอบแล้วลด MDD พอร์ต) <a href="#quant">ดูผลทดสอบ</a>`:""} · มีสัญญาณมากกว่าช่องว่าง เลือกหุ้นที่แข็งกว่าตลาดมากสุดก่อน</p><p class="muted" style="margin:4px 0 0;font-size:13px">${sigRoundNote()}</p></div>
   <div class="chips"><button class="chip" data-mkt="TH" aria-pressed="${mk==="TH"}">หุ้นไทย</button><button class="chip" data-mkt="US" aria-pressed="${mk==="US"}">หุ้นสหรัฐฯ</button></div>
+  <section class="card">${guardNote(mk)}${regimeNote(mk)}</section>
   <section class="card plk"><label class="field">เงินพอร์ต${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} (${k})<input data-cap="${mk}" type="number" min="0" step="${mk==="TH"?10000:1000}" value="${cap}" inputmode="decimal"></label>
    <div><span class="muted">ตัวละ</span><b class="num">${k}${Math.round(per).toLocaleString()}</b></div><div><span class="muted">ถืออยู่</span><b class="num">${held.length}/${SLOTS}</b></div><div><span class="muted">ช่องว่าง</span><b class="num">${free}</b></div><div><span class="muted">สัญญาณวันนี้</span><b class="num">${sig.length}</b></div></section>
   ${sigFeed(mk)}
-  <section class="card" style="padding:6px 14px">${sig.length?sig.slice(0,Math.max(free,0)+5).map(row).join(""):`<p class="muted" style="padding:12px 0;margin:0">วันนี้ยังไม่มีสัญญาณใหม่ ระบบจะแจ้งเมื่อคะแนนข้าม 40 หรือหุ้นแนวโน้มดีย่อแรง (RSI2 < 20)</p>`}</section>
+  <section class="card" style="padding:6px 14px">${sig.length?sig.slice(0,Math.max(free,0)+5).map(row).join(""):pauseOf(mk)?`<p class="muted" style="padding:12px 0;margin:0">พักสัญญาณซื้อ${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"}อยู่ (ดูเหตุผลด้านบน) จึงไม่มีสัญญาณใหม่</p>`:`<p class="muted" style="padding:12px 0;margin:0">วันนี้ยังไม่มีสัญญาณใหม่ ระบบจะแจ้งเมื่อคะแนนข้าม 40 หรือหุ้นแนวโน้มดีย่อแรง (RSI2 < 20)</p>`}</section>
   <section class="card"><h2 style="margin-bottom:6px">วิธีใช้</h2><ol class="steps" style="margin:0">
    <li>สัญญาณคำนวณจาก <b>ราคาปิด</b> (ระหว่างวันจะเห็นคำสั่งของเมื่อวานที่ยังใช้ได้) ดูหลังตลาดปิด: ${mk==="TH"?"หุ้นไทยหลัง 17:00 น.":"หุ้นสหรัฐฯ หลัง 04:30 น. เวลาไทย"}</li>
    <li>ส่งคำสั่ง <b>ตั้งซื้อ (Limit)</b> ตามราคาและจำนวนในรายการก่อนตลาดเปิด ${P.ld>1?`คำสั่งค้างได้ ${P.ld} วันทำการ (ตั้ง GTC แล้วยกเลิกเองถ้าไม่ได้ของ)`:"ใช้ได้วันทำการถัดไปวันเดียว (คำสั่งแบบ Day)"} · อย่าไล่ซื้อราคาตลาด</li>

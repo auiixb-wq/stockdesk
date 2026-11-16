@@ -273,14 +273,31 @@ def index_hist(d0, period="10y"):
     f = os.path.join(d0, "_idx.json")
     old = load_json(f)
     out = {}
-    for m, y in (("TH", "^SET.BK"), ("US", "^GSPC")):
-        try:
-            d = yf.Ticker(y).history(period=period, interval="1d", auto_adjust=False)["Close"].dropna()
-            if len(d) < 250:
-                raise ValueError(f"{len(d)} วัน")
-            out[m] = {"t": [i.strftime("%Y-%m-%d") for i in d.index], "c": [round(float(x), 2) for x in d]}
-        except Exception as e:
-            ERRORS.append(f"index {y}: {str(e)[:80]}")
+    for m, ys, cn in (("TH", ("^SET.BK", "^SETI"), ".SETI"), ("US", ("^GSPC",), ".SPX")):
+        why = []
+        for y in ys:
+            try:
+                d = yf.Ticker(y).history(period=period, interval="1d", auto_adjust=False)["Close"].dropna()
+                if len(d) < 250:
+                    raise ValueError(f"{len(d)} วัน")
+                out[m] = {"t": [i.strftime("%Y-%m-%d") for i in d.index], "c": [round(float(x), 2) for x in d], "src": "Yahoo " + y}
+                break
+            except Exception as e:
+                why.append(f"{y}: {str(e)[:50]}")
+        if m not in out:  # สำรอง: กราฟดัชนีจาก CNBC (ช่วงยาวสุดที่ได้)
+            for rg in ("10Y", "5Y"):
+                try:
+                    url = f"https://ts-api.cnbc.com/harmony/app/charts/{rg}.json?symbol=" + urllib.parse.quote(cn)
+                    bars = json.loads(urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=20).read()).get("barData", {}).get("priceBars", [])
+                    rows = sorted({b["tradeTime"][:8]: float(b["close"]) for b in bars if b.get("close")}.items())
+                    if len(rows) < 250:
+                        raise ValueError(f"{len(rows)} วัน")
+                    out[m] = {"t": [k[:4] + "-" + k[4:6] + "-" + k[6:8] for k, _ in rows], "c": [round(v, 2) for _, v in rows], "src": "CNBC " + cn + " " + rg}
+                    break
+                except Exception as e:
+                    why.append(f"CNBC {rg}: {str(e)[:50]}")
+        if m not in out:
+            ERRORS.append(f"index {m}: " + " / ".join(why))
             if old.get(m):
                 out[m] = old[m]
     if out:
