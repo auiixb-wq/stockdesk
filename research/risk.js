@@ -33,8 +33,8 @@ function run(m) {
   const test = r => { const P = { ...base, ...r }, b = [], t = [], all = [], blk = {};
     for (const x of prep) { if (m === "TH" && (x.st.mc || 0) < (P.mcMin || 5e9)) continue; const rsA = P.rs != null ? (x.rs[P.rs] ??= C.rsSeries(x.st, x.B, P.rs)) : null; const sig = i => C.sysTrig(x.A, x.I, i, P) && C.sigOK(x.I, i, rsA, P);
       for (const tr of C.simulate(x.B, x.I, sig, 0, x.B.length, m, P)) { const dd = String(x.B[tr.i].t).slice(0, 10); if (dd < FROM) continue; (dd < SPLIT ? b : t).push(tr.ret * 100); all.push({ ...tr, B: x.B }); (blk[dd.slice(0, 4)] ??= []).push(tr.ret * 100) } }
-    const pf = portSim(all, IDX[m], FROM, today), pt = portSim(all, IDX[m], SPLIT, today), p2 = portSim(all, IDX[m], "2024-11-18", today);
-    return { build: sm(b), test: sm(t), p2, years: Object.fromEntries(Object.entries(blk).sort().map(([y, a]) => [y, [a.length, +(a.reduce((p, r) => p + r, 0) / a.length).toFixed(2)]])), pf, pt } };
+    const pf = portSim(all, IDX[m], FROM, today), pt = portSim(all, IDX[m], SPLIT, today), p2 = portSim(all, IDX[m], "2024-11-18", today), pb = portSim(all, IDX[m], FROM, SPLIT);
+    return { build: sm(b), test: sm(t), p2, pb, years: Object.fromEntries(Object.entries(blk).sort().map(([y, a]) => [y, [a.length, +(a.reduce((p, r) => p + r, 0) / a.length).toFixed(2)]])), pf, pt } };
   const TH = { lim: 1, ld: 1, vol: 2.2, tp1: 2, tp1f: .5, tp: 6, sl: 3, slCap: .08, hold: 10, adx: 25, rs: 70, dip: 20, st: true, e200: true, mkt: 1 };
   const V = m === "US" ? [
     ["ปัจจุบัน", {}],
@@ -59,6 +59,24 @@ function run(m) {
     ["ตั้งซื้อ −0.75 ATR + ตลาดขึ้น", { lim: .75, mkt: 2 }], ["ตั้งซื้อ −1 ATR ค้าง 2 + ตลาดไม่ลง", { lim: 1, ld: 2, mkt: 1 }],
     ["เพดาน 8% + ตั้งซื้อ −1 ATR", { slCap: .08, lim: 1 }], ["เพดาน 8% + ตั้งซื้อ −1 ATR + ตลาดไม่ลง", { slCap: .08, lim: 1, mkt: 1 }],
   ];
+  // โหมดหากติกาเฉพาะตลาด (TUNE=1): สุ่มประมาณ 300 แบบ เลือกด้วยผลทั้งพอร์ตช่วงสร้าง (2016–2023) อย่างเดียว แล้วรายงานช่วงทดสอบ (2023–2026) ที่ไม่ได้ใช้เลือก
+  if (process.env.TUNE) {
+    const SP = { trig: [null, null, "pb", "brk"], lim: [0, .5, 1, 1.5], ld: [1, 3], tp1: [null, 2, 3], tp1f: [.3, .5], tp: [4, 6, 8, 10], sl: [2, 3, 4], slCap: [.06, .08, .1],
+      hold: [5, 10, 20, 40], rs: [70, 80, 85, 90], vol: [1.5, 2, 2.5, 3], e200: [true, false], adx: [15, 20, 25, 30], mkt: [0, 1, 2], sec: [true, false], st: [true, false] };
+    let sd = 20261116; const rnd = () => (sd = sd * 16807 % 2147483647) / 2147483647, pick = a => a[Math.floor(rnd() * a.length)];
+    const cands = [["ปัจจุบัน", {}]], seen = new Set();
+    for (let i = 0; cands.length < +(process.env.TUNE_N || 300); i++) { const r = { ...base }; for (let j = 0, n = 2 + Math.floor(rnd() * 5); j < n; j++) { const k = pick(Object.keys(SP)); r[k] = pick(SP[k]) }
+      if (r.tp1 && r.tp1 >= r.tp) continue; const k = JSON.stringify(Object.keys(SP).map(x => r[x] ?? null)); if (seen.has(k)) continue; seen.add(k);
+      cands.push([Object.entries(r).filter(([k2, v]) => SP[k2] && (base[k2] ?? null) !== v).map(([k2, v]) => `${k2}=${v}`).join(" "), r]) }
+    const res = [];
+    for (const [name, r] of cands) { const R = test(r); if (!R.pb || R.build.n < 100) continue;
+      const sc = R.pb.cagr - .5 * R.pb.dd; res.push({ name, R, sc }) }
+    res.sort((a, b) => b.sc - a.sc);
+    const P = x => x ? `${x.cagr}%/ปี ร่วง −${x.dd}% ลงทุน ${x.exp}% (ดัชนี ${x.idx.cagr}% −${x.idx.dd}%)` : "-";
+    console.log(`\n=== TUNE ${m}: ${res.length} แบบ · เรียงตามคะแนนช่วงสร้าง (กำไร/ปี − 0.5×ร่วงหนักสุด)`);
+    for (const x of [res.find(y => y.name === "ปัจจุบัน"), ...res.slice(0, 15)]) if (x) console.log(`${x.name} | สร้าง: ${P(x.R.pb)} · ${x.R.build.n} ไม้ ${x.R.build.win}% ${x.R.build.avg}% | ทดสอบ: ${P(x.R.pt)} · ${x.R.test.n} ไม้ ${x.R.test.win}% ${x.R.test.avg}% แพ้เฉลี่ย ${x.R.test.al} | 10ปี ${P(x.R.pf)} | ${Object.entries(x.R.years).map(([y, [n, a]]) => `${y}:${a}`).join(" ")}`);
+    return;
+  }
   const sig0 = test({ lim: 0 }).test.n, sig0b = test({ lim: 0, mkt: 1, sec: true }).test.n;
   { const t = IDX[m]?.t || [], g = t.slice(1).map((d, i) => (Date.parse(d) - Date.parse(t[i])) / 864e5).sort((a, b) => a - b); console.log(`ดัชนี ${m}: ${IDX[m]?.src || "-"} · ${t[0]} → ${t.at(-1)} · ${t.length} จุด · ห่างกันปกติ ${g[g.length >> 1] || "-"} วัน`) }
   console.log(`\n===== ${m} · หุ้น ${prep.length} ตัว · ช่วงสร้าง ${FROM}→${SPLIT} · ช่วงทดสอบ ${SPLIT}→${today} · ดัชนี ${IDX[m]?.t?.length || 0} วัน · ทิศทางตลาด ${Q.rg ? "มี" : "ไม่มี"}`);
