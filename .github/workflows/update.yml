@@ -35,6 +35,8 @@ jobs:
           git fetch origin hist --depth=1 && mkdir -p data/hist && git --work-tree=data/hist checkout origin/hist -- . && git reset -q || true
           git fetch origin intra --depth=1 && mkdir -p data/intra && git --work-tree=data/intra checkout origin/intra -- . && git reset -q || true
           git fetch origin intra15 --depth=1 && mkdir -p data/intra15 && git --work-tree=data/intra15 checkout origin/intra15 -- . && git reset -q || true
+          # จด hash ของไฟล์ที่ดึงมา ตอนเผยแพร่จะส่งเฉพาะไฟล์ที่งานนี้แก้ (scripts/sd/datasync.py)
+          python3 scripts/sd/datasync.py mark
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -86,4 +88,5 @@ jobs:
       - name: Publish site with data
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SD_JOB: update
         run: bash scripts/publish.sh

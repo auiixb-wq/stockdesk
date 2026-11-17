@@ -16,6 +16,7 @@ from sd import archive  # noqa: E402
 from sd.prices import market_open  # noqa: E402
 
 ROOT = update.ROOT
+os.environ.setdefault("SD_JOB", "live")  # scripts/publish.sh รวมไฟล์ในฐานะงาน live
 INTERVAL = int(os.environ.get("LIVE_INTERVAL", "30"))
 FULL_EVERY = int(os.environ.get("FULL_EVERY", "1800"))
 NEWS_EVERY = int(os.environ.get("NEWS_EVERY", "1200"))
@@ -53,29 +54,18 @@ def publish_site():
         print("publish failed:", r.stderr[-300:])
 
 
-OWN = {"quotes.json", "news.json", "meta.json", "archive_state.json", "brief.json", "agents.json", "ops.json"}  # ไฟล์ที่งานนี้เขียนเองตลอด (ของในเครื่องใหม่กว่าเสมอ)
-
-
 def sync_shared():
-    """ไฟล์ที่งานรายคืน (update.yml) สร้างใหม่ ดึงมาแทนของในเครื่องก่อนคำนวณรอบใหญ่และก่อนเผยแพร่
-    ถ้าบนเว็บมีผลคำนวณ (summary.json) ใหม่กว่าในเครื่อง ดึงไฟล์ผลทั้งชุดมาด้วย ไม่งั้นรอบข่าวจะเอาคะแนน/สัญญาณชุดเก่าไปทับ"""
-    sh("git fetch -q origin gh-pages --depth=1 && git checkout origin/gh-pages -- data/fund.json data/universe.json && git reset -q")
-    try:
-        remote = json.loads(sh("git show origin/gh-pages:data/summary.json").stdout or "{}").get("updated") or 0
-        local = update.load("summary.json", {}).get("updated") or 0
-        if remote > local:
-            names = [n[5:] for n in sh("git ls-tree --name-only origin/gh-pages data/").stdout.split() if n.endswith(".json")]
-            keep = [f"data/{n}" for n in names if n not in OWN]
-            sh("git checkout origin/gh-pages -- " + " ".join(keep) + " && git reset -q")
-            print("ใช้ผลคำนวณชุดใหม่จากงานรายคืน", remote)
-    except Exception as e:
-        print("sync summary:", e)
+    """ดึงไฟล์ที่งานอื่น (update.yml รอบใหญ่, lab.yml) ส่งขึ้นมาใหม่มาใช้ก่อนคำนวณรอบใหญ่และก่อนเผยแพร่
+    เลือกทีละไฟล์ตามตารางเจ้าของใน scripts/sd/datasync.py: ไฟล์ที่งานนี้แก้เองเก็บไว้ ที่ไม่ได้แก้ใช้ของใหม่จาก branch"""
+    r = sh("python3 scripts/sd/datasync.py pull gh-pages --job live")
+    print((r.stdout + r.stderr).strip()[-600:])
     r = sh("git ls-remote origin refs/heads/hist")
     sha = r.stdout.split()[0] if r.stdout.strip() else None
     if sha and _hist_sha[0] and sha != _hist_sha[0]:
-        sh("git fetch -q origin hist --depth=1 && git --work-tree=data/hist checkout origin/hist -- . && git reset -q")
-        print("ใช้ราคาย้อนหลังชุดใหม่", sha[:8])
-    _hist_sha[0] = sha
+        r = sh("python3 scripts/sd/datasync.py pull hist --job live")
+        print((r.stdout + r.stderr).strip()[-600:])
+    if sha and not r.returncode:
+        _hist_sha[0] = sha
 
 
 # บทความสรุปตลาด (scripts/brief.js): ไทย 06:00 / 12:00 น. · สหรัฐฯ 08:45 / 12:00 ET · เสาร์–อาทิตย์ฉบับสุดสัปดาห์ · ช้าได้ไม่เกิน 3 ชม.
