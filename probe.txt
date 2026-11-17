@@ -1,0 +1,15 @@
+FMP AAPL 200 image/png 1974 e60ac80d
+FMP NVDA 200 image/png 11180 4db9de1c
+FMP PTT.BK 200 image/png 3557 7f89d4c9
+FMP ADVANC.BK 200 image/png 5441 ddb59dda
+FMP CPALL.BK 200 image/png 3056 f606bc2a
+FMP PLANB.BK 200 image/png 2221 b85f98cb
+FMP TKN.BK 200 image/png 16649 c66391b9
+FMP ZZZZ.BK ERR HTTP Error 404: Not Found
+FMP XMTR 200 image/png 3052 62406322
+FMP HUMAN.BK 200 image/png 3174 31e69e23
+robots err HTTP Error 403: Forbidden
+TV thailand 2350 [['AAPL80', 'apple', 'Apple Inc. Units Thailand Depository Receipt Repr 0.001 Sh'], ['AAPL03', 'apple', 'Apple Inc. Units Thailand Depositery Receipts Repr 0.01 Sh'], ['AAPL01', 'apple', 'Apple Inc Units Thailand Depositery Receipts Repr 0.01 Sh'], ['AAPL19', 'apple', 'Apple Inc Shs Thailand Depositery Receipts Repr 0.01 Sh'], ['NVDA23', 'nvidia', 'NVIDIA Corp Shs Thailand Depositary Receipts Repr 1 Sh'], ['NVDA80', 'nvidia', 'NVIDIA Corporation Units Thailand Depository Receipt Repr 0.01 Sh']]
+TV america 20316 [['AAPL', 'apple', 'Apple Inc.'], ['MSFT', 'microsoft', 'Microsoft Corporation'], ['NVDA', 'nvidia', 'NVIDIA Corporation'], ['GOOGN', 'alphabet', 'Alphabet Inc. Depository Shs Repr 1/20th Conv Pfd Registered Shs'], ['GOOGM', 'alphabet', 'Alphabet Inc. Depository Shs Repr 1/20th Conv Pfd Registered Shs'], ['GOOG', 'alphabet', 'Alphabet Inc. Class C']]
+TVLOGO ptt ERR HTTP Error 403: Forbidden
+TVLOGO apple 200 image/svg+xml 1112
