@@ -816,3 +816,5 @@ tr.med td{font-style:italic;color:var(--ink-2);border-top:1px dashed var(--line)
 /* โลโก้จริงของบริษัท: พื้นขาวให้โลโก้สีเข้มอ่านได้ทั้งโหมดสว่าง/มืด · ถ้าโหลดไม่ได้จะเห็นตัวอักษรเดิม */
 .logo{position:relative;overflow:hidden}.logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:14%;background:#fff;border-radius:inherit;box-sizing:border-box}
 .logo.has-img{box-shadow:inset 0 0 0 1px rgba(0,0,0,.06)}
+.tm-lg{width:24px;height:24px;object-fit:contain;padding:3px;margin-bottom:3px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.3);box-sizing:border-box;flex:none}.tm-lg.xl{width:40px;height:40px;padding:5px;margin-bottom:5px}
+@media (max-width:600px){.tm-lg{width:20px;height:20px}.tm-lg.xl{width:32px;height:32px}}
