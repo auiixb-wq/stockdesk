@@ -726,7 +726,7 @@ function eqSVG(R){
    <circle cx="${x(n)}" cy="${y(e)}" r="3.5" fill="var(--up)"/></svg>
    <div class="legend"><span style="--c:var(--up)">ระบบนี้ (หักต้นทุนแล้ว)</span><span style="--c:var(--ink-2)">ซื้อแล้วถือ</span><span style="--c:var(--surface-2)">พื้นเทา = ช่วงทดสอบ</span></div>`;
 }
-const TABS=[["sum","ภาพรวม"],["news","ข่าว"],["fa","งบการเงิน"],["val","มูลค่าเหมาะสม"],["risk","ความเสี่ยง"],["peers","เทียบกลุ่ม"],["chart","เทคนิค"],["bt","ทดสอบย้อนหลัง"],["data","นำเข้า"]];
+const TABS=[["sum","ภาพรวม"],["fut","🔮 ซ้ำรอย"],["deb","⚔️ กระทิง vs หมี"],["news","ข่าว"],["fa","งบการเงิน"],["val","มูลค่าเหมาะสม"],["risk","ความเสี่ยง"],["peers","เทียบกลุ่ม"],["chart","เทคนิค"],["bt","ทดสอบย้อนหลัง"],["data","นำเข้า"]];
 function headline(R){const P=R.plan,w=R.why.wait;const up=R.I.wk.at(-1)>0?"แนวโน้มรายสัปดาห์เป็นขาขึ้น":R.I.wk.at(-1)<0?"แนวโน้มรายสัปดาห์เป็นขาลง":"แนวโน้มยังไม่ชัด";
   if(P.tone==="buy")return `${up} ทยอยซื้อได้ในโซน ${fmt(P.lo)}–${fmt(P.hi)}`;
   const nx=w.find(x=>x.startsWith("รอ"));return P.tone==="sell"?`${up} ยังไม่ควรซื้อ${nx?` · ${nx}`:""}`:`${up} ยังไม่ใช่จังหวะ${nx?` · ${nx}`:""}`}
@@ -746,7 +746,7 @@ function vStock(sym){
   ${R.sample?`<div class="notice"><b>ราคาจำลอง</b><span>หุ้นตัวนี้ยังไม่มีราคาจริง ตัวเลขทั้งหมดใช้ดูหน้าตาเท่านั้น <button class="linkbtn" data-tab="data">นำเข้าราคาจริง</button></span></div>`:""}
   ${auditNote(st.s)}
   <nav class="stabs" aria-label="ส่วนของหน้าหุ้น">${TABS.map(([k,l])=>`<button data-tab="${k}" aria-current="${tab===k?"page":"false"}">${l}</button>`).join("")}</nav>`;
-  return head+(tab==="chart"?tChart(R):tab==="bt"?tBt(R):tab==="fa"?tFa(R):tab==="news"?tNews(R):tab==="data"?tData(R):tab==="val"?tVal(R):tab==="risk"?tRisk(R):tab==="peers"?tPeers(R):tSum(R));
+  return head+(tab==="chart"?tChart(R):tab==="bt"?tBt(R):tab==="fa"?tFa(R):tab==="news"?tNews(R):tab==="data"?tData(R):tab==="val"?tVal(R):tab==="risk"?tRisk(R):tab==="peers"?tPeers(R):tab==="fut"?tFut(R):tab==="deb"?tDebate(R):tSum(R));
 }
 // ระบบกับหุ้นตัวนี้: สัญญาณวันนี้ + ผลทดสอบ 5 ปีของตัวนี้เอง + ผลจริงของสัญญาณที่เคยออก (แต่ละตัวมีนิสัยไม่เหมือนกัน)
 const HOW={tp:"ขายกำไร",tp1:"ขายบางส่วน แล้วออกที่ทุน",sl:"ตัดขาดทุน",time:"ครบเวลา",miss:"ไม่ได้ของ",wait:"รอได้ของ",hold:"ยังถือ"};
@@ -1084,7 +1084,7 @@ function render(){queueMicrotask(renderTicker);
   const r=route();document.querySelectorAll(".mswitch [data-mkt]").forEach(b=>b.setAttribute("aria-pressed",r.v!=="brief"&&b.dataset.mkt===S.mkt));document.querySelector(".mswitch .mbrief")?.setAttribute("aria-pressed",r.v==="brief");document.documentElement.dataset.mkt=S.mkt;document.querySelector('meta[name="theme-color"]')?.setAttribute("content",S.mkt==="US"?"#0F1E3D":"#11261B");document.querySelectorAll("[data-v]").forEach(a=>a.setAttribute("aria-current",a.dataset.v===(NAVHI[r.v]||r.v)?"page":"false"));
   killCharts();
   // สร้างหน้าไม่สำเร็จ (มักเกิดเมื่อเว็บอัปเดตระหว่างเปิดค้างไว้ ไฟล์ในเครื่องคนละรุ่นกัน) → โหลดใหม่เองหนึ่งครั้ง ไม่ให้หน้าค้างที่หน้าเดิม
-  let html;try{html=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="brief"?vBrief():r.v==="office"?vOffice():r.v==="quant"?vQuant(r.sym):r.v==="sync"?vSync():r.v==="today"?vToday():vHome()}</div>`;}catch(e){console.error(e);if(reloadOnce())return;html=`<div class="view"><section class="card empty">หน้านี้แสดงไม่สำเร็จ <button class="btn sm" onclick="location.reload()">โหลดใหม่</button></section></div>`}
+  let html;try{html=`<div class="view">${r.v==="stock"?vStock(r.sym):r.v==="market"?vMarket():r.v==="news"?vNews():r.v==="factors"?vFactors():r.v==="method"?vMethod():r.v==="watch"?vWatch():r.v==="more"?vMore():r.v==="data"?vData():r.v==="accuracy"?vAccuracy():r.v==="compare"?vCompare():r.v==="signals"?vSignals():r.v==="brief"?vBrief():r.v==="office"?vOffice():r.v==="quant"?vQuant(r.sym):r.v==="sync"?vSync():r.v==="today"?vToday():r.v==="map"?vMap():vHome()}</div>`;}catch(e){console.error(e);if(reloadOnce())return;html=`<div class="view"><section class="card empty">หน้านี้แสดงไม่สำเร็จ <button class="btn sm" onclick="location.reload()">โหลดใหม่</button></section></div>`}
   $("#app").innerHTML=html;
   if(r.v==="office")mountOffice();else window.Office?.stop();
   if(r.v==="today")mountToday();
@@ -1094,6 +1094,7 @@ function calc(R){const out=$("#calcOut");if(!out)return;const cap=+$("#capIn").v
   out.innerHTML=`<dt>จำนวนหุ้นที่ซื้อได้${m==="TH"?" (ล็อต 100)":""}</dt><dd class="num">${sh.toLocaleString()}</dd><dt>เงินที่ใช้</dt><dd class="num">${cur(m)}${fmt(sh*P.entry)}</dd><dt>ขาดทุนสูงสุดถ้าโดน SL</dt><dd class="num down">−${cur(m)}${fmt(sh*per)}</dd><dt>กำไรถ้าถึง TP2</dt><dd class="num up">+${cur(m)}${fmt(sh*(P.tp2-P.entry))}</dd>`}
 document.addEventListener("click",e=>{
   const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.mapper){S.mapPer=t.dataset.mapper;render();return}
   if(t.dataset.mkt){S.mkt=t.dataset.mkt;lsSet("mkt",S.mkt);S.mlimit=60;S.sgl=20;S.nlim=20;S.nq="";S.sec=null;if(route().v==="brief")location.hash="#home";else render();window.scrollTo(0,0)}
   else if(t.dataset.bm){S.bm=t.dataset.bm;S.bed=null;lsSet("bm",S.bm);render()}
   else if(t.dataset.bed){S.bed=t.dataset.bed;render()}
@@ -1757,6 +1758,96 @@ function vToday(){const hh=+new Intl.DateTimeFormat("en-GB",{timeZone:"Asia/Bang
    </div>`}
 function mountToday(){clearInterval(S._tdT);const tick=()=>{if(route().v!=="today")return clearInterval(S._tdT);for(const e of document.querySelectorAll("[data-cd]")){const N=mktNext(e.dataset.cd);if(N)e.textContent=cdTxt(N.min)}};S._tdT=setInterval(tick,1000);
   for(const e of document.querySelectorAll(".td-cnt[data-to]")){const to=+e.dataset.to,t0=performance.now(),d=1600;const step=t=>{const f=Math.min(1,(t-t0)/d),v=100000+(to-100000)*(1-Math.pow(1-f,3));e.textContent=Math.round(v).toLocaleString("en-US");if(f<1)requestAnimationFrame(step)};requestAnimationFrame(step)}}
+/* ---------- 🔮 ประวัติศาสตร์ซ้ำรอย: หาช่วงในอดีตของหุ้นตัวเดียวกันที่ราคา 30 วันล่าสุด "หน้าตาเหมือนวันนี้" ที่สุด แล้วดูว่าหลังจากนั้น 21 วันทำการราคาไปทางไหน ----------
+   ระยะห่าง = ผลรวมกำลังสองของ % ราคาเทียบวันสุดท้ายของช่วง (รูปร่าง + ขนาดการแกว่ง) · ช่วงที่เลือกห่างกันอย่างน้อย 10 วัน ไม่ทับช่วงปัจจุบัน
+   ตรวจความแม่นของวิธีนี้กับหุ้นตัวนี้เอง: ย้อนไปทุก 5 วัน ใช้เฉพาะข้อมูลก่อนวันนั้น ทายทิศจากค่ากลางของอดีตที่คล้าย แล้วเทียบผลจริง */
+const AN_L=30,AN_H=21,AN_K=20;
+function anSearch(c,end,lastJ,K=AN_K){const L=AN_L,q=[];for(let i=0;i<L;i++)q.push(c[end-L+1+i]/c[end]-1);const cand=[];
+  for(let j=L-1;j<=lastJ;j++){const b=c[j];if(!(b>0))continue;let d=0;for(let i=0;i<L;i++){const x=c[j-L+1+i]/b-1-q[i];d+=x*x;if(d>1e9)break}cand.push([d,j])}
+  cand.sort((a,b)=>a[0]-b[0]);const out=[];for(const [d,j] of cand){if(out.some(o=>Math.abs(o.j-j)<10))continue;out.push({j,d});if(out.length>=K)break}return out}
+function analogOf(R){const ck=R.st.s+"|"+R.B.length+"|"+R.last;if(S._an?.k===ck)return S._an.v;const c=R.B.map(b=>b.c),n=c.length-1;if(n<AN_L*4+AN_H)return null;
+  const M=anSearch(c,n,n-AN_L-AN_H),paths=M.map(m=>{const p=[0];for(let t=1;t<=AN_H;t++)p.push(c[m.j+t]/c[m.j]-1);return{...m,d0:R.B[m.j].t,p}});
+  const fin=paths.map(p=>p.p[AN_H]).sort((a,b)=>a-b),qt=f=>fin[Math.min(fin.length-1,Math.floor(f*(fin.length-1)))];
+  const band=[...Array(AN_H+1)].map((_,t)=>{const v=paths.map(p=>p.p[t]).sort((a,b)=>a-b),g=f=>v[Math.floor(f*(v.length-1))];return[g(.25),g(.5),g(.75)]});
+  // ตรวจตัวเอง (ไม่แอบดูอนาคต): ช่วงอดีตที่ใช้ทายต้องจบก่อนวันทาย ≥ 21 วัน
+  let hit=0,tot=0,up=0;for(let t=AN_L*4+AN_H*2;t<=n-AN_H;t+=5){const m=anSearch(c,t,t-AN_L-AN_H,15);if(m.length<10)continue;const f=m.map(x=>c[x.j+AN_H]/c[x.j]-1).sort((a,b)=>a-b),med=f[f.length>>1],act=c[t+AN_H]/c[t]-1;if(Math.abs(med)<.005)continue;tot++;if((med>0)===(act>0))hit++;if(act>0)up++}
+  const v={paths,up:fin.filter(x=>x>0).length/fin.length*100,med:qt(.5),avg:fin.reduce((a,b)=>a+b,0)/fin.length,lo:qt(.1),hi:qt(.9),band,test:tot?{hit:hit/tot*100,tot,base:Math.max(up,tot-up)/tot*100}:null,from:R.B[AN_L].t};
+  S._an={k:ck,v};return v}
+function tFut(R){const A=analogOf(R),c=cur(R.st.m);if(!A)return `<section class="card"><p class="muted">ราคาย้อนหลังยังไม่พอ (ต้องมีอย่างน้อย ${AN_L*4+AN_H} วันทำการ)</p></section>`;
+  const B=R.B,n=B.length-1,P=R.last,hist=B.slice(-60).map(b=>b.c),W=640,H=260,padR=8,hx=W*.58,fx=W-padR-hx;
+  const ys=[...hist,...A.paths.flatMap(p=>p.p.map(v=>P*(1+v)))],lo=Math.min(...ys)*.98,hi=Math.max(...ys)*1.02,Y=v=>(H-18-(v-lo)/(hi-lo)*(H-30)).toFixed(1);
+  const hp=hist.map((v,i)=>`${(i/(hist.length-1)*hx).toFixed(1)},${Y(v)}`).join(" "),X=t=>(hx+t/AN_H*fx).toFixed(1);
+  const lines=A.paths.map(p=>`<polyline class="an-p ${p.p[AN_H]>0?"u":"d"}" points="${p.p.map((v,t)=>`${X(t)},${Y(P*(1+v))}`).join(" ")}"/>`).join("");
+  const bd=A.band,area=`${bd.map((b,t)=>`${X(t)},${Y(P*(1+b[2]))}`).join(" ")} ${bd.map((b,t)=>`${X(t)},${Y(P*(1+b[0]))}`).reverse().join(" ")}`,med=bd.map((b,t)=>`${X(t)},${Y(P*(1+b[1]))}`).join(" ");
+  const tone=A.up>=65?["up","อดีตที่คล้ายวันนี้ ส่วนใหญ่ราคาขึ้นต่อ"]:A.up<=35?["down","อดีตที่คล้ายวันนี้ ส่วนใหญ่ราคาลงต่อ"]:["warn","อดีตที่คล้ายวันนี้ ไปได้ทั้งสองทาง ยังไม่มีทิศชัด"],T=A.test;
+  const trust=T?T.hit>=T.base+5?["up",`วิธีนี้กับ ${esc(dsym(R.st.s))} ทายทิศถูก ${T.hit.toFixed(0)}% จาก ${T.tot} ครั้งในอดีต ดีกว่าการเดาทิศเดียวตลอด (${T.base.toFixed(0)}%) → พอเชื่อได้บ้าง`]:["warn",`วิธีนี้กับ ${esc(dsym(R.st.s))} ทายทิศถูก ${T.hit.toFixed(0)}% จาก ${T.tot} ครั้งในอดีต ไม่ดีกว่าการเดาทิศเดียวตลอด (${T.base.toFixed(0)}%) → ใช้ประกอบเท่านั้น อย่าเชื่อเดี่ยวๆ`]:null;
+  return `<section class="card an"><div class="card-h"><div><h2>🔮 ประวัติศาสตร์ซ้ำรอย</h2><div class="sub-t">หา ${A.paths.length} ช่วงในอดีตของ ${esc(dsym(R.st.s))} ที่ราคา ${AN_L} วันหน้าตาเหมือน ${AN_L} วันล่าสุดที่สุด แล้วดูว่าอีก ${AN_H} วันทำการราคาไปทางไหน</div></div></div>
+   <div class="an-kpi"><div><span class="muted">ครั้งที่ราคาขึ้น</span><b class="num ${tone[0]}">${Math.round(A.up)}%</b><span class="muted">${A.paths.filter(p=>p.p[AN_H]>0).length} จาก ${A.paths.length} ครั้ง</span></div>
+    <div><span class="muted">ค่ากลาง ${AN_H} วัน</span><b class="num ${A.med>=0?"up":"down"}">${pct(A.med*100,1)}</b><span class="muted">≈ ${c}${fmt(P*(1+A.med))}</span></div>
+    <div><span class="muted">ช่วงที่เกิดบ่อย (80%)</span><b class="num">${pct(A.lo*100,0)} ถึง ${pct(A.hi*100,0)}</b><span class="muted">${c}${fmt(P*(1+A.lo))} – ${fmt(P*(1+A.hi))}</span></div></div>
+   <div class="an-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ราคา 60 วันล่าสุดและเส้นทางของอดีตที่คล้ายกัน">
+    <line x1="${hx}" y1="6" x2="${hx}" y2="${H-14}" class="an-now"/><text x="${hx-4}" y="16" class="an-l" text-anchor="end">60 วันล่าสุด</text><text x="${hx+6}" y="16" class="an-l">อีก ${AN_H} วัน (จากอดีตที่คล้าย)</text>
+    ${lines}<polygon class="an-band" points="${area}"/><polyline class="an-hist" points="${hp}"/><polyline class="an-med" points="${med}"/><circle cx="${hx}" cy="${Y(P)}" r="4" class="an-dot"/></svg></div>
+   <p class="an-say ${tone[0]}"><b>${tone[1]}</b></p>${trust?`<p class="${trust[0]}" style="margin:4px 0;font-size:13.5px">${trust[1]}</p>`:""}
+   <details><summary class="muted">ดูช่วงในอดีตที่คล้ายที่สุด 8 ช่วง</summary><div class="an-list">${A.paths.slice(0,8).map(p=>`<span><span class="muted">${thDate(String(p.d0).slice(0,10))}</span> <b class="num ${p.p[AN_H]>=0?"up":"down"}">${pct(p.p[AN_H]*100,1)}</b></span>`).join("")}</div></details>
+   <p class="foot" style="margin:8px 0 0">ใช้ราคาจริงย้อนหลังของหุ้นตัวนี้เท่านั้น (${thDate(String(A.from).slice(0,10))} ถึงวันนี้) · อดีตไม่รับประกันอนาคต ข่าวหรืองบใหม่เปลี่ยนเรื่องได้เสมอ</p></section>`}
+
+/* ---------- ⚔️ กระทิง ปะทะ หมี: แต่ละฝั่งยกหลักฐานจริงจากข้อมูลในเว็บ เรียงตามหมวด กรรมการให้น้ำหนักตามขนาดของหลักฐาน ---------- */
+function debateOf(R){const st=R.st,fs=R.f?.fs,V=valuation(R),P=S.peer?.[st.s],C=S.brk?.s?.[st.s],A=analogOf(R),pts=[],add=(side,cat,w,t)=>pts.push({side,cat,w:clamp(Math.round(w),1,3),t});
+  if(fs){if(fs.rg!=null&&Math.abs(fs.rg)>=3)add(fs.rg>0?"bull":"bear","งบการเงิน",Math.abs(fs.rg)/8,`รายได้ 4 ไตรมาสล่าสุด${fs.rg>0?"โต":"หด"} ${Math.abs(fs.rg).toFixed(1)}% จากปีก่อน`);
+    if(fs.eg!=null&&Math.abs(fs.eg)>=5)add(fs.eg>0?"bull":"bear","งบการเงิน",Math.abs(fs.eg)/12,`กำไรสุทธิ 4 ไตรมาส${fs.eg>0?"โต":"ลดลง"} ${Math.abs(fs.eg).toFixed(1)}%`);
+    if(fs.yoyN!=null&&Math.abs(fs.yoyN)>=10)add(fs.yoyN>0?"bull":"bear","งบการเงิน",Math.abs(fs.yoyN)/20,`กำไรไตรมาสล่าสุด (${qLab(fs.last)}) ${pct(fs.yoyN,0)} จากปีก่อน`);
+    if(fs.de!=null&&st.sec!=="bank")fs.de>2?add("bear","ฐานะการเงิน",fs.de/1.5,`หนี้สินต่อทุน ${fs.de.toFixed(2)} เท่า สูง ดอกเบี้ยขึ้นจะกระทบกำไร`):fs.de<.5&&add("bull","ฐานะการเงิน",1,`หนี้ต่ำ (หนี้สินต่อทุน ${fs.de.toFixed(2)} เท่า) ทนวิกฤตได้ดี`);
+    if(fs.ocf!=null&&fs.niT>0){const r=fs.ocf/fs.niT;r<.6?add("bear","คุณภาพกำไร",2,`เงินสดจากธุรกิจเป็นแค่ ${r.toFixed(2)} เท่าของกำไร กำไรยังไม่กลายเป็นเงินสด`):r>1.1&&add("bull","คุณภาพกำไร",1,`เงินสดจากธุรกิจสูงกว่ากำไร (${r.toFixed(2)} เท่า) กำไรมีคุณภาพ`)}}
+  if(V.mos!=null&&Math.abs(V.mos)>=10)add(V.mos>0?"bull":"bear","มูลค่า",Math.abs(V.mos)/15,V.mos>0?`ราคาต่ำกว่ามูลค่าเหมาะสมกรณีฐาน ${V.mos.toFixed(0)}% (${V.methods.length} วิธี)`:`ราคาสูงกว่ามูลค่าเหมาะสมกรณีฐาน ${Math.abs(V.mos).toFixed(0)}%`);
+  if(P?.v&&P.fv?.conf!=="low"&&P.fv?.base&&R.last){const u=(P.fv.base/R.last-1)*100;if(Math.abs(u)>=10)add(u>0?"bull":"bear","เทียบกลุ่ม",Math.abs(u)/15,`ฝ่ายพื้นฐานเทียบกลุ่ม: ${P.v}`)}
+  if(C?.n>=2){const s=C.buy-C.sell;if(s)add(s>0?"bull":"bear","บทวิเคราะห์โบรก",Math.abs(s)/1.5,`${C.n} โบรก: ซื้อ ${C.buy} ถือ ${C.hold} ขาย ${C.sell}${C.upside!=null?` · เป้ากลาง ${pct(C.upside,0)} จากราคาตอนนี้`:""}`)}
+  if(R.techP>=60||R.techP<40)add(R.techP>=60?"bull":"bear","แนวโน้มราคา",Math.abs(R.techP-50)/10,`คะแนนเทคนิค ${Math.round(R.techP)}/100 (${R.techP>=60?"แนวโน้มขึ้น":"แนวโน้มลง"})`);
+  if(R.rs?.pctl!=null&&(R.rs.pctl>=70||R.rs.pctl<=30))add(R.rs.pctl>=70?"bull":"bear","แนวโน้มราคา",Math.abs(R.rs.pctl-50)/15,(R.rs.pctl>=70?`3 เดือนที่ผ่านมาแข็งกว่าหุ้น ${R.rs.pctl}% ในตลาด`:`3 เดือนที่ผ่านมาอ่อนกว่าหุ้น ${100-R.rs.pctl}% ในตลาด`));
+  if(R.sys)add("bull","ระบบซื้อขาย",2,`ระบบที่ทดสอบ 10 ปีให้สัญญาณซื้อ ตั้งซื้อ ${fmt(R.sys.lp)}`);
+  const W=mktWeather(st.m);if(W&&(W.sc>=65||W.sc<45))add(W.sc>=65?"bull":"bear","สภาพตลาด",W.sc>=65?1:2,`ตลาด${st.m==="TH"?"หุ้นไทย":"สหรัฐฯ"} "${W.t}" (${W.sc}/100): ${W.why[0]||""}`);
+  if(R.ns?.n){const v=R.ns.s;if(Math.abs(v)>=.15)add(v>0?"bull":"bear","ข่าว",Math.abs(v)*4,`ข่าว ${R.ns.n} ข่าวช่วงนี้โดยรวม${v>0?"เป็นบวก":"เป็นลบ"}`)}
+  factorsFor(st).forEach(f=>{const e=fx(f)*impactOf(f,st);if(Math.abs(e)>=.3)add(e>0?"bull":"bear","ปัจจัยมหภาค",Math.abs(e)*3,`${f.short||f.name} ${e>0?"หนุน":"กดดัน"}${f.stocks?.[st.s]!=null?"บริษัทนี้":"กลุ่มนี้"}`)});
+  if(A&&A.test&&A.test.hit>=A.test.base+5&&(A.up>=65||A.up<=35))add(A.up>=65?"bull":"bear","ประวัติศาสตร์ซ้ำรอย",1,`อดีตที่คล้ายวันนี้ ${A.paths.length} ครั้ง ราคาขึ้น ${Math.round(A.up)}% ของครั้ง`);
+  const u=uniOf(st.s);if(u?.ed){const dd=(u.ed*1000-Date.now())/864e5;if(dd>0&&dd<=10)add("bear","ความเสี่ยงระยะสั้น",1,`จะประกาศงบในอีก ${Math.round(dd)} วัน ราคามักกระโดดแรงได้ทั้งสองทาง`)}
+  const sc=s=>pts.filter(p=>p.side===s).reduce((a,p)=>a+p.w,0),b=sc("bull"),r=sc("bear");return{pts,b,r,pb:b+r?b/(b+r)*100:50}}
+function tDebate(R){if(S.brk===undefined)brkLoad();if(S.peer?.[R.st.s]===undefined)loadPeer(R.st.s);const D=debateOf(R),cats=[...new Set(D.pts.map(p=>p.cat))],nm=esc(dsym(R.st.s));
+  const bub=p=>`<div class="db-b ${p.side}"><span class="db-av">${p.side==="bull"?"🐂":"🐻"}</span><div class="db-t"><span class="db-c">${esc(p.cat)} · ${"●".repeat(p.w)}${"○".repeat(3-p.w)}</span>${esc(p.t)}</div></div>`;
+  const rounds=cats.map(c=>{const L=D.pts.filter(p=>p.cat===c).sort((a,b)=>a.side===b.side?b.w-a.w:a.side==="bull"?-1:1);return `<div class="db-r"><div class="db-rh">${esc(c)}</div>${L.map(bub).join("")}</div>`}).join("");
+  const v=D.pb,verdict=v>=62?["up","ฝั่งกระทิงหลักฐานแน่นกว่าชัดเจน"]:v>=54?["up","ฝั่งกระทิงนำเล็กน้อย"]:v>46?["warn","สูสี หลักฐานสองฝั่งพอๆ กัน"]:v>38?["down","ฝั่งหมีนำเล็กน้อย"]:["down","ฝั่งหมีหลักฐานแน่นกว่าชัดเจน"];
+  const topB=D.pts.filter(p=>p.side==="bull").sort((a,b)=>b.w-a.w)[0],topR=D.pts.filter(p=>p.side==="bear").sort((a,b)=>b.w-a.w)[0];
+  return `<section class="card db"><div class="db-head"><div class="db-side bull"><span class="db-big">🐂</span><b>กระทิง</b><span class="num">${D.b} แต้ม</span></div><div class="db-vs">VS</div><div class="db-side bear"><span class="db-big">🐻</span><b>หมี</b><span class="num">${D.r} แต้ม</span></div></div>
+   <div class="db-meter"><span class="bull" style="width:${v.toFixed(0)}%"></span><span class="bear" style="width:${(100-v).toFixed(0)}%"></span></div>
+   <div class="db-judge"><span class="db-av">⚖️</span><div><b class="${verdict[0]}">กรรมการ: ${verdict[1]}</b><br><span class="muted" style="font-size:13px">${topB?`ประเด็นแรงสุดฝั่งกระทิง: ${esc(topB.t)}`:"ฝั่งกระทิงยังไม่มีหลักฐาน"}<br>${topR?`ประเด็นแรงสุดฝั่งหมี: ${esc(topR.t)}`:"ฝั่งหมียังไม่มีหลักฐาน"}</span></div></div></section>
+   <section class="card"><h2 style="margin-bottom:4px">การถกเถียงทีละประเด็น</h2><p class="muted" style="margin:0 0 8px;font-size:13px">ทุกประโยคมาจากข้อมูลจริงในเว็บ (งบ ราคา ข่าว โบรก ปัจจัย) · ●●● = หลักฐานหนัก · ●○○ = หลักฐานเบา</p>${D.pts.length?rounds:`<p class="muted">ข้อมูลของ ${nm} ยังไม่พอให้ถกกัน</p>`}
+   <p class="foot" style="margin:10px 0 0">ใช้ช่วยมองทั้งสองด้านก่อนตัดสินใจ ไม่ใช่คำแนะนำซื้อขาย · แต้มคิดจากขนาดของตัวเลข ไม่ได้รวมเรื่องที่ระบบไม่มีข้อมูล</p></section>`}
+/* ---------- 🗺️ แผนที่เงินไหล (#map): ขนาด = มูลค่าบริษัท · สี = ราคาขึ้น/ลง · จัดกลุ่มตามอุตสาหกรรม ----------
+   วันนี้ = ราคาล่าสุดเทียบปิดวันก่อน · 1 เดือน = 21 วันทำการ (จากกราฟย่อของสรุป) · 3 เดือน = 63 วันทำการ
+   "เงินไหล" = มูลค่าตลาดของกลุ่มที่เพิ่ม/ลดจริงในช่วงนั้น (ราคา × จำนวนหุ้น) ไม่ใช่ยอดซื้อขายของนักลงทุนแต่ละกลุ่ม */
+function squarify(items,x,y,w,h){const out=[],tot=items.reduce((a,b)=>a+b.v,0);if(!tot||w<=0||h<=0)return out;const sc=w*h/tot;let rest=items.map(i=>({...i,a:i.v*sc}));
+  const worst=(row,side)=>{const s=row.reduce((a,r)=>a+r.a,0),mx=Math.max(...row.map(r=>r.a)),mn=Math.min(...row.map(r=>r.a));return Math.max(side*side*mx/(s*s),s*s/(side*side*mn))};
+  while(rest.length){const side=Math.min(w,h);let row=[rest[0]],i=1;while(i<rest.length&&worst([...row,rest[i]],side)<=worst(row,side)){row.push(rest[i]);i++}
+    const s=row.reduce((a,r)=>a+r.a,0);if(w>=h){const rw=s/h;let yy=y;for(const r of row){const rh=r.a/rw;out.push({...r,x,y:yy,w:rw,h:rh});yy+=rh}x+=rw;w-=rw}
+    else{const rh=s/w;let xx=x;for(const r of row){const rw=r.a/rh;out.push({...r,x:xx,y,w:rw,h:rh});xx+=rw}y+=rh;h-=rh}rest=rest.slice(i)}return out}
+function mapRet(s,per){const sm=S.summary?.[s],q=S.quotes?.q?.[s];if(per==="1d")return q?.chg??sm?.ch??null;if(per==="3m")return sm?.rs?.ret??null;const sp=sm?.sp;return sp?.length>=8&&sp[sp.length-8]?(sp.at(-1)/sp[sp.length-8]-1)*100:null}
+function mapColor(r,per){if(r==null)return "hsl(220 8% 55%)";const cap=per==="1d"?3:per==="1m"?12:20,t=clamp(r/cap,-1,1),a=Math.abs(t);if(a<.04)return "hsl(220 8% 52%)";return r>0?`hsl(152 ${25+55*a}% ${50-24*a}%)`:`hsl(358 ${30+50*a}% ${55-20*a}%)`}
+function vMap(){const mk=S.mkt==="US"?"US":"TH",per=S.mapPer||"1d",N=mk==="TH"?160:260,fx=mk==="TH"?1:(thbPerUsd()||36);
+  const U=(S.universe||[]).filter(u=>u.m===mk&&u.mc>0&&!/-P[A-Z]*$/.test(u.s)).sort((a,b)=>b.mc-a.mc).slice(0,N).map(u=>({s:u.s,n:u.n,sec:u.sec,v:u.mc,r:mapRet(u.s,per)}));
+  const by={};for(const u of U)(by[u.sec]??=[]).push(u);const secs=Object.entries(by).map(([k,L])=>{const tv=L.reduce((a,b)=>a+b.v,0),k2=L.filter(x=>x.r!=null),wr=k2.length?k2.reduce((a,b)=>a+b.v*b.r,0)/k2.reduce((a,b)=>a+b.v,0):null,flow=k2.reduce((a,b)=>a+b.v*(1-1/(1+b.r/100)),0);return{k,L,v:tv,r:wr,flow}}).sort((a,b)=>b.v-a.v);
+  const sm=innerWidth<700,Wd=sm?400:1000,Hd=sm?(mk==="TH"?620:700):(mk==="TH"?560:620),lay=squarify(secs,0,0,Wd,Hd),P=v=>(v/Wd*100).toFixed(3),Q=v=>(v/Hd*100).toFixed(3);
+  const tiles=lay.map(g=>{const hh=g.h>40&&g.w>60?18:0,inner=squarify(g.L.map(x=>x),g.x+1,g.y+hh+1,g.w-2,g.h-hh-2);
+    return `<div class="tm-sec" style="left:${P(g.x)}%;top:${Q(g.y)}%;width:${P(g.w)}%;height:${Q(g.h)}%">${hh?`<div class="tm-sh">${esc(SECTORS[g.k]?.th||g.k)} <b class="${g.r>=0?"up":"down"}">${g.r==null?"":pct(g.r,1)}</b></div>`:""}</div>`+
+     inner.map(t=>{const big=t.w>58&&t.h>34,mid=t.w>34&&t.h>20;return `<a class="tm-t${big?" big":""}" href="#s-${esc(t.s)}" style="left:${P(t.x)}%;top:${Q(t.y)}%;width:${P(t.w)}%;height:${Q(t.h)}%;background:${mapColor(t.r,per)}" title="${esc(dsym(t.s))} · ${esc(t.n||"")} · ${t.r==null?"–":pct(t.r,1)} · มูลค่า ${mn(t.v,mk)}">${mid?`<b>${esc(dsym(t.s))}</b>`:""}${big?`<span>${t.r==null?"–":pct(t.r,1)}</span>`:""}</a>`}).join("")}).join("");
+  const fl=secs.filter(g=>g.r!=null).sort((a,b)=>b.flow-a.flow),mx=Math.max(...fl.map(g=>Math.abs(g.flow)),1),pl={"1d":"วันนี้","1m":"1 เดือน","3m":"3 เดือน"},br=U.filter(x=>x.r!=null),upN=br.filter(x=>x.r>0).length,dnN=br.filter(x=>x.r<0).length;
+  const flowRow=g=>`<div class="fl-r"><span class="fl-n">${esc(SECTORS[g.k]?.th||g.k)}</span><span class="fl-bar"><i class="${g.flow>=0?"in":"out"}" style="width:${(Math.abs(g.flow)/mx*50).toFixed(1)}%"></i></span><b class="num ${g.flow>=0?"up":"down"}">${g.flow>=0?"+":"−"}${mn(Math.abs(g.flow),mk)}</b></div>`;
+  return `<h1>🗺️ แผนที่เงินไหล</h1><p class="muted" style="margin:2px 0 10px">ขนาดกล่อง = มูลค่าบริษัท · สี = ราคาขึ้น (เขียว) / ลง (แดง) · ${mk==="TH"?"หุ้นไทย":"หุ้นสหรัฐฯ"} ${U.length} ตัวที่ใหญ่ที่สุด · กดกล่องเพื่อดูหุ้น</p>
+   <div class="chips"><button class="chip" data-mkt="TH" aria-pressed="${mk==="TH"}">หุ้นไทย</button><button class="chip" data-mkt="US" aria-pressed="${mk==="US"}">หุ้นสหรัฐฯ</button><span style="width:10px"></span>${Object.entries(pl).map(([k,l])=>`<button class="chip" data-mapper="${k}" aria-pressed="${per===k}">${l}</button>`).join("")}</div>
+   <section class="card tm-card"><div class="tm" style="aspect-ratio:${Wd}/${Hd}">${tiles}</div>
+    <div class="tm-leg"><span>${per==="1d"?"−3%":per==="1m"?"−12%":"−20%"}</span><i></i><span>${per==="1d"?"+3%":per==="1m"?"+12%":"+20%"}</span><span class="muted" style="margin-left:auto">ขึ้น ${upN} · ลง ${dnN} · ไม่เปลี่ยน ${br.length-upN-dnN} ตัว</span></div></section>
+   <div class="grid g2"><section class="card"><h2>💸 เงินไหลเข้า–ออกรายกลุ่ม (${pl[per]})</h2><p class="muted" style="margin:0 0 8px;font-size:13px">มูลค่าตลาดรวมของกลุ่มที่เพิ่มขึ้นหรือหายไปจริงในช่วงนี้${mk==="US"?" (ดอลลาร์)":""}</p>${fl.map(flowRow).join("")}</section>
+    <section class="card"><h2>🔦 ไฮไลต์</h2>${(()=>{const s=[...br].sort((a,b)=>b.r-a.r),T=s.slice(0,5),B=s.slice(-5).reverse(),row=x=>`<a class="op-row" href="#s-${esc(x.s)}">${logo(x.s)}<span class="op-m"><b>${esc(dsym(x.s))}</b><span class="muted">${esc(SECTORS[x.sec]?.th||"")}</span></span><b class="num ${x.r>=0?"up":"down"}">${pct(x.r,1)}</b></a>`;
+      return `<h3 style="font-size:14px;margin:0 0 4px">ขึ้นแรงสุด (หุ้นใหญ่)</h3>${T.map(row).join("")}<h3 style="font-size:14px;margin:12px 0 4px">ลงแรงสุด (หุ้นใหญ่)</h3>${B.map(row).join("")}`})()}</section></div>
+   <p class="foot">ข้อมูลราคาล่าช้าประมาณ 15 นาที · มูลค่าบริษัทจาก Yahoo Finance</p>`}
 function vMore(){const MI={mim:"spark",accuracy:"target",data:"data",method:"book",factors:"globe",signals:"dip",compare:"scale",office:"spark",quant:"target"};const it=(h,t,d)=>`<a class="card morei" href="#${h}">${ic(MI[h]||"spark")}<span class="mt"><b>${t}</b><span class="muted">${d}</span></span></a>`;
   return `<h1>เพิ่มเติม</h1><div class="grid g2">${it("accuracy","ความแม่นยำของ rating","ทดสอบย้อนหลังว่าคะแนนทำนายผลได้จริงไหม และหาค่าที่ดีที่สุด")}${it("data","สถานะข้อมูล","ข้อมูลไหนสด ข้อมูลไหนขาด และมาจากไหน")}${it("method","วิธีคิดคะแนน","สูตรทั้งหมดที่ใช้ในเว็บ")}${it("signals","ซื้อตอนย่อวันนี้","รายชื่อหุ้นที่เข้าเงื่อนไขทั้งหมด เรียงและกรองได้")}${it("compare","เทียบหุ้น","วางหุ้นได้ 4 ตัวเทียบงบ มูลค่า ความเสี่ยง และผลตอบแทน")}${it("factors","ปัจจัยมหภาค","bond yield น้ำมัน ค่าเงิน เงินเฟ้อ และอื่นๆ")}${it("quant","Quant","อ่านหุ้นด้วยผลตอบแทน ความผันผวน Sharpe drawdown และตรวจแผนซื้อขายก่อนเข้า")}${it("office","ออฟฟิศทีมวิจัย","ดูทีม Agent ทำสรุปตลาด ตรวจข้อมูล และส่งให้บอส")}</div>
   <section class="card"><h2 style="margin-bottom:6px">รูปแบบระบบซื้อขาย</h2><p class="muted" style="margin:0 0 10px;font-size:13.5px">ใช้กับจุดซื้อ / TP / SL และการทดสอบย้อนหลังของทุกหุ้น · ทั้งสองแบบซื้อเฉพาะหุ้นที่แข็งกว่าตลาดและมีแนวโน้มชัด (ADX) โดยตั้งซื้อต่ำกว่าราคาปิด 1 ATR · ทุกแบบตั้ง TP ไกลกว่า SL (ได้มากกว่าเสีย) ห้ามเลื่อน SL · ค่าแยกตามตลาด ทดสอบกับหุ้นจริงราคา 5 ปี (เลือกจาก ต.ค. 65–มี.ค. 67 ยืนยัน เม.ย. 67–ต.ค. 69)</p><div class="chips">
