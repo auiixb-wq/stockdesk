@@ -54,12 +54,17 @@ def publish_site():
 
 
 OWN = {"quotes.json", "news.json", "meta.json", "archive_state.json", "brief.json", "agents.json", "ops.json"}  # ไฟล์ที่งานนี้เขียนเองตลอด (ของในเครื่องใหม่กว่าเสมอ)
+NIGHTLY = ("ux.json", "sector_stats.json", "peer_index.json")  # ไฟล์ที่มีแค่ update.yml สร้าง งานนี้ไม่เขียนเลย
 
 
 def sync_shared():
     """ไฟล์ที่งานรายคืน (update.yml) สร้างใหม่ ดึงมาแทนของในเครื่องก่อนคำนวณรอบใหญ่และก่อนเผยแพร่
     ถ้าบนเว็บมีผลคำนวณ (summary.json) ใหม่กว่าในเครื่อง ดึงไฟล์ผลทั้งชุดมาด้วย ไม่งั้นรอบข่าวจะเอาคะแนน/สัญญาณชุดเก่าไปทับ"""
     sh("git fetch -q origin gh-pages --depth=1 && git checkout origin/gh-pages -- data/fund.json data/universe.json && git reset -q")
+    # ไฟล์ที่มีแค่งานรายคืนสร้าง (ไล่ตรวจหน้าเว็บ, เทียบกลุ่ม) ดึงทุกครั้ง ไม่ผูกกับ summary.json
+    # (งานนี้คำนวณ summary เองทุกรอบใหญ่ เลยมักใหม่กว่าบนเว็บ ทำให้ของรายคืนไม่ถูกดึงและถูกของเก่าในเครื่องทับตอนเผยแพร่)
+    for n in NIGHTLY:
+        sh(f"git checkout origin/gh-pages -- data/{n} && git reset -q")
     try:
         remote = json.loads(sh("git show origin/gh-pages:data/summary.json").stdout or "{}").get("updated") or 0
         local = update.load("summary.json", {}).get("updated") or 0
