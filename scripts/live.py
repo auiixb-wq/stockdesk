@@ -290,7 +290,12 @@ def main():
         time.sleep(max(10, (INTERVAL if trading else 60) - (time.time() - tick)))
     if big is not None:
         big.wait()
+        # งานรอบสั้น (MAX_RUN ~10 นาที) รอบใหญ่ใช้เวลานานกว่านั้น จึงไม่เคยเสร็จในลูปและไอซ์ไม่ได้ตรวจซ้ำหลังได้ราคา/ข่าวชุดใหม่
+        # (ตรวจแค่ตอนเริ่มงานซึ่งข้อมูลยังเก่าจากงานก่อน) ตรวจอีกครั้งตรงนี้ Issue จะได้ตรงกับข้อมูลที่เผยแพร่และปิดเองเมื่อหายแล้ว
+        sync_shared()
+        run_agents()
         publish_site()
+        publish_live()
     archive.push()
 
 
