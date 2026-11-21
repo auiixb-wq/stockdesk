@@ -1,0 +1,50 @@
+{
+ "stocks": [
+  {"s":"PTT","n":"ปตท.","m":"TH","sec":"energy"},
+  {"s":"PTTEP","n":"ปตท.สำรวจและผลิตปิโตรเลียม","m":"TH","sec":"energy"},
+  {"s":"KBANK","n":"ธนาคารกสิกรไทย","m":"TH","sec":"bank"},
+  {"s":"SCB","n":"เอสซีบี เอกซ์","m":"TH","sec":"bank"},
+  {"s":"ADVANC","n":"แอดวานซ์ อินโฟร์ เซอร์วิส","m":"TH","sec":"comm"},
+  {"s":"GULF","n":"กัลฟ์ ดีเวลลอปเมนท์","m":"TH","sec":"utility"},
+  {"s":"DELTA","n":"เดลต้า อีเลคโทรนิคส์","m":"TH","sec":"tech"},
+  {"s":"AOT","n":"ท่าอากาศยานไทย","m":"TH","sec":"transport"},
+  {"s":"CPALL","n":"ซีพี ออลล์","m":"TH","sec":"consumer"},
+  {"s":"BDMS","n":"กรุงเทพดุสิตเวชการ","m":"TH","sec":"health"},
+  {"s":"CPN","n":"เซ็นทรัลพัฒนา","m":"TH","sec":"property"},
+  {"s":"SCC","n":"ปูนซิเมนต์ไทย","m":"TH","sec":"materials"},
+  {"s":"AAPL","n":"Apple","m":"US","sec":"tech"},
+  {"s":"MSFT","n":"Microsoft","m":"US","sec":"tech"},
+  {"s":"NVDA","n":"NVIDIA","m":"US","sec":"tech"},
+  {"s":"AVGO","n":"Broadcom","m":"US","sec":"tech"},
+  {"s":"GOOGL","n":"Alphabet","m":"US","sec":"comm"},
+  {"s":"META","n":"Meta Platforms","m":"US","sec":"comm"},
+  {"s":"AMZN","n":"Amazon","m":"US","sec":"consumer"},
+  {"s":"TSLA","n":"Tesla","m":"US","sec":"consumer"},
+  {"s":"JPM","n":"JPMorgan Chase","m":"US","sec":"bank"},
+  {"s":"XOM","n":"Exxon Mobil","m":"US","sec":"energy"},
+  {"s":"LLY","n":"Eli Lilly","m":"US","sec":"health"},
+  {"s":"KO","n":"Coca-Cola","m":"US","sec":"consumer"}
+ ],
+ "altIndex": {"set":{"cnbc":".SETI","google":"SET:INDEXBKK"}},
+ "indices": {"set":["^SET.BK","^SETI"],"spx":"^GSPC","ndx":"^IXIC","gold":"GC=F"},
+ "macro": [
+  {"id":"us10y","y":"^TNX","nd":3},
+  {"id":"oil","y":"BZ=F","nd":2},
+  {"id":"usdthb","y":"THB=X","nd":3},
+  {"id":"vix","y":"^VIX","nd":2},
+  {"id":"dxy","y":"DX-Y.NYB","nd":2}
+ ],
+ "macroQueries": [
+  {"q":"ค่าเงินบาท","m":"TH"},
+  {"q":"ราคาน้ำมันดิบ","m":"ALL","sectors":["energy"]},
+  {"q":"กนง. ดอกเบี้ยนโยบาย","m":"TH","sectors":["bank"]},
+  {"q":"ต่างชาติ ขายสุทธิ หุ้นไทย","m":"TH"},
+  {"q":"นักท่องเที่ยวต่างชาติ","m":"TH","sectors":["transport"]},
+  {"q":"Treasury yields","lang":"en","m":"US"},
+  {"q":"Federal Reserve rates","lang":"en","m":"US"},
+  {"q":"US inflation CPI","lang":"en","m":"US"},
+  {"q":"China economy PMI","lang":"en","m":"ALL","sectors":["materials"]},
+  {"q":"tariffs trade China","lang":"en","m":"ALL"},
+  {"q":"AI capex data center spending","lang":"en","m":"US","sectors":["tech"]}
+ ]
+}
